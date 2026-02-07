@@ -4,7 +4,6 @@ import { useProperties } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
 import { useState, useEffect } from 'react';
 import { Plus, ArrowLeft, ArrowRight, Check, Loader2, X } from 'lucide-react';
-import { API_BASE } from '@/apiBase';
 
 interface Cleaner { id: number; name: string; email: string; phone?: string; status: string; }
 interface Assignment { property_id: number; role: 'primary' | 'backup'; }
@@ -18,7 +17,7 @@ export default function Cleaners() {
 
   const loadCleaners = async () => {
     try {
-      const data = await fetchCached(`${API_BASE}/cleaners`, true);
+      const data = await fetchCached('/kozy/api/cleaners', true);
       setCleaners(data);
     } catch {}
     setLoading(false);
@@ -97,7 +96,7 @@ function AddHousekeeperWizard({ properties, onClose }: { properties: any[]; onCl
   const submit = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/cleaners`, {
+      const res = await fetch('/kozy/api/cleaners', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone })
       });
@@ -106,7 +105,7 @@ function AddHousekeeperWizard({ properties, onClose }: { properties: any[]; onCl
       // Assign to properties
       for (const [propId, role] of Object.entries(assignments)) {
         if (role) {
-          await fetch(`${API_BASE}/cleaners/${cleaner.id}/assign`, {
+          await fetch(`/kozy/api/cleaners/${cleaner.id}/assign`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ property_id: Number(propId), role })
           });

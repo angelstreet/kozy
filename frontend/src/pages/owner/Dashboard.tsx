@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useProperties } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
 import { Building2, CalendarDays, Users, Clock } from 'lucide-react';
-import { API_BASE } from '@/apiBase';
 
 export default function Dashboard() {
   const { lang } = useApp();
@@ -17,8 +16,8 @@ export default function Dashboard() {
   
   useEffect(() => {
     if (!isEmpty) {
-      fetch(`${API_BASE}/tasks`).then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : [])).catch(() => {});
-      fetch(`${API_BASE}/bookings`).then(r => r.json()).then(d => setBookings(Array.isArray(d) ? d : [])).catch(() => {});
+      fetch('/kozy/api/tasks').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : [])).catch(() => {});
+      fetch('/kozy/api/bookings').then(r => r.json()).then(d => setBookings(Array.isArray(d) ? d : [])).catch(() => {});
     }
   }, [isEmpty]);
 
@@ -76,7 +75,7 @@ export default function Dashboard() {
       {/* Property list */}
       <h2 className="text-lg font-bold mt-2">Your Properties</h2>
       <div className="space-y-2">
-        {properties.map(p => (
+        {Array.isArray(properties) ? properties.map(p => (
           <div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm flex items-center gap-3">
             <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
             <div className="flex-1 min-w-0">
@@ -85,7 +84,7 @@ export default function Dashboard() {
             </div>
             <div className="text-sm text-gray-400">€{p.rate}</div>
           </div>
-        ))}
+        )) : null}
       </div>
     </div>
   );
