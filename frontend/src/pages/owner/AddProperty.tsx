@@ -112,17 +112,6 @@ export default function AddProperty() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Color</label>
-              <div className="flex gap-2 flex-wrap">
-                {COLORS.map(c => (
-                  <button key={c} onClick={() => upd('color', c)}
-                    className={`w-8 h-8 rounded-full transition-all ${form.color === c ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : ''}`}
-                    style={{ backgroundColor: c }} />
-                ))}
-              </div>
-            </div>
-
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-sm mt-4">
               <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">📅 Connect your calendars</p>
               <p className="text-blue-600 dark:text-blue-400">Import bookings from Airbnb and/or Booking.com. Both optional.</p>
