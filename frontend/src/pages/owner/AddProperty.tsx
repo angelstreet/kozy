@@ -167,7 +167,7 @@ export default function AddProperty() {
             </div>
 
             <button
-              disabled={!form.name.trim()}
+              disabled={!form.name.trim() || (airbnbValid !== true && bookingValid !== true)}
               onClick={() => setStep(2)}
               className="w-full bg-blue-500 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-4"
             >
