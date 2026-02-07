@@ -48,7 +48,7 @@ export default function App() {
   return (
     <AppProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename="/kozy">
           <AppRoutes />
         </BrowserRouter>
       </AuthProvider>

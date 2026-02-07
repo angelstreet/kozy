@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const API = '/api';
+import { API_BASE } from '@/apiBase';
+const API = API_BASE;
 
 export interface Property {
   id: number;
@@ -25,7 +26,7 @@ export function useProperties() {
     try {
       const res = await fetch(`${API}/properties`);
       const data = await res.json();
-      setProperties(data);
+      setProperties(Array.isArray(data) ? data : []);
     } catch { setProperties([]); }
     setLoading(false);
   }, []);

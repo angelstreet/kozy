@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useProperties } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
 import { Building2, CalendarDays, Users, Clock } from 'lucide-react';
+import { API_BASE } from '@/apiBase';
 
 export default function Dashboard() {
   const { lang } = useApp();
@@ -16,8 +17,8 @@ export default function Dashboard() {
   
   useEffect(() => {
     if (!isEmpty) {
-      fetch('/api/tasks').then(r => r.json()).then(setTasks).catch(() => {});
-      fetch('/api/bookings').then(r => r.json()).then(setBookings).catch(() => {});
+      fetch(`${API_BASE}/tasks`).then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : [])).catch(() => {});
+      fetch(`${API_BASE}/bookings`).then(r => r.json()).then(d => setBookings(Array.isArray(d) ? d : [])).catch(() => {});
     }
   }, [isEmpty]);
 

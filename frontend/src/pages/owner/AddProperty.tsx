@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
+import { API_BASE } from '@/apiBase';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
@@ -38,7 +39,7 @@ export default function AddProperty() {
     const setValid = type === 'airbnb' ? setAirbnbValid : setBookingValid;
     setTesting(true);
     try {
-      const res = await fetch('/api/properties/0/ical-test', {
+      const res = await fetch(`${API_BASE}/properties/0/ical-test`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
@@ -49,7 +50,7 @@ export default function AddProperty() {
   };
 
   useEffect(() => {
-    fetch('/api/cleaners').then(r => r.json()).then(setExistingCleaners).catch(() => {});
+    fetch(`${API_BASE}/cleaners`).then(r => r.json()).then(setExistingCleaners).catch(() => {});
   }, []);
 
   const submit = async () => {
@@ -57,7 +58,7 @@ export default function AddProperty() {
     try {
       let cleanerId = form.cleaner_id;
       if (form.cleaner_option === 'invite' && form.cleaner_name && form.cleaner_email) {
-        const res = await fetch('/api/cleaners/invite', {
+        const res = await fetch(`${API_BASE}/cleaners/invite`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: form.cleaner_name, email: form.cleaner_email })
         });
@@ -65,7 +66,7 @@ export default function AddProperty() {
         cleanerId = cleaner.id;
       }
 
-      await fetch('/api/properties', {
+      await fetch(`${API_BASE}/properties`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: form.name, address: '',
@@ -76,7 +77,7 @@ export default function AddProperty() {
         })
       });
 
-      invalidateCache('/api/properties');
+      invalidateCache(`${API_BASE}/properties`);
       navigate('/dashboard');
     } catch (e) { alert('Failed to save property'); }
     setSaving(false);
