@@ -129,7 +129,7 @@ export default function AddProperty() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Airbnb iCal URL</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Airbnb iCal URL</label>
               <div className="flex gap-2">
                 <input
                   value={form.ical_airbnb} onChange={e => { upd('ical_airbnb', e.target.value); setAirbnbValid(null); }}
@@ -148,7 +148,7 @@ export default function AddProperty() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Booking.com iCal URL</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Booking.com iCal URL</label>
               <div className="flex gap-2">
                 <input
                   value={form.ical_booking} onChange={e => { upd('ical_booking', e.target.value); setBookingValid(null); }}
