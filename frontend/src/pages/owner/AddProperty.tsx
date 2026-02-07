@@ -136,12 +136,10 @@ export default function AddProperty() {
                   placeholder="https://www.airbnb.com/calendar/ical/..."
                   className="flex-1 px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm"
                 />
-                {form.ical_airbnb && (
-                  <button onClick={() => testIcal(form.ical_airbnb, 'airbnb')}
-                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium">
+                <button disabled={!form.ical_airbnb.trim()} onClick={() => testIcal(form.ical_airbnb, 'airbnb')}
+                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
                     {testingAirbnb ? <Loader2 size={16} className="animate-spin" /> : 'Test'}
                   </button>
-                )}
               </div>
               {airbnbValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
               {airbnbValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
@@ -155,12 +153,10 @@ export default function AddProperty() {
                   placeholder="https://admin.booking.com/..."
                   className="flex-1 px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm"
                 />
-                {form.ical_booking && (
-                  <button onClick={() => testIcal(form.ical_booking, 'booking')}
-                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium">
+                <button disabled={!form.ical_booking.trim()} onClick={() => testIcal(form.ical_booking, 'booking')}
+                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
                     {testingBooking ? <Loader2 size={16} className="animate-spin" /> : 'Test'}
                   </button>
-                )}
               </div>
               {bookingValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
               {bookingValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
