@@ -1,0 +1,22 @@
+{
+  "name": "kozy-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "test": "echo no tests yet"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "better-sqlite3": "^11.0.0",
+    "@hono/node-server": "^1.8.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0",
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^20.0.0"
+  }
+}

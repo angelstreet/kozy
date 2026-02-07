@@ -1,0 +1,18 @@
+{
+  "dashboard": "Dashboard",
+  "calendar": "Calendar",
+  "properties": "Properties",
+  "more": "More",
+  "schedule": "Schedule",
+  "shopping": "Shopping",
+  "settings": "Settings",
+  "cleaners": "Cleaners",
+  "payments": "Payments",
+  "login": "Login",
+  "username": "Username",
+  "password": "Password",
+  "weather": "Weather: 12°C ☁️",
+  "logout": "Logout",
+  "language": "Language",
+  "theme": "Theme"
+}

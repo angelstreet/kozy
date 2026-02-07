@@ -1,0 +1,18 @@
+{
+  "dashboard": "Tableau de bord",
+  "calendar": "Calendrier",
+  "properties": "Propriétés",
+  "more": "Plus",
+  "schedule": "Planning",
+  "shopping": "Courses",
+  "settings": "Paramètres",
+  "cleaners": "Nettoyeurs",
+  "payments": "Paiements",
+  "login": "Connexion",
+  "username": "Identifiant",
+  "password": "Mot de passe",
+  "weather": "Météo: 12°C ☁️",
+  "logout": "Déconnexion",
+  "language": "Langue",
+  "theme": "Thème"
+}
