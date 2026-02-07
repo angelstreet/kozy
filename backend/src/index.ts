@@ -19,8 +19,8 @@ app.post('/api/properties', async (c) => {
   const body = await c.req.json();
   const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, cleaner_id } = body;
   
-  if (!name || !address) {
-    return c.json({ error: 'Name and address are required' }, 400);
+  if (!name) {
+    return c.json({ error: 'Name is required' }, 400);
   }
 
   const result = db.prepare(`
@@ -66,6 +66,16 @@ app.get('/api/cleaners', (c) => {
   return c.json(rows);
 });
 
+app.post('/api/cleaners', async (c) => {
+  const body = await c.req.json();
+  const { name, email, phone } = body;
+  if (!name || !email) return c.json({ error: 'Name and email required' }, 400);
+  
+  const result = db.prepare('INSERT INTO cleaner (name, email, phone, status) VALUES (?, ?, ?, ?)').run(name, email, phone || null, 'active');
+  const cleaner = db.prepare('SELECT * FROM cleaner WHERE id = ?').get(result.lastInsertRowid);
+  return c.json(cleaner, 201);
+});
+
 app.post('/api/cleaners/invite', async (c) => {
   const body = await c.req.json();
   const { name, email } = body;
@@ -74,6 +84,24 @@ app.post('/api/cleaners/invite', async (c) => {
   const result = db.prepare('INSERT INTO cleaner (name, email, status) VALUES (?, ?, ?)').run(name, email, 'invited');
   const cleaner = db.prepare('SELECT * FROM cleaner WHERE id = ?').get(result.lastInsertRowid);
   return c.json(cleaner, 201);
+});
+
+app.get('/api/cleaners/:id', (c) => {
+  const id = c.req.param('id');
+  const cleaner = db.prepare('SELECT * FROM cleaner WHERE id = ?').get(id);
+  if (!cleaner) return c.json({ error: 'Not found' }, 404);
+  const assignments = db.prepare('SELECT pc.*, p.name as property_name FROM property_cleaner pc JOIN property p ON p.id = pc.property_id WHERE pc.cleaner_id = ?').all(id);
+  return c.json({ ...(cleaner as any), assignments });
+});
+
+app.post('/api/cleaners/:id/assign', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const { property_id, role } = body;
+  if (!property_id || !role) return c.json({ error: 'property_id and role required' }, 400);
+  
+  db.prepare('INSERT OR REPLACE INTO property_cleaner (property_id, cleaner_id, role) VALUES (?, ?, ?)').run(property_id, id, role);
+  return c.json({ ok: true });
 });
 
 app.get('/api/tasks', (c) => {

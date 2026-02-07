@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
-import { Home, CalendarDays, Building2, Menu, ClipboardList, ShoppingCart, Settings } from 'lucide-react';
+import { Home, CalendarDays, Building2, Menu } from 'lucide-react';
 
 const ownerTabs = [
   { to: '/dashboard', icon: Home, label: 'dashboard' },
@@ -12,9 +12,10 @@ const ownerTabs = [
 ];
 
 const cleanerTabs = [
-  { to: '/schedule', icon: ClipboardList, label: 'schedule' },
-  { to: '/shopping', icon: ShoppingCart, label: 'shopping' },
-  { to: '/settings', icon: Settings, label: 'settings' },
+  { to: '/c/dashboard', icon: Home, label: 'dashboard' },
+  { to: '/c/calendar', icon: CalendarDays, label: 'calendar' },
+  { to: '/c/properties', icon: Building2, label: 'properties' },
+  { to: '/c/more', icon: Menu, label: 'more' },
 ];
 
 export default function BottomNav() {
