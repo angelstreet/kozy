@@ -6,7 +6,7 @@ Manage your properties, coordinate cleaners, track payments — all in one clean
 
 ## Features (MVP)
 
-- 📅 **Calendar** — iCal sync from Airbnb/Booking.com, see all turnovers at a glance
+- 📅 **Calendar** — iCal sync from Airbnb, Smoobu & Booking.com feeds, booking preview, see all turnovers at a glance
 - 🧹 **Cleaning coordination** — Assign cleaners to properties, track task status
 - 💶 **Payments** — Per-intervention tracking, Sunday rates, mark as paid
 - 🛒 **Shopping requests** — Cleaners flag what's needed, owners resolve
@@ -30,8 +30,16 @@ Manage your properties, coordinate cleaners, track payments — all in one clean
 
 - **Frontend:** React 18 + TypeScript + Tailwind CSS + shadcn/ui
 - **Backend:** Node.js + Hono
-- **Database:** SQLite
+- **Database:** Turso (libSQL) — migrated from better-sqlite3
+- **Deployment:** Vercel (serverless adapter)
+- **Auth:** Clerk
 - **PWA:** Vite PWA plugin
+
+## Deployment
+
+The app runs under the `/kozy/` base path for subpath routing (e.g. `https://yourdomain.com/kozy/`).
+
+Backend is deployed as a Vercel serverless function via `backend/api/index.ts`.
 
 ## Getting Started
 
