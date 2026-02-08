@@ -26,6 +26,8 @@ export default function AddProperty() {
   const [bookingValid, setBookingValid] = useState<boolean | null>(null);
   const [testingAirbnb, setTestingAirbnb] = useState(false);
   const [testingBooking, setTestingBooking] = useState(false);
+  const [airbnbPreview, setAirbnbPreview] = useState<any[] | null>(null);
+  const [bookingPreview, setBookingPreview] = useState<any[] | null>(null);
   const [existingCleaners, setExistingCleaners] = useState<any[]>([]);
   const [form, setForm] = useState<FormData>({
     name: '', ical_airbnb: '', ical_booking: '', color: '#3B82F6',
@@ -37,14 +39,17 @@ export default function AddProperty() {
   const testIcal = async (url: string, type: 'airbnb' | 'booking') => {
     const setTesting = type === 'airbnb' ? setTestingAirbnb : setTestingBooking;
     const setValid = type === 'airbnb' ? setAirbnbValid : setBookingValid;
+    const setPreview = type === 'airbnb' ? setAirbnbPreview : setBookingPreview;
     setTesting(true);
+    setPreview(null);
     try {
-      const res = await fetch(`${API_BASE}/properties/0/ical-test`, {
+      const res = await fetch(`${API_BASE}/ical-preview`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
       const data = await res.json();
       setValid(data.valid);
+      if (data.valid && data.bookings) setPreview(data.bookings);
     } catch { setValid(false); }
     setTesting(false);
   };
@@ -132,6 +137,17 @@ export default function AddProperty() {
               </div>
               {airbnbValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
               {airbnbValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
+              {airbnbPreview && airbnbPreview.length > 0 && (
+                <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3 max-h-40 overflow-y-auto">
+                  <p className="text-xs font-medium text-gray-500 mb-2">{airbnbPreview.length} booking(s) found:</p>
+                  {airbnbPreview.slice(0, 5).map((b: any, i: number) => (
+                    <div key={i} className="text-xs py-1 border-b dark:border-gray-700 last:border-0">
+                      <span className="font-medium">{b.guest_name || 'Unknown'}</span> · {b.checkin_date} → {b.checkout_date}
+                    </div>
+                  ))}
+                  {airbnbPreview.length > 5 && <p className="text-xs text-gray-400 mt-1">...and {airbnbPreview.length - 5} more</p>}
+                </div>
+              )}
             </div>
 
             <div>
@@ -149,10 +165,21 @@ export default function AddProperty() {
               </div>
               {bookingValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
               {bookingValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
+              {bookingPreview && bookingPreview.length > 0 && (
+                <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3 max-h-40 overflow-y-auto">
+                  <p className="text-xs font-medium text-gray-500 mb-2">{bookingPreview.length} booking(s) found:</p>
+                  {bookingPreview.slice(0, 5).map((b: any, i: number) => (
+                    <div key={i} className="text-xs py-1 border-b dark:border-gray-700 last:border-0">
+                      <span className="font-medium">{b.guest_name || 'Unknown'}</span> · {b.checkin_date} → {b.checkout_date}
+                    </div>
+                  ))}
+                  {bookingPreview.length > 5 && <p className="text-xs text-gray-400 mt-1">...and {bookingPreview.length - 5} more</p>}
+                </div>
+              )}
             </div>
 
             <button
-              disabled={!form.name.trim() || (airbnbValid !== true && bookingValid !== true)}
+              disabled={!form.name.trim()}
               onClick={() => setStep(2)}
               className="w-full bg-blue-500 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-4"
             >

@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import db, { initDB, seed, seedTestData, clearAll } from './db.js';
+import { fetchAndParseIcal, syncPropertyIcal } from './ical-sync.js';
 
 initDB();
 seed();
@@ -206,6 +207,44 @@ app.get('/api/bookings', (c) => {
     LEFT JOIN property p ON p.id = b.property_id
   `).all();
   return c.json(rows);
+});
+
+// iCal preview (parse URL without saving)
+app.post('/api/ical-preview', async (c) => {
+  const { url } = await c.req.json();
+  if (!url) return c.json({ error: 'URL required' }, 400);
+  try {
+    const bookings = await fetchAndParseIcal(url);
+    return c.json({ valid: true, count: bookings.length, bookings });
+  } catch (e: any) {
+    return c.json({ valid: false, error: e.message }, 400);
+  }
+});
+
+// iCal sync for a single property
+app.post('/api/properties/:id/ical-sync', async (c) => {
+  const id = Number(c.req.param('id'));
+  try {
+    const result = await syncPropertyIcal(id);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// iCal sync all properties
+app.post('/api/ical-sync-all', async (c) => {
+  const properties = db.prepare('SELECT id FROM property WHERE ical_airbnb IS NOT NULL OR ical_booking IS NOT NULL').all() as any[];
+  const results = [];
+  for (const p of properties) {
+    try {
+      const result = await syncPropertyIcal(p.id);
+      results.push(result);
+    } catch (e: any) {
+      results.push({ propertyId: p.id, error: e.message });
+    }
+  }
+  return c.json({ synced: results.length, results });
 });
 
 // Seed / Reset

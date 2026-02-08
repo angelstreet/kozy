@@ -40,7 +40,7 @@ export function initDB() {
     CREATE TABLE IF NOT EXISTS booking (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       property_id INTEGER REFERENCES property(id),
-      ical_uid TEXT,
+      ical_uid TEXT UNIQUE,
       checkin_date TEXT,
       checkout_date TEXT,
       guest_name TEXT,
