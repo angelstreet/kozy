@@ -3,9 +3,25 @@ import { cors } from 'hono/cors';
 import crypto from 'crypto';
 import db, { initDB, seed, migrate, seedTestData, clearAll } from './db.js';
 import { fetchAndParseIcal, syncPropertyIcal } from './ical-sync.js';
+import { clerkAuth } from './clerk-middleware.js';
 
-const app = new Hono();
+type Variables = {
+  userId: string;
+};
+
+const app = new Hono<{ Variables: Variables }>();
 app.use('/*', cors());
+
+// Protect all /api/* routes except /api/external/*, /api/invite/*, /api/seed, /api/reset
+app.use('/api/*', async (c, next) => {
+  const path = c.req.path;
+  // Skip auth for external API (has own token), invite routes, seed/reset, and health
+  if (path.startsWith('/api/external/') || path.startsWith('/api/invite/') ||
+      path === '/api/seed' || path === '/api/reset') {
+    return next();
+  }
+  return clerkAuth(c, next);
+});
 
 // Init DB on first request (lazy init for serverless)
 let dbReady = false;
@@ -19,9 +35,12 @@ app.use('/*', async (c, next) => {
   await next();
 });
 
-// Properties
+// Properties (filtered by userId)
 app.get('/api/properties', async (c) => {
-  const result = await db.execute('SELECT * FROM property');
+  const userId = c.get('userId');
+  const result = userId && userId !== 'dev-user'
+    ? await db.execute({ sql: 'SELECT * FROM property WHERE user_id = ? OR user_id IS NULL', args: [userId] })
+    : await db.execute('SELECT * FROM property');
   return c.json(result.rows);
 });
 
@@ -31,10 +50,11 @@ app.post('/api/properties', async (c) => {
 
   if (!name) return c.json({ error: 'Name is required' }, 400);
 
+  const userId = c.get('userId');
   const result = await db.execute({
-    sql: `INSERT INTO property (name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [name, address ?? null, checkout_time || '10:00', checkin_time || '16:00', cleaning_mins || 120, rate || 50, sunday_rate || 70, color || '#3B82F6', ical_airbnb || null, ical_booking || null],
+    sql: `INSERT INTO property (name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, user_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [name, address ?? null, checkout_time || '10:00', checkin_time || '16:00', cleaning_mins || 120, rate || 50, sunday_rate || 70, color || '#3B82F6', ical_airbnb || null, ical_booking || null, userId || null],
   });
 
   const propertyId = Number(result.lastInsertRowid);
