@@ -1,3 +1,4 @@
+import { apiFetch } from '@/api';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useEffect, useState } from 'react';
@@ -26,13 +27,13 @@ export default function Shopping() {
   const [newItems, setNewItems] = useState('');
 
   useEffect(() => {
-    fetch('/kozy/api/shopping').then(r => r.json()).then(d => setRequests(Array.isArray(d) ? d : [])).catch(() => {});
-    fetch('/kozy/api/properties').then(r => r.json()).then(d => setProperties(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch('/shopping').then(r => r.json()).then(d => setRequests(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch('/properties').then(r => r.json()).then(d => setProperties(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   const submit = async () => {
     if (!newPropertyId || !newItems.trim()) return;
-    const res = await fetch('/kozy/api/shopping', {
+    const res = await apiFetch('/shopping', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ property_id: Number(newPropertyId), items: newItems.trim() }),

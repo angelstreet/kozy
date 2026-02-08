@@ -1,3 +1,4 @@
+import { apiFetch } from '@/api';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useProperties } from '@/hooks/useProperties';
@@ -38,7 +39,7 @@ export default function Calendar() {
 
   useEffect(() => {
     if (!isEmpty) {
-      fetch('/kozy/api/bookings').then(r => r.json()).then(d => setBookings(Array.isArray(d) ? d : [])).catch(() => {});
+      apiFetch('/bookings').then(r => r.json()).then(d => setBookings(Array.isArray(d) ? d : [])).catch(() => {});
     }
   }, [isEmpty]);
 

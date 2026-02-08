@@ -1,14 +1,17 @@
+import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
-import { useProperties } from '@/hooks/useProperties';
+import { useProperties, Property } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Pencil, Trash2, MoreVertical, X } from 'lucide-react';
 
 export default function Properties() {
   const { lang } = useApp();
-  const { properties, loading, isEmpty } = useProperties();
+  const { properties, loading, isEmpty, deleteProperty, toggleEnabled } = useProperties();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Property | null>(null);
 
   if (loading) return <div className="p-4 text-center text-gray-400">Loading...</div>;
 
@@ -27,6 +30,16 @@ export default function Properties() {
     );
   }
 
+  const handleDelete = async (p: Property) => {
+    await deleteProperty(p.id);
+    setConfirmDelete(null);
+  };
+
+  const handleToggle = async (p: Property) => {
+    await toggleEnabled(p.id, !p.enabled);
+    setMenuOpen(null);
+  };
+
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
@@ -40,10 +53,47 @@ export default function Properties() {
       </div>
       <div className="space-y-3">
         {properties.map(p => (
-          <div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+          <div
+            key={p.id}
+            className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm relative transition-opacity ${!p.enabled ? 'opacity-50' : ''}`}
+          >
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.color }} />
-              <h3 className="font-bold text-lg">{p.name}</h3>
+              <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+              <h3 className="font-bold text-lg flex-1">{p.name}</h3>
+              {!p.enabled && (
+                <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-full">Disabled</span>
+              )}
+              <div className="relative">
+                <button
+                  onClick={() => setMenuOpen(menuOpen === p.id ? null : p.id)}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <MoreVertical size={18} className="text-gray-400" />
+                </button>
+                {menuOpen === p.id && (
+                  <div className="absolute right-0 top-8 bg-white dark:bg-gray-700 rounded-xl shadow-lg border dark:border-gray-600 py-1 z-10 min-w-[160px]">
+                    <button
+                      onClick={() => { setMenuOpen(null); navigate(`/edit-property/${p.id}`); }}
+                      className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2"
+                    >
+                      <Pencil size={14} /> Edit
+                    </button>
+                    <button
+                      onClick={() => handleToggle(p)}
+                      className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2"
+                    >
+                      {p.enabled ? '🔇' : '🔔'} {p.enabled ? 'Disable' : 'Enable'}
+                    </button>
+                    <hr className="my-1 dark:border-gray-600" />
+                    <button
+                      onClick={() => { setMenuOpen(null); setConfirmDelete(p); }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <p className="text-sm text-gray-500 mb-2">{p.address}</p>
             <div className="flex gap-4 text-xs text-gray-400">
@@ -57,6 +107,33 @@ export default function Properties() {
           </div>
         ))}
       </div>
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setConfirmDelete(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Delete Property</h3>
+              <button onClick={() => setConfirmDelete(null)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-1">Are you sure you want to delete:</p>
+            <p className="font-semibold mb-4">{confirmDelete.name}</p>
+            <p className="text-xs text-red-500 mb-6">This will permanently remove the property and all associated bookings, tasks, and payments.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border dark:border-gray-600 font-medium">
+                Cancel
+              </button>
+              <button onClick={() => handleDelete(confirmDelete)}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-medium">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

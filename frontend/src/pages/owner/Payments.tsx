@@ -1,3 +1,4 @@
+import { apiFetch } from '@/api';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useProperties } from '@/hooks/useProperties';
@@ -25,12 +26,12 @@ export default function Payments() {
 
   useEffect(() => {
     if (!isEmpty) {
-      fetch('/kozy/api/payments').then(r => r.json()).then(d => setPayments(Array.isArray(d) ? d : [])).catch(() => {});
+      apiFetch('/payments').then(r => r.json()).then(d => setPayments(Array.isArray(d) ? d : [])).catch(() => {});
     }
   }, [isEmpty]);
 
   const togglePaid = async (p: Payment) => {
-    const res = await fetch(`/kozy/api/payments/${p.id}`, {
+    const res = await apiFetch(`/payments/${p.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paid: !p.paid }),

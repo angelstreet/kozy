@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-import { API_BASE } from '@/apiBase';
-const API = API_BASE;
+import { apiFetch } from '@/api';
 
 export interface Property {
   id: number;
@@ -15,6 +13,7 @@ export interface Property {
   rate: number;
   sunday_rate: number;
   color: string;
+  enabled: number;
 }
 
 export function useProperties() {
@@ -24,7 +23,7 @@ export function useProperties() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/properties`);
+      const res = await apiFetch(`/properties`);
       const data = await res.json();
       setProperties(Array.isArray(data) ? data : []);
     } catch { setProperties([]); }
@@ -33,5 +32,28 @@ export function useProperties() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  return { properties, loading, refresh, isEmpty: !loading && properties.length === 0 };
+  const deleteProperty = useCallback(async (id: number) => {
+    await apiFetch(`/properties/${id}`, { method: 'DELETE' });
+    await refresh();
+  }, [refresh]);
+
+  const updateProperty = useCallback(async (id: number, data: Partial<Property>) => {
+    const res = await apiFetch(`/properties/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const updated = await res.json();
+    await refresh();
+    return updated;
+  }, [refresh]);
+
+  const toggleEnabled = useCallback(async (id: number, enabled: boolean) => {
+    await apiFetch(`/properties/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    await refresh();
+  }, [refresh]);
+
+  return { properties, loading, refresh, isEmpty: !loading && properties.length === 0, deleteProperty, updateProperty, toggleEnabled };
 }

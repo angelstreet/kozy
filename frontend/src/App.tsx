@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { AppProvider } from '@/contexts/AppContext';
 import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
+import RoleSelect from '@/pages/RoleSelect';
 import Dashboard from '@/pages/owner/Dashboard';
 import Calendar from '@/pages/owner/Calendar';
 import Properties from '@/pages/owner/Properties';
@@ -10,13 +11,27 @@ import More from '@/pages/owner/More';
 import Cleaners from '@/pages/owner/Cleaners';
 import Payments from '@/pages/owner/Payments';
 import AddProperty from '@/pages/owner/AddProperty';
+import EditProperty from '@/pages/owner/EditProperty';
 import Schedule from '@/pages/cleaner/Schedule';
 import Shopping from '@/pages/cleaner/Shopping';
 import CleanerMore from '@/pages/cleaner/CleanerMore';
+import Invite from '@/pages/Invite';
 
 function AppRoutes() {
-  const { role } = useAuth();
+  const { role, isLoaded } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+      </div>
+    );
+  }
+
   if (!role) return <Login />;
+
+  // Signed in but no role selected yet
+  if (role === null) return <RoleSelect />;
 
   return (
     <Routes>
@@ -29,6 +44,7 @@ function AppRoutes() {
           <Route path="/cleaners" element={<Cleaners />} />
           <Route path="/payments" element={<Payments />} />
           <Route path="/add-property" element={<AddProperty />} />
+          <Route path="/edit-property/:id" element={<EditProperty />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </>}
         {role === 'cleaner' && <>
@@ -47,7 +63,10 @@ export default function App() {
     <AppProvider>
       <AuthProvider>
         <BrowserRouter basename="/kozy">
-          <AppRoutes />
+          <Routes>
+            <Route path="/invite/:token" element={<Invite />} />
+            <Route path="/*" element={<AppRoutes />} />
+          </Routes>
         </BrowserRouter>
       </AuthProvider>
     </AppProvider>

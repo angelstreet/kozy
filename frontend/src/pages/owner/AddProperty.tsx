@@ -1,3 +1,4 @@
+import { apiFetch } from '@/api';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
@@ -43,7 +44,7 @@ export default function AddProperty() {
     setTesting(true);
     setPreview(null);
     try {
-      const res = await fetch(`${API_BASE}/ical-preview`, {
+      const res = await apiFetch(`/ical-preview`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
@@ -55,7 +56,7 @@ export default function AddProperty() {
   };
 
   useEffect(() => {
-    fetch(`${API_BASE}/cleaners`).then(r => r.json()).then(setExistingCleaners).catch(() => {});
+    apiFetch(`/cleaners`).then(r => r.json()).then(setExistingCleaners).catch(() => {});
   }, []);
 
   const submit = async () => {
@@ -63,7 +64,7 @@ export default function AddProperty() {
     try {
       let cleanerId = form.cleaner_id;
       if (form.cleaner_option === 'invite' && form.cleaner_name && form.cleaner_email) {
-        const res = await fetch(`${API_BASE}/cleaners/invite`, {
+        const res = await apiFetch(`/cleaners/invite`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: form.cleaner_name, email: form.cleaner_email })
         });
@@ -71,7 +72,7 @@ export default function AddProperty() {
         cleanerId = cleaner.id;
       }
 
-      await fetch(`${API_BASE}/properties`, {
+      await apiFetch(`/properties`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: form.name, address: '',

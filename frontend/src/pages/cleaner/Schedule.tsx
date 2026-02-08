@@ -1,3 +1,4 @@
+import { apiFetch } from '@/api';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useEffect, useState } from 'react';
@@ -16,11 +17,11 @@ export default function Schedule() {
   const [tasks, setTasks] = useState<Task[]>([]);
 
   useEffect(() => {
-    fetch('/kozy/api/tasks').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch('/tasks').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   const updateStatus = async (id: number, status: string) => {
-    const res = await fetch(`/kozy/api/tasks/${id}`, {
+    const res = await apiFetch(`/tasks/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),

@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import BottomNav from './BottomNav';
+import { UserButton } from '@clerk/clerk-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 
@@ -27,7 +28,7 @@ export default function Layout() {
           </button>
           <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')} className="text-blue-500 font-medium">{lang.toUpperCase()}</button>
           <button onClick={toggleDark}>{dark ? '☀️' : '🌙'}</button>
-          <button onClick={logout} className="text-red-500">↗</button>
+          <UserButton afterSignOutUrl="/kozy/" />
         </div>
       </header>
       <Outlet />

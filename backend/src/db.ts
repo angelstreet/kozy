@@ -89,6 +89,11 @@ export async function migrate() {
   if (!cols.rows.find((c: any) => c[1] === 'enabled' || c.name === 'enabled')) {
     await db.execute('ALTER TABLE property ADD COLUMN enabled INTEGER DEFAULT 1');
   }
+  // Add user_id to property for multi-tenant support (Clerk)
+  if (!cols.rows.find((c: any) => c[1] === 'user_id' || c.name === 'user_id')) {
+    await db.execute("ALTER TABLE property ADD COLUMN user_id TEXT");
+  }
+
   const cleanerCols = await db.execute("PRAGMA table_info(cleaner)");
   if (!cleanerCols.rows.find((c: any) => c[1] === 'invite_token' || c.name === 'invite_token')) {
     await db.execute("ALTER TABLE cleaner ADD COLUMN invite_token TEXT");

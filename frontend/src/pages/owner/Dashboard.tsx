@@ -1,3 +1,4 @@
+import { apiFetch } from '@/api';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useEffect, useState } from 'react';
@@ -16,8 +17,8 @@ export default function Dashboard() {
   
   useEffect(() => {
     if (!isEmpty) {
-      fetch('/kozy/api/tasks').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : [])).catch(() => {});
-      fetch('/kozy/api/bookings').then(r => r.json()).then(d => setBookings(Array.isArray(d) ? d : [])).catch(() => {});
+      apiFetch('/tasks').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : [])).catch(() => {});
+      apiFetch('/bookings').then(r => r.json()).then(d => setBookings(Array.isArray(d) ? d : [])).catch(() => {});
     }
   }, [isEmpty]);
 
