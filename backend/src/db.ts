@@ -1,16 +1,12 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { createClient, Client } from '@libsql/client';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, '..', 'db', 'kozy.db');
+const db: Client = createClient({
+  url: process.env.TURSO_DATABASE_URL || 'file:./db/kozy.db',
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-export function initDB() {
-  db.exec(`
+export async function initDB() {
+  await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS property (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -22,14 +18,20 @@ export function initDB() {
       cleaning_mins INTEGER DEFAULT 120,
       rate REAL DEFAULT 50,
       sunday_rate REAL DEFAULT 70,
-      color TEXT DEFAULT '#3B82F6'
+      color TEXT DEFAULT '#3B82F6',
+      enabled INTEGER DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS cleaner (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       email TEXT,
       phone TEXT,
-      status TEXT DEFAULT 'active'
+      status TEXT DEFAULT 'active',
+      invite_token TEXT UNIQUE,
+      invite_method TEXT CHECK(invite_method IN ('email','whatsapp')),
+      invite_sent_at TEXT,
+      invite_accepted_at TEXT,
+      language TEXT DEFAULT 'fr'
     );
     CREATE TABLE IF NOT EXISTS property_cleaner (
       property_id INTEGER REFERENCES property(id),
@@ -71,52 +73,78 @@ export function initDB() {
       status TEXT CHECK(status IN ('pending','resolved')) DEFAULT 'pending',
       created_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS api_token (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT NOT NULL UNIQUE,
+      name TEXT DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      last_used_at TEXT,
+      revoked INTEGER DEFAULT 0
+    );
   `);
 }
 
-export function seed() {
+export async function migrate() {
+  const cols = await db.execute("PRAGMA table_info(property)");
+  if (!cols.rows.find((c: any) => c[1] === 'enabled' || c.name === 'enabled')) {
+    await db.execute('ALTER TABLE property ADD COLUMN enabled INTEGER DEFAULT 1');
+  }
+  const cleanerCols = await db.execute("PRAGMA table_info(cleaner)");
+  if (!cleanerCols.rows.find((c: any) => c[1] === 'invite_token' || c.name === 'invite_token')) {
+    await db.execute("ALTER TABLE cleaner ADD COLUMN invite_token TEXT");
+    await db.execute("ALTER TABLE cleaner ADD COLUMN invite_method TEXT");
+    await db.execute("ALTER TABLE cleaner ADD COLUMN invite_sent_at TEXT");
+    await db.execute("ALTER TABLE cleaner ADD COLUMN invite_accepted_at TEXT");
+    await db.execute("ALTER TABLE cleaner ADD COLUMN language TEXT DEFAULT 'fr'");
+    await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaner_invite_token ON cleaner(invite_token)");
+  }
+}
+
+export async function seed() {
   // Start EMPTY so onboarding triggers
-  // Use /api/seed to populate test data
 }
 
-export function seedTestData() {
-  // Clear all tables
-  db.exec('DELETE FROM shopping_request');
-  db.exec('DELETE FROM payment');
-  db.exec('DELETE FROM cleaning_task');
-  db.exec('DELETE FROM booking');
-  db.exec('DELETE FROM property_cleaner');
-  db.exec('DELETE FROM cleaner');
-  db.exec('DELETE FROM property');
+export async function seedTestData() {
+  await db.executeMultiple(`
+    DELETE FROM shopping_request;
+    DELETE FROM payment;
+    DELETE FROM cleaning_task;
+    DELETE FROM booking;
+    DELETE FROM property_cleaner;
+    DELETE FROM cleaner;
+    DELETE FROM property;
+  `);
 
-  db.prepare('INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)').run('Studio Montmartre','12 Rue Lepic, Paris',50,70,'#3B82F6');
-  db.prepare('INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)').run('Apt Marais','8 Rue de Turenne, Paris',60,80,'#10B981');
-  db.prepare('INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)').run('Loft Bastille','3 Rue de la Roquette, Paris',55,75,'#F59E0B');
+  await db.execute({ sql: 'INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)', args: ['Studio Montmartre','12 Rue Lepic, Paris',50,70,'#3B82F6'] });
+  await db.execute({ sql: 'INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)', args: ['Apt Marais','8 Rue de Turenne, Paris',60,80,'#10B981'] });
+  await db.execute({ sql: 'INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)', args: ['Loft Bastille','3 Rue de la Roquette, Paris',55,75,'#F59E0B'] });
 
-  db.prepare('INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)').run('Marie Dupont','marie@example.com','+33612345678');
-  db.prepare('INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)').run('Jean Martin','jean@example.com','+33698765432');
+  await db.execute({ sql: 'INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)', args: ['Marie Dupont','marie@example.com','+33612345678'] });
+  await db.execute({ sql: 'INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)', args: ['Jean Martin','jean@example.com','+33698765432'] });
 
-  db.prepare('INSERT INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)').run(1,1,'primary');
-  db.prepare('INSERT INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)').run(2,1,'primary');
-  db.prepare('INSERT INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)').run(3,2,'primary');
+  await db.execute({ sql: 'INSERT INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)', args: [1,1,'primary'] });
+  await db.execute({ sql: 'INSERT INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)', args: [2,1,'primary'] });
+  await db.execute({ sql: 'INSERT INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)', args: [3,2,'primary'] });
 
-  db.prepare('INSERT INTO booking (property_id,ical_uid,checkin_date,checkout_date,guest_name,source) VALUES (?,?,?,?,?,?)').run(1,'uid-1','2026-02-10','2026-02-13','Alice Smith','airbnb');
-  db.prepare('INSERT INTO booking (property_id,ical_uid,checkin_date,checkout_date,guest_name,source) VALUES (?,?,?,?,?,?)').run(2,'uid-2','2026-02-11','2026-02-14','Bob Jones','booking.com');
+  await db.execute({ sql: 'INSERT INTO booking (property_id,ical_uid,checkin_date,checkout_date,guest_name,source) VALUES (?,?,?,?,?,?)', args: [1,'uid-1','2026-02-10','2026-02-13','Alice Smith','airbnb'] });
+  await db.execute({ sql: 'INSERT INTO booking (property_id,ical_uid,checkin_date,checkout_date,guest_name,source) VALUES (?,?,?,?,?,?)', args: [2,'uid-2','2026-02-11','2026-02-14','Bob Jones','booking.com'] });
 
-  db.prepare('INSERT INTO cleaning_task (property_id,booking_id,date,status,assigned_to,rate) VALUES (?,?,?,?,?,?)').run(1,1,'2026-02-13','pending',1,50);
-  db.prepare('INSERT INTO cleaning_task (property_id,booking_id,date,status,assigned_to,rate) VALUES (?,?,?,?,?,?)').run(2,2,'2026-02-14','pending',1,60);
+  await db.execute({ sql: 'INSERT INTO cleaning_task (property_id,booking_id,date,status,assigned_to,rate) VALUES (?,?,?,?,?,?)', args: [1,1,'2026-02-13','pending',1,50] });
+  await db.execute({ sql: 'INSERT INTO cleaning_task (property_id,booking_id,date,status,assigned_to,rate) VALUES (?,?,?,?,?,?)', args: [2,2,'2026-02-14','pending',1,60] });
 
-  db.prepare('INSERT INTO payment (cleaner_id,task_id,amount,paid) VALUES (?,?,?,?)').run(1,1,50,0);
+  await db.execute({ sql: 'INSERT INTO payment (cleaner_id,task_id,amount,paid) VALUES (?,?,?,?)', args: [1,1,50,0] });
 }
 
-export function clearAll() {
-  db.exec('DELETE FROM shopping_request');
-  db.exec('DELETE FROM payment');
-  db.exec('DELETE FROM cleaning_task');
-  db.exec('DELETE FROM booking');
-  db.exec('DELETE FROM property_cleaner');
-  db.exec('DELETE FROM cleaner');
-  db.exec('DELETE FROM property');
+export async function clearAll() {
+  await db.executeMultiple(`
+    DELETE FROM shopping_request;
+    DELETE FROM payment;
+    DELETE FROM cleaning_task;
+    DELETE FROM booking;
+    DELETE FROM property_cleaner;
+    DELETE FROM cleaner;
+    DELETE FROM property;
+  `);
 }
 
 export default db;
