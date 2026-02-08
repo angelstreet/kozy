@@ -9,7 +9,7 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') },
   },
-  base: '/kozy/',
+  base: process.env.VITE_BASE_PATH || '/kozy/',
   server: {
     port: 5174,
     proxy: {
