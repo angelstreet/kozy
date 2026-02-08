@@ -10,9 +10,8 @@ import More from '@/pages/owner/More';
 import Cleaners from '@/pages/owner/Cleaners';
 import Payments from '@/pages/owner/Payments';
 import AddProperty from '@/pages/owner/AddProperty';
-import CleanerDashboard from '@/pages/cleaner/CleanerDashboard';
-import CleanerCalendar from '@/pages/cleaner/CleanerCalendar';
-import CleanerProperties from '@/pages/cleaner/CleanerProperties';
+import Schedule from '@/pages/cleaner/Schedule';
+import Shopping from '@/pages/cleaner/Shopping';
 import CleanerMore from '@/pages/cleaner/CleanerMore';
 
 function AppRoutes() {
@@ -33,11 +32,10 @@ function AppRoutes() {
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </>}
         {role === 'cleaner' && <>
-          <Route path="/c/dashboard" element={<CleanerDashboard />} />
-          <Route path="/c/calendar" element={<CleanerCalendar />} />
-          <Route path="/c/properties" element={<CleanerProperties />} />
+          <Route path="/c/schedule" element={<Schedule />} />
+          <Route path="/c/shopping" element={<Shopping />} />
           <Route path="/c/more" element={<CleanerMore />} />
-          <Route path="*" element={<Navigate to="/c/dashboard" />} />
+          <Route path="*" element={<Navigate to="/c/schedule" />} />
         </>}
       </Route>
     </Routes>

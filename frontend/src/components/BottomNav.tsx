@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
-import { Home, CalendarDays, Building2, Menu } from 'lucide-react';
+import { Home, CalendarDays, Building2, Menu, ShoppingCart } from 'lucide-react';
 
 const ownerTabs = [
   { to: '/dashboard', icon: Home, label: 'dashboard' },
@@ -12,9 +12,8 @@ const ownerTabs = [
 ];
 
 const cleanerTabs = [
-  { to: '/c/dashboard', icon: Home, label: 'dashboard' },
-  { to: '/c/calendar', icon: CalendarDays, label: 'calendar' },
-  { to: '/c/properties', icon: Building2, label: 'properties' },
+  { to: '/c/schedule', icon: CalendarDays, label: 'schedule' },
+  { to: '/c/shopping', icon: ShoppingCart, label: 'shopping' },
   { to: '/c/more', icon: Menu, label: 'more' },
 ];
 

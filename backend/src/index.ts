@@ -104,23 +104,107 @@ app.post('/api/cleaners/:id/assign', async (c) => {
   return c.json({ ok: true });
 });
 
+// Property update & delete
+app.put('/api/properties/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking } = body;
+  db.prepare(`UPDATE property SET name=?, address=?, checkout_time=?, checkin_time=?, cleaning_mins=?, rate=?, sunday_rate=?, color=?, ical_airbnb=?, ical_booking=? WHERE id=?`)
+    .run(name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb || null, ical_booking || null, id);
+  const property = db.prepare('SELECT * FROM property WHERE id = ?').get(id);
+  if (!property) return c.json({ error: 'Not found' }, 404);
+  return c.json(property);
+});
+
+app.delete('/api/properties/:id', (c) => {
+  const id = c.req.param('id');
+  db.prepare('DELETE FROM property_cleaner WHERE property_id = ?').run(id);
+  db.prepare('DELETE FROM shopping_request WHERE property_id = ?').run(id);
+  db.prepare('DELETE FROM cleaning_task WHERE property_id = ?').run(id);
+  db.prepare('DELETE FROM booking WHERE property_id = ?').run(id);
+  db.prepare('DELETE FROM property WHERE id = ?').run(id);
+  return c.json({ ok: true });
+});
+
+// Tasks
 app.get('/api/tasks', (c) => {
-  const rows = db.prepare('SELECT * FROM cleaning_task').all();
+  const rows = db.prepare(`
+    SELECT ct.*, p.name as property_name, cl.name as cleaner_name
+    FROM cleaning_task ct
+    LEFT JOIN property p ON p.id = ct.property_id
+    LEFT JOIN cleaner cl ON cl.id = ct.assigned_to
+  `).all();
   return c.json(rows);
 });
 
+app.patch('/api/tasks/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const { status } = body;
+  if (!status) return c.json({ error: 'status required' }, 400);
+  db.prepare('UPDATE cleaning_task SET status = ? WHERE id = ?').run(status, id);
+  const task = db.prepare('SELECT * FROM cleaning_task WHERE id = ?').get(id);
+  return c.json(task);
+});
+
+// Payments
 app.get('/api/payments', (c) => {
-  const rows = db.prepare('SELECT * FROM payment').all();
+  const rows = db.prepare(`
+    SELECT p.*, cl.name as cleaner_name, ct.date as task_date, pr.name as property_name
+    FROM payment p
+    LEFT JOIN cleaner cl ON cl.id = p.cleaner_id
+    LEFT JOIN cleaning_task ct ON ct.id = p.task_id
+    LEFT JOIN property pr ON pr.id = ct.property_id
+  `).all();
   return c.json(rows);
 });
 
+app.patch('/api/payments/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const paid = body.paid ? 1 : 0;
+  const paid_at = paid ? new Date().toISOString() : null;
+  db.prepare('UPDATE payment SET paid = ?, paid_at = ? WHERE id = ?').run(paid, paid_at, id);
+  const payment = db.prepare('SELECT * FROM payment WHERE id = ?').get(id);
+  return c.json(payment);
+});
+
+// Shopping
 app.get('/api/shopping', (c) => {
-  const rows = db.prepare('SELECT * FROM shopping_request').all();
+  const rows = db.prepare(`
+    SELECT sr.*, p.name as property_name, cl.name as cleaner_name
+    FROM shopping_request sr
+    LEFT JOIN property p ON p.id = sr.property_id
+    LEFT JOIN cleaner cl ON cl.id = sr.cleaner_id
+  `).all();
   return c.json(rows);
 });
 
+app.post('/api/shopping', async (c) => {
+  const body = await c.req.json();
+  const { property_id, cleaner_id, items } = body;
+  if (!property_id || !items) return c.json({ error: 'property_id and items required' }, 400);
+  const result = db.prepare('INSERT INTO shopping_request (property_id, cleaner_id, items) VALUES (?, ?, ?)').run(property_id, cleaner_id || null, items);
+  const sr = db.prepare('SELECT * FROM shopping_request WHERE id = ?').get(result.lastInsertRowid);
+  return c.json(sr, 201);
+});
+
+app.patch('/api/shopping/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const { status } = body;
+  db.prepare('UPDATE shopping_request SET status = ? WHERE id = ?').run(status, id);
+  const sr = db.prepare('SELECT * FROM shopping_request WHERE id = ?').get(id);
+  return c.json(sr);
+});
+
+// Bookings
 app.get('/api/bookings', (c) => {
-  const rows = db.prepare('SELECT * FROM booking').all();
+  const rows = db.prepare(`
+    SELECT b.*, p.name as property_name, p.color as property_color
+    FROM booking b
+    LEFT JOIN property p ON p.id = b.property_id
+  `).all();
   return c.json(rows);
 });
 
