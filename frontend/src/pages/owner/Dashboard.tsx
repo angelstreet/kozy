@@ -27,9 +27,9 @@ export default function Dashboard() {
   if (isEmpty) {
     return (
       <div className="p-4">
-        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl p-6 mb-6">
-          <p className="text-3xl font-bold">{time.toLocaleTimeString(lang === 'fr' ? 'fr-FR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</p>
-          <p className="text-sm opacity-80">{time.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl px-4 py-2.5 mb-6 flex items-center justify-between">
+          <span className="text-sm font-medium capitalize">{time.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+          <span className="text-sm font-bold tabular-nums">{time.toLocaleTimeString(lang === 'fr' ? 'fr-FR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
         <EmptyState
           emoji="🏠"
@@ -46,44 +46,53 @@ export default function Dashboard() {
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayTasks = tasks.filter(t => t.date === todayStr);
 
+  const locale = lang === 'fr' ? 'fr-FR' : 'en-US';
+  const timeStr = time.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const dateStr = time.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
+
   return (
-    <div className="p-4 space-y-4">
-      <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl p-4">
-        <p className="text-3xl font-bold">{time.toLocaleTimeString(lang === 'fr' ? 'fr-FR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</p>
-        <p className="text-sm opacity-80">{time.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+    <div className="p-4 space-y-3">
+      {/* Compact date/time banner */}
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl px-4 py-2.5 flex items-center justify-between">
+        <span className="text-sm font-medium capitalize">{dateStr}</span>
+        <span className="text-sm font-bold tabular-nums">{timeStr}</span>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-blue-500 mb-1"><Building2 size={18} /><span className="text-sm font-medium">Properties</span></div>
-          <p className="text-2xl font-bold">{properties.length}</p>
+      {/* Stats — compact 4-grid */}
+      <div className="grid grid-cols-4 gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm text-center">
+          <Building2 size={16} className="text-blue-500 mx-auto mb-1" />
+          <p className="text-xl font-bold">{properties.length}</p>
+          <p className="text-[10px] text-gray-400 leading-tight">Properties</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-green-500 mb-1"><CalendarDays size={18} /><span className="text-sm font-medium">Bookings</span></div>
-          <p className="text-2xl font-bold">{bookings.length}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm text-center">
+          <CalendarDays size={16} className="text-green-500 mx-auto mb-1" />
+          <p className="text-xl font-bold">{bookings.length}</p>
+          <p className="text-[10px] text-gray-400 leading-tight">Bookings</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-orange-500 mb-1"><Clock size={18} /><span className="text-sm font-medium">Pending</span></div>
-          <p className="text-2xl font-bold">{pendingTasks.length}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm text-center">
+          <Clock size={16} className="text-orange-500 mx-auto mb-1" />
+          <p className="text-xl font-bold">{pendingTasks.length}</p>
+          <p className="text-[10px] text-gray-400 leading-tight">Pending</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-purple-500 mb-1"><Users size={18} /><span className="text-sm font-medium">Today</span></div>
-          <p className="text-2xl font-bold">{todayTasks.length}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm text-center">
+          <Users size={16} className="text-purple-500 mx-auto mb-1" />
+          <p className="text-xl font-bold">{todayTasks.length}</p>
+          <p className="text-[10px] text-gray-400 leading-tight">Today</p>
         </div>
       </div>
 
       {/* Property list */}
-      <h2 className="text-lg font-bold mt-2">Your Properties</h2>
+      <h2 className="text-base font-bold">Your Properties</h2>
       <div className="space-y-2">
         {Array.isArray(properties) ? properties.map(p => (
-          <div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm flex items-center gap-3">
+          <div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl px-3 py-2.5 shadow-sm flex items-center gap-3">
             <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
             <div className="flex-1 min-w-0">
-              <p className="font-semibold truncate">{p.name}</p>
-              <p className="text-sm text-gray-500 truncate">{p.address}</p>
+              <p className="text-sm font-semibold truncate">{p.name}</p>
+              <p className="text-xs text-gray-500 truncate">{p.address}</p>
             </div>
-            <div className="text-sm text-gray-400">€{p.rate}</div>
+            <div className="text-xs text-gray-400">€{p.rate}/n</div>
           </div>
         )) : null}
       </div>

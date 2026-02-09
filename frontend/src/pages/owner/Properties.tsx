@@ -43,7 +43,7 @@ export default function Properties() {
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">{t('properties', lang)}</h1>
+        <h1 className="text-xl font-bold">{t('properties', lang)}</h1>
         <button
           onClick={() => navigate('/add-property')}
           className="bg-blue-500 text-white p-2 rounded-xl shadow-sm"
@@ -51,27 +51,38 @@ export default function Properties() {
           <Plus size={20} />
         </button>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2">
         {properties.map(p => (
           <div
             key={p.id}
-            className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm relative transition-opacity ${!p.enabled ? 'opacity-50' : ''}`}
+            className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm relative transition-opacity ${!p.enabled ? 'opacity-50' : ''}`}
           >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-              <h3 className="font-bold text-lg flex-1">{p.name}</h3>
-              {!p.enabled && (
-                <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-full">Disabled</span>
-              )}
-              <div className="relative">
+            {/* Compact 2-line card */}
+            <div className="flex items-center gap-3 px-3 py-2.5">
+              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-sm truncate">{p.name}</h3>
+                  {!p.enabled && (
+                    <span className="text-[10px] bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 px-1.5 py-0.5 rounded-full flex-shrink-0">Off</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <span className="truncate">{p.address}</span>
+                  <span className="flex-shrink-0">€{p.rate}</span>
+                  {p.ical_airbnb && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full flex-shrink-0">Airbnb</span>}
+                  {p.ical_booking && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full flex-shrink-0">Booking</span>}
+                </div>
+              </div>
+              <div className="relative flex-shrink-0">
                 <button
                   onClick={() => setMenuOpen(menuOpen === p.id ? null : p.id)}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
                 >
-                  <MoreVertical size={18} className="text-gray-400" />
+                  <MoreVertical size={16} className="text-gray-400" />
                 </button>
                 {menuOpen === p.id && (
-                  <div className="absolute right-0 top-8 bg-white dark:bg-gray-700 rounded-xl shadow-lg border dark:border-gray-600 py-1 z-10 min-w-[160px]">
+                  <div className="absolute right-0 top-10 bg-white dark:bg-gray-700 rounded-xl shadow-lg border dark:border-gray-600 py-1 z-10 min-w-[160px]">
                     <button
                       onClick={() => { setMenuOpen(null); navigate(`/edit-property/${p.id}`); }}
                       className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2"
@@ -94,15 +105,6 @@ export default function Properties() {
                   </div>
                 )}
               </div>
-            </div>
-            <p className="text-sm text-gray-500 mb-2">{p.address}</p>
-            <div className="flex gap-4 text-xs text-gray-400">
-              <span>🕐 Out {p.checkout_time} / In {p.checkin_time}</span>
-              <span>€{p.rate}/clean</span>
-            </div>
-            <div className="flex gap-2 mt-2">
-              {p.ical_airbnb && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Airbnb</span>}
-              {p.ical_booking && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Booking</span>}
             </div>
           </div>
         ))}
