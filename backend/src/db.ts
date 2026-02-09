@@ -94,6 +94,15 @@ export async function migrate() {
     await db.execute("ALTER TABLE property ADD COLUMN user_id TEXT");
   }
 
+  // Add financial fields to property for cashflow tracking
+  if (!cols.rows.find((c: any) => c[1] === 'purchase_price' || c.name === 'purchase_price')) {
+    await db.execute("ALTER TABLE property ADD COLUMN purchase_price REAL");
+    await db.execute("ALTER TABLE property ADD COLUMN travaux REAL DEFAULT 0");
+    await db.execute("ALTER TABLE property ADD COLUMN monthly_charges REAL DEFAULT 0");
+    await db.execute("ALTER TABLE property ADD COLUMN monthly_revenue REAL DEFAULT 0");
+    await db.execute("ALTER TABLE property ADD COLUMN credit_mensuel REAL DEFAULT 0");
+  }
+
   const cleanerCols = await db.execute("PRAGMA table_info(cleaner)");
   if (!cleanerCols.rows.find((c: any) => c[1] === 'invite_token' || c.name === 'invite_token')) {
     await db.execute("ALTER TABLE cleaner ADD COLUMN invite_token TEXT");

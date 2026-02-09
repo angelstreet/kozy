@@ -72,6 +72,14 @@ export default function Properties() {
                   <span className="flex-shrink-0">€{p.rate}</span>
                   {p.ical_airbnb && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full flex-shrink-0">Airbnb</span>}
                   {p.ical_booking && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full flex-shrink-0">Booking</span>}
+                  {(() => {
+                    const cf = (p.monthly_revenue || 0) - (p.monthly_charges || 0) - (p.credit_mensuel || 0);
+                    return cf !== 0 ? (
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${cf >= 0 ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        {cf >= 0 ? '+' : ''}{cf}€/m
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
               </div>
               <div className="relative flex-shrink-0">

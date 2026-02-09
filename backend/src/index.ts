@@ -46,15 +46,15 @@ app.get('/api/properties', async (c) => {
 
 app.post('/api/properties', async (c) => {
   const body = await c.req.json();
-  const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, cleaner_id } = body;
+  const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, cleaner_id, purchase_price, travaux, monthly_charges, monthly_revenue, credit_mensuel } = body;
 
   if (!name) return c.json({ error: 'Name is required' }, 400);
 
   const userId = c.get('userId');
   const result = await db.execute({
-    sql: `INSERT INTO property (name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, user_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [name, address ?? null, checkout_time || '10:00', checkin_time || '16:00', cleaning_mins || 120, rate || 50, sunday_rate || 70, color || '#3B82F6', ical_airbnb || null, ical_booking || null, userId || null],
+    sql: `INSERT INTO property (name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, user_id, purchase_price, travaux, monthly_charges, monthly_revenue, credit_mensuel)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [name, address ?? null, checkout_time || '10:00', checkin_time || '16:00', cleaning_mins || 120, rate || 50, sunday_rate || 70, color || '#3B82F6', ical_airbnb || null, ical_booking || null, userId || null, purchase_price ?? null, travaux ?? 0, monthly_charges ?? 0, monthly_revenue ?? 0, credit_mensuel ?? 0],
   });
 
   const propertyId = Number(result.lastInsertRowid);
@@ -195,10 +195,10 @@ app.post('/api/cleaners/:id/assign', async (c) => {
 app.put('/api/properties/:id', async (c) => {
   const id = Number(c.req.param('id'));
   const body = await c.req.json();
-  const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking } = body;
+  const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, purchase_price, travaux, monthly_charges, monthly_revenue, credit_mensuel } = body;
   await db.execute({
-    sql: `UPDATE property SET name=?, address=?, checkout_time=?, checkin_time=?, cleaning_mins=?, rate=?, sunday_rate=?, color=?, ical_airbnb=?, ical_booking=? WHERE id=?`,
-    args: [name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb || null, ical_booking || null, id],
+    sql: `UPDATE property SET name=?, address=?, checkout_time=?, checkin_time=?, cleaning_mins=?, rate=?, sunday_rate=?, color=?, ical_airbnb=?, ical_booking=?, purchase_price=?, travaux=?, monthly_charges=?, monthly_revenue=?, credit_mensuel=? WHERE id=?`,
+    args: [name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb || null, ical_booking || null, purchase_price ?? null, travaux ?? 0, monthly_charges ?? 0, monthly_revenue ?? 0, credit_mensuel ?? 0, id],
   });
   const prop = await db.execute({ sql: 'SELECT * FROM property WHERE id = ?', args: [id] });
   if (prop.rows.length === 0) return c.json({ error: 'Not found' }, 404);

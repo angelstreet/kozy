@@ -14,6 +14,11 @@ export interface Property {
   sunday_rate: number;
   color: string;
   enabled: number;
+  purchase_price?: number;
+  travaux?: number;
+  monthly_charges?: number;
+  monthly_revenue?: number;
+  credit_mensuel?: number;
 }
 
 export function useProperties() {

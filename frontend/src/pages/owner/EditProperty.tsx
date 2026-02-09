@@ -17,6 +17,7 @@ export default function EditProperty() {
     name: '', address: '', ical_airbnb: '', ical_booking: '',
     checkout_time: '10:00', checkin_time: '16:00', cleaning_mins: 120,
     rate: 50, sunday_rate: 70, color: '#3B82F6',
+    purchase_price: 0, travaux: 0, monthly_charges: 0, monthly_revenue: 0, credit_mensuel: 0,
   });
 
   const upd = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
@@ -31,6 +32,9 @@ export default function EditProperty() {
           checkout_time: p.checkout_time || '10:00', checkin_time: p.checkin_time || '16:00',
           cleaning_mins: p.cleaning_mins || 120, rate: p.rate || 50,
           sunday_rate: p.sunday_rate || 70, color: p.color || '#3B82F6',
+          purchase_price: p.purchase_price || 0, travaux: p.travaux || 0,
+          monthly_charges: p.monthly_charges || 0, monthly_revenue: p.monthly_revenue || 0,
+          credit_mensuel: p.credit_mensuel || 0,
         });
       }
       setLoading(false);
@@ -101,6 +105,78 @@ export default function EditProperty() {
             <input type="number" value={form.cleaning_mins} onChange={e => upd('cleaning_mins', Number(e.target.value))}
               className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none" />
           </div>
+        </div>
+
+        {/* Financial section */}
+        <div className="border-t dark:border-gray-700 pt-4 mt-2">
+          <h3 className="text-sm font-semibold mb-3">💰 Finances</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Prix d'achat (€)</label>
+              <input type="number" value={form.purchase_price || ''} onChange={e => upd('purchase_price', Number(e.target.value) || 0)}
+                placeholder="150000"
+                className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Travaux (€)</label>
+              <input type="number" value={form.travaux || ''} onChange={e => upd('travaux', Number(e.target.value) || 0)}
+                placeholder="20000"
+                className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Revenus mensuels (€)</label>
+              <input type="number" value={form.monthly_revenue || ''} onChange={e => upd('monthly_revenue', Number(e.target.value) || 0)}
+                placeholder="1200"
+                className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Charges mensuelles (€)</label>
+              <input type="number" value={form.monthly_charges || ''} onChange={e => upd('monthly_charges', Number(e.target.value) || 0)}
+                placeholder="300"
+                className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-500 mb-1">Crédit mensuel (€)</label>
+              <input type="number" value={form.credit_mensuel || ''} onChange={e => upd('credit_mensuel', Number(e.target.value) || 0)}
+                placeholder="650"
+                className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none" />
+            </div>
+          </div>
+          {/* Cashflow summary */}
+          {(form.monthly_revenue > 0 || form.monthly_charges > 0 || form.credit_mensuel > 0) && (() => {
+            const monthlyCashflow = form.monthly_revenue - form.monthly_charges - form.credit_mensuel;
+            const annualCashflow = monthlyCashflow * 12;
+            const totalInvestment = (form.purchase_price || 0) + (form.travaux || 0);
+            const roi = totalInvestment > 0 ? (annualCashflow / totalInvestment) * 100 : 0;
+            return (
+              <div className={`mt-3 p-3 rounded-xl border ${monthlyCashflow >= 0 ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Cashflow mensuel</span>
+                  <span className={`font-bold ${monthlyCashflow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {monthlyCashflow >= 0 ? '+' : ''}{monthlyCashflow.toFixed(0)} €
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm mt-1">
+                  <span className="text-gray-600 dark:text-gray-400">Cashflow annuel</span>
+                  <span className={`font-semibold ${annualCashflow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {annualCashflow >= 0 ? '+' : ''}{annualCashflow.toFixed(0)} €
+                  </span>
+                </div>
+                {totalInvestment > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-gray-600 dark:text-gray-400">Investissement total</span>
+                      <span className="font-medium">{totalInvestment.toLocaleString('fr-FR')} €</span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-gray-600 dark:text-gray-400">ROI</span>
+                      <span className={`font-bold ${roi >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{roi.toFixed(1)}%</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         <div>
