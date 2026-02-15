@@ -133,8 +133,8 @@ export async function seedTestData() {
   await db.execute({ sql: 'INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)', args: ['Apt Marais','8 Rue de Turenne, Paris',60,80,'#10B981'] });
   await db.execute({ sql: 'INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)', args: ['Loft Bastille','3 Rue de la Roquette, Paris',55,75,'#F59E0B'] });
 
-  await db.execute({ sql: 'INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)', args: ['Marie Dupont','marie@example.com','+33612345678'] });
-  await db.execute({ sql: 'INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)', args: ['Jean Martin','jean@example.com','+33698765432'] });
+  await db.execute({ sql: 'INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)', args: ['Test Owner','owner@example.com','+33612345678'] });
+  await db.execute({ sql: 'INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)', args: ['Test Cleaner','cleaner@example.com','+33698765432'] });
 
   await db.execute({ sql: 'INSERT INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)', args: [1,1,'primary'] });
   await db.execute({ sql: 'INSERT INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)', args: [2,1,'primary'] });

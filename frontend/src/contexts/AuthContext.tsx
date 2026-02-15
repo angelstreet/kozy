@@ -38,8 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (u: string, p: string) => {
     const ul = u.toLowerCase().trim();
     const pl = p.toLowerCase().trim();
-    if (ul === 'owner' && pl === 'owner') { setRole('owner'); return true; }
-    if (ul === 'cleaner' && pl === 'cleaner') { setRole('cleaner'); return true; }
+    if (ul === 'owner@example.com' && pl === 'user') { setRole('owner'); return true; }
+    if (ul === 'cleaner@example.com' && pl === 'user') { setRole('cleaner'); return true; }
     return false;
   };
 
