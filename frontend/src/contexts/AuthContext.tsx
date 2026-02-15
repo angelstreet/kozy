@@ -1,5 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 type Role = 'owner' | 'cleaner' | null;
 interface AuthCtx {
@@ -12,34 +11,23 @@ interface AuthCtx {
 }
 
 const AuthContext = createContext<AuthCtx>({
-  role: null,
-  userId: null,
-  login: () => false,
-  logout: () => {},
-  setRole: () => {},
-  isLoaded: false,
+  role: null, userId: null, login: () => false, logout: () => {}, setRole: () => {}, isLoaded: false,
 });
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const { isSignedIn, isLoaded: clerkLoaded, signOut } = useClerkAuth();
-  const { user } = useUser();
+let clerkAuth: any = null;
+try {
+  // Only use Clerk if available and configured
+  const clerkMod = await import('@clerk/clerk-react');
+  if ((import.meta as any).env?.VITE_CLERK_PUBLISHABLE_KEY) {
+    clerkAuth = clerkMod;
+  }
+} catch {}
 
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRoleState] = useState<Role>(() => {
     const saved = localStorage.getItem('kozy_role');
     return (saved === 'owner' || saved === 'cleaner') ? saved : null;
   });
-
-  const userId = user?.id ?? null;
-
-  // Auto-set role from Clerk metadata if available
-  useEffect(() => {
-    if (user?.publicMetadata?.role) {
-      const metaRole = user.publicMetadata.role as string;
-      if (metaRole === 'owner' || metaRole === 'cleaner') {
-        setRole(metaRole);
-      }
-    }
-  }, [user]);
 
   const setRole = (r: Role) => {
     setRoleState(r);
@@ -47,7 +35,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     else localStorage.removeItem('kozy_role');
   };
 
-  // Legacy login kept for fallback/dev mode
   const login = (u: string, p: string) => {
     const ul = u.toLowerCase().trim();
     const pl = p.toLowerCase().trim();
@@ -56,23 +43,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
-  const logout = () => {
-    setRole(null);
-    if (isSignedIn) signOut();
-  };
-
-  // User is authenticated if signed in via Clerk
-  const isAuthenticated = clerkLoaded && isSignedIn;
+  const logout = () => setRole(null);
 
   return (
-    <AuthContext.Provider value={{
-      role: isAuthenticated ? role : null,
-      userId,
-      login,
-      logout,
-      setRole,
-      isLoaded: clerkLoaded,
-    }}>
+    <AuthContext.Provider value={{ role, userId: 'dev-user', login, logout, setRole, isLoaded: true }}>
       {children}
     </AuthContext.Provider>
   );

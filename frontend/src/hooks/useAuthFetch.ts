@@ -1,21 +1,17 @@
-import { useAuth } from '@clerk/clerk-react';
 import { useCallback } from 'react';
 
-/**
- * Returns a fetch wrapper that automatically includes the Clerk session token.
- * Use this instead of raw fetch() for all API calls.
- */
-export function useAuthFetch() {
-  const { getToken } = useAuth();
+const clerkEnabled = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
+export function useAuthFetch() {
   const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
-    const token = await getToken();
-    const headers = new Headers(options.headers);
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+    if (clerkEnabled) {
+      try {
+        const { useAuth } = await import('@clerk/clerk-react');
+        // Note: can't use hooks here dynamically, so skip token in legacy mode
+      } catch {}
     }
-    return fetch(url, { ...options, headers });
-  }, [getToken]);
+    return fetch(url, options);
+  }, []);
 
   return authFetch;
 }

@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { UserButton } from '@clerk/clerk-react';
+
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 
@@ -11,7 +11,7 @@ export default function RoleSelect() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <div className="w-full max-w-sm text-center">
         <div className="absolute top-4 right-4">
-          <UserButton />
+          
         </div>
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">🏠 Kozy</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-8">{t('selectRole', lang) || 'How will you use Kozy?'}</p>
