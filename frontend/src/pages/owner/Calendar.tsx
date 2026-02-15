@@ -32,19 +32,51 @@ function getSourceLabel(source: string): string {
   return source;
 }
 
-// Clean guest name (remove "message:" prefix and long descriptions)
+// Clean guest name (remove technical fields and extract real names)
 function cleanGuestName(name: string): string {
-  if (!name) return 'Guest';
+  if (!name) return 'Reservation';
+  
+  // Remove language codes like "language: es", "language: fr", "language: fr-CA" etc.
+  if (/^language:\s*[a-z]{2}(-[A-Z]{2})?$/i.test(name.trim())) {
+    return 'Reservation';
+  }
+  
   // Remove "message:" prefix
   let cleaned = name.replace(/^message:\s*/i, '').trim();
-  // If it's a long message, try to extract first capitalized name
+  
+  // If it starts with "Check-in" or "Check-out", extract the name after
+  if (/^(Check-in|Check-out)\s+/i.test(cleaned)) {
+    cleaned = cleaned.replace(/^(Check-in|Check-out)\s+/i, '').trim();
+    // Remove property name suffix (everything after ", " if it looks like a property)
+    const parts = cleaned.split(',');
+    if (parts.length > 1 && parts[1].includes('Maison')) {
+      return parts[0].trim() || 'Reservation';
+    }
+    return cleaned.split(',')[0].trim() || 'Reservation';
+  }
+  
+  // If it contains property name suffix, extract just the guest name
+  if (cleaned.includes(', Maison-4 chambres')) {
+    return cleaned.split(',')[0].trim() || 'Reservation';
+  }
+  
+  // If it's a long message with RESERVATION/BOOKING NOTE, try to extract a real name
   if (cleaned.length > 50 || cleaned.includes('RESERVATION') || cleaned.includes('BOOKING NOTE')) {
+    // Try to find a capitalized name pattern (First Last or First Middle Last)
     const nameMatch = cleaned.match(/\b([A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\b/);
     if (nameMatch) return nameMatch[1];
-    return 'Guest';
+    return 'Reservation';
   }
-  // Take first line or until comma
-  return cleaned.split(/[\n,]/)[0].trim() || 'Guest';
+  
+  // Take first line or until comma, but check if it looks like a real name
+  const firstPart = cleaned.split(/[\n,]/)[0].trim();
+  
+  // If it's still prefixed with ** or looks like system text, return generic
+  if (firstPart.startsWith('**') || firstPart.toUpperCase() === firstPart) {
+    return 'Reservation';
+  }
+  
+  return firstPart || 'Reservation';
 }
 
 function getDaysInMonth(year: number, month: number) {
@@ -238,6 +270,10 @@ export default function Calendar() {
   // Week range label
   const weekLabel = `${weekDays[0].toLocaleDateString(locale, { month: 'short', day: 'numeric' })} – ${weekDays[6].toLocaleDateString(locale, { month: 'short', day: 'numeric' })}`;
 
+  // Calculate total cells needed for month view (always show 6 weeks = 42 cells)
+  const totalCells = 42;
+  const trailingCells = totalCells - firstDay - daysInMonth;
+
   return (
     <div className="p-4">
       {/* Header with view toggle */}
@@ -350,9 +386,42 @@ export default function Calendar() {
           {dayNames.map(d => (
             <div key={d} className="bg-gray-50 dark:bg-gray-800 text-center text-xs font-medium text-gray-500 py-2">{d}</div>
           ))}
-          {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="bg-white dark:bg-gray-900 min-h-[80px] sm:min-h-[100px]" />
-          ))}
+          
+          {/* Previous month trailing days */}
+          {Array.from({ length: firstDay }).map((_, i) => {
+            const prevMonth = month === 0 ? 11 : month - 1;
+            const prevYear = month === 0 ? year - 1 : year;
+            const prevMonthDays = getDaysInMonth(prevYear, prevMonth);
+            const day = prevMonthDays - firstDay + i + 1;
+            const ds = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayBookings = getBookingsForDate(ds);
+            const startingBookings = dayBookings.filter(b => bookingStartsOn(b, ds));
+            
+            return (
+              <div key={`prev-${i}`} className="bg-gray-50 dark:bg-gray-950 min-h-[80px] sm:min-h-[100px] p-2 opacity-40">
+                <div className="text-sm font-semibold mb-1 text-gray-400">{day}</div>
+                <div className="space-y-1">
+                  {startingBookings.map(booking => {
+                    const sourceColor = getSourceColor(booking.source);
+                    const guestName = cleanGuestName(booking.guest_name);
+                    return (
+                      <div
+                        key={booking.id}
+                        onClick={() => setSelectedBooking(booking)}
+                        className="text-[10px] sm:text-xs leading-tight px-2 py-1 rounded text-white font-medium cursor-pointer hover:opacity-90 transition-opacity truncate"
+                        style={{ backgroundColor: sourceColor }}
+                        title={`${guestName} - ${booking.property_name}`}
+                      >
+                        {guestName}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          
+          {/* Current month days */}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const day = i + 1;
             const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -388,6 +457,39 @@ export default function Calendar() {
                           position: 'relative',
                           zIndex: 10,
                         }}
+                        title={`${guestName} - ${booking.property_name}`}
+                      >
+                        {guestName}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          
+          {/* Next month leading days */}
+          {Array.from({ length: trailingCells }).map((_, i) => {
+            const day = i + 1;
+            const nextMonth = month === 11 ? 0 : month + 1;
+            const nextYear = month === 11 ? year + 1 : year;
+            const ds = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayBookings = getBookingsForDate(ds);
+            const startingBookings = dayBookings.filter(b => bookingStartsOn(b, ds));
+            
+            return (
+              <div key={`next-${i}`} className="bg-gray-50 dark:bg-gray-950 min-h-[80px] sm:min-h-[100px] p-2 opacity-40">
+                <div className="text-sm font-semibold mb-1 text-gray-400">{day}</div>
+                <div className="space-y-1">
+                  {startingBookings.map(booking => {
+                    const sourceColor = getSourceColor(booking.source);
+                    const guestName = cleanGuestName(booking.guest_name);
+                    return (
+                      <div
+                        key={booking.id}
+                        onClick={() => setSelectedBooking(booking)}
+                        className="text-[10px] sm:text-xs leading-tight px-2 py-1 rounded text-white font-medium cursor-pointer hover:opacity-90 transition-opacity truncate"
+                        style={{ backgroundColor: sourceColor }}
                         title={`${guestName} - ${booking.property_name}`}
                       >
                         {guestName}
