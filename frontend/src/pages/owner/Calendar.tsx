@@ -56,7 +56,7 @@ function cleanGuestName(name: string): string {
   }
   
   // If it contains property name suffix, extract just the guest name
-  if (cleaned.includes(', Maison-4 chambres')) {
+  if (cleaned.includes(', Maison') || cleaned.includes(', Villa') || cleaned.includes(', T2 ') || cleaned.includes(', Appartement')) {
     return cleaned.split(',')[0].trim() || 'Reservation';
   }
   
@@ -223,10 +223,38 @@ export default function Calendar() {
   }, [isEmpty]);
 
   // Filter bookings by selected property
+  // Deduplicate bookings: group by property_id + checkin_date + checkout_date
+  // Keep the entry with the best guest name (real name > system text)
+  const deduplicatedBookings = useMemo(() => {
+    const groups = new Map<string, Booking[]>();
+    for (const b of bookings) {
+      const key = `${b.property_id}|${b.checkin_date}|${b.checkout_date}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(b);
+    }
+    
+    const isNoise = (name: string) => {
+      if (!name) return true;
+      const n = name.trim();
+      if (/^language:\s/i.test(n)) return true;
+      if (/^message:\s/i.test(n)) return true;
+      if (/^Check-(in|out)\s/i.test(n)) return true;
+      return false;
+    };
+    
+    const result: Booking[] = [];
+    for (const group of groups.values()) {
+      // Prefer entry with a real guest name
+      const best = group.find(b => !isNoise(b.guest_name)) || group[0];
+      result.push(best);
+    }
+    return result;
+  }, [bookings]);
+
   const filteredBookings = useMemo(() => {
-    if (!selectedPropertyId) return bookings;
-    return bookings.filter(b => b.property_id === selectedPropertyId);
-  }, [bookings, selectedPropertyId]);
+    if (!selectedPropertyId) return deduplicatedBookings;
+    return deduplicatedBookings.filter(b => b.property_id === selectedPropertyId);
+  }, [deduplicatedBookings, selectedPropertyId]);
 
   // Week view helpers
   const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate.toDateString()]);
