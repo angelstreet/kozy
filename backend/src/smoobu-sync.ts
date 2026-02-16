@@ -78,7 +78,15 @@ export async function fetchSmoobuApartments(apiKey: string): Promise<SmoobuApart
  * Docs: https://docs.smoobu.com/#get-bookings-api
  */
 export async function fetchSmoobuBookings(apiKey: string): Promise<SmoobuReservation[]> {
-  const url = 'https://login.smoobu.com/api/reservations';
+  // Fetch from 6 months ago to get historical data too
+  const from = new Date();
+  from.setMonth(from.getMonth() - 6);
+  const fromStr = from.toISOString().split('T')[0];
+  const to = new Date();
+  to.setMonth(to.getMonth() + 12);
+  const toStr = to.toISOString().split('T')[0];
+  
+  const url = `https://login.smoobu.com/api/reservations?from=${fromStr}&to=${toStr}&page_size=100`;
   
   const response = await fetch(url, {
     method: 'GET',
