@@ -52,6 +52,14 @@ function getSourceLabel(source: string): string {
   return source;
 }
 
+function normalizeSource(source: string): string {
+  const lower = source.toLowerCase();
+  if (lower === 'airbnb') return 'airbnb';
+  if (lower === 'booking' || lower === 'booking.com') return 'booking';
+  if (lower === 'smoobu' || lower === 'direct') return 'direct';
+  return 'other';
+}
+
 // Clean guest name (remove technical fields and extract real names)
 function cleanGuestName(name: string): string {
   if (!name) return 'Reservation';
@@ -333,7 +341,7 @@ function MonthGrid({
       </div>
       <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {weeks.map((week, weekIdx) => {
-          const rowMinHeight = Math.max(52, 20 + numPropertySlots * 18 + 4);
+          const rowMinHeight = Math.max(56, 22 + numPropertySlots * 22 + 6);
           return (
             <div key={weekIdx} className="grid grid-cols-7 relative" style={{ minHeight: `${rowMinHeight}px` }}>
               {week.map((cell, dayIdx) => {
@@ -368,17 +376,17 @@ function MonthGrid({
                       backgroundColor: sourceColor,
                       left: `${leftPercent}%`,
                       width: `${widthPercent}%`,
-                      top: `${20 + slot * 18}px`,
-                      height: '16px',
+                      top: `${22 + slot * 22}px`,
+                      height: '20px',
                       zIndex: 10
                     }}
                     title={`${guestName} • ${booking.property_name}`}
                   >
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/50" style={{ backgroundColor: propertyColor }} />
-                    <div className="w-3 h-3 rounded-full bg-white/90 flex items-center justify-center text-[7px] font-bold flex-shrink-0" style={{ color: sourceColor }}>
+                    <div className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50" style={{ backgroundColor: propertyColor }} />
+                    <div className="w-3.5 h-3.5 rounded-full bg-white/90 flex items-center justify-center text-[8px] font-bold flex-shrink-0" style={{ color: sourceColor }}>
                       {getSourceInitial(booking.source).charAt(0)}
                     </div>
-                    <span className="flex-1 min-w-0 truncate">{guestName}</span>
+                    <span className="flex-1 min-w-0 truncate text-[10px]">{guestName}</span>
                   </div>
                 );
               })}
@@ -397,6 +405,7 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -448,6 +457,10 @@ export default function Calendar() {
       filtered = filtered.filter(b => selectedPropertyIds.includes(b.property_id));
     }
     
+    if (selectedSources.length > 0) {
+      filtered = filtered.filter(b => selectedSources.includes(normalizeSource(b.source)));
+    }
+    
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(b => 
@@ -457,7 +470,7 @@ export default function Calendar() {
     }
     
     return filtered;
-  }, [deduplicatedBookings, selectedPropertyIds, searchQuery]);
+  }, [deduplicatedBookings, selectedPropertyIds, selectedSources, searchQuery]);
 
   // Today's activity
   const todayActivity = useMemo(() => {
@@ -774,29 +787,40 @@ export default function Calendar() {
 
           {/* Right: Controls */}
           <div className="flex items-center gap-3">
-            {/* Property Multi-Select Dropdown */}
+            {/* Properties Multi-Select */}
             <div className="relative">
               <select
-                multiple={false}
-                className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors appearance-none pr-8"
-                value={selectedPropertyIds.length === 0 ? 'all' : selectedPropertyIds[0]}
+                multiple={true}
+                size={Math.min(4, properties.length + 1)}
+                className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-xs font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors appearance-none w-36 h-auto max-h-20"
+                value={selectedPropertyIds}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === 'all') {
-                    setSelectedPropertyIds([]);
-                  } else {
-                    setSelectedPropertyIds([Number(val)]);
-                  }
+                  const newIds: number[] = Array.from(e.target.selectedOptions, option => Number(option.value));
+                  setSelectedPropertyIds(newIds);
                 }}
               >
-                <option value="all">
-                  {lang === 'fr' ? 'Toutes les propriétés' : 'All properties'}
-                </option>
                 {properties.map((p: any) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">▾</div>
+            </div>
+
+            {/* Sources Multi-Select */}
+            <div className="relative">
+              <select
+                multiple={true}
+                size={3}
+                className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-xs font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors appearance-none w-28 max-h-20"
+                value={selectedSources}
+                onChange={(e) => {
+                  const values: string[] = Array.from(e.target.selectedOptions, option => option.value);
+                  setSelectedSources(values);
+                }}
+              >
+                <option value="airbnb">Airbnb</option>
+                <option value="booking">Booking</option>
+                <option value="direct">Direct</option>
+              </select>
             </div>
 
             {/* Search */}
@@ -840,12 +864,37 @@ export default function Calendar() {
         </div>
       </div>
 
+      {/* SOURCE LEGEND */}
+      <div className="px-4 pt-3 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+        {[
+          { source: 'airbnb', label: 'Airbnb' },
+          { source: 'booking', label: 'Booking.com' },
+          { source: 'direct', label: 'Direct' },
+        ].map(({ source, label }) => (
+          <div key={source} className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getSourceColor(source) }} />
+            <span>{label}</span>
+          </div>
+        ))}
+        {properties.length > 0 && (
+          <>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            {properties.slice(0, 5).map((p: any) => (
+              <div key={p.id} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full border border-gray-300 dark:border-gray-600" style={{ backgroundColor: p.color || '#9CA3AF' }} />
+                <span className="truncate max-w-[80px]">{p.name}</span>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
       {/* MAIN CONTENT */}
       <div className="p-4">
         {viewMode === 'calendar' ? (
           /* 3-MONTH CALENDAR VIEW */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {[0, 1, 2].map(offset => {
+            {[-1, 0, 1].map(offset => {
               const m = month + offset;
               const y = year + Math.floor(m / 12);
               const mo = ((m % 12) + 12) % 12;
