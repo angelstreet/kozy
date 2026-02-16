@@ -308,6 +308,7 @@ app.get('/api/bookings', async (c) => {
     SELECT b.*, p.name as property_name, p.color as property_color
     FROM booking b
     LEFT JOIN property p ON p.id = b.property_id
+    WHERE b.status != 'cancelled'
   `);
   return c.json(result.rows);
 });
