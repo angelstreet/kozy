@@ -28,6 +28,7 @@ interface Booking {
   source: string;
   property_name: string;
   property_color: string;
+  status?: string;
 }
 
 // Source-based colors (muted pastels)
@@ -427,8 +428,6 @@ export default function Calendar() {
     return '';
   }, [selectedSources]);
 
-  const displayPropertyId = useMemo(() =&gt; selectedPropertyIds.length === 0 ? '' : selectedPropertyIds[0]?.toString() ?? '', [selectedPropertyIds]);
-  const displaySource = useMemo(() =&gt; selectedSources.length === 0 ? '' : selectedSources[0], [selectedSources]);
 
   const locale = lang === 'fr' ? 'fr-FR' : 'en-US';
   const year = currentDate.getFullYear();
