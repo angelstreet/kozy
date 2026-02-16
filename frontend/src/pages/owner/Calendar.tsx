@@ -3,7 +3,7 @@ import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useProperties } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -108,76 +108,26 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-// Booking Popover Component with smart positioning
-function BookingPopover({ 
-  booking, 
-  position,
-  onClose, 
-  lang 
-}: { 
-  booking: Booking; 
-  position: { top: number; left: number; }
-  onClose: () => void; 
-  lang: string 
+// Booking Popover Component - centered modal
+function BookingPopover({
+  booking,
+  onClose,
+  lang
+}: {
+  booking: Booking;
+  onClose: () => void;
+  lang: string
 }) {
   const locale = lang === 'fr' ? 'fr-FR' : 'en-US';
   const checkin = new Date(booking.checkin_date);
   const checkout = new Date(booking.checkout_date);
   const nights = Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24));
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const [adjustedPosition, setAdjustedPosition] = useState(position);
-
-  // Smart positioning to avoid viewport cropping
-  useEffect(() => {
-    if (popoverRef.current) {
-      const rect = popoverRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      
-      let { top, left } = position;
-      
-      // Check right boundary
-      if (left + rect.width > viewportWidth - 20) {
-        left = viewportWidth - rect.width - 20;
-      }
-      
-      // Check left boundary
-      if (left < 20) {
-        left = 20;
-      }
-      
-      // Check bottom boundary (fixed positioning = relative to viewport)
-      if (top + rect.height > viewportHeight - 20) {
-        top = viewportHeight - rect.height - 20;
-      }
-      
-      // Check top boundary
-      if (top < 20) {
-        top = 20;
-      }
-      
-      setAdjustedPosition({ top, left });
-    }
-  }, [position]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
 
   return (
-    <div 
-      ref={popoverRef}
-      className="fixed bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 w-80 z-50"
-      style={{ 
-        top: `${adjustedPosition.top}px`, 
-        left: `${adjustedPosition.left}px`,
-      }}
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+    <div
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 w-80"
+      onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-base font-bold text-gray-900 dark:text-white">
@@ -253,6 +203,7 @@ function BookingPopover({
         </div>
       </div>
     </div>
+    </div>
   );
 }
 
@@ -262,7 +213,6 @@ export default function Calendar() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
@@ -390,12 +340,7 @@ export default function Calendar() {
     return {left: leftPx, width: widthPx, isLeftClip, isRightClip};
   };
 
-  const handleBookingClick = (booking: Booking, event: React.MouseEvent) => {
-    const rect = (event.target as HTMLElement).getBoundingClientRect();
-    setPopoverPosition({ 
-      top: rect.top + rect.height + 5, 
-      left: rect.left 
-    });
+  const handleBookingClick = (booking: Booking, _event: React.MouseEvent) => {
     setSelectedBooking(booking);
   };
 
@@ -775,12 +720,7 @@ export default function Calendar() {
                                   backgroundColor: sourceColor,
                                   transform: `translateY(${bIdx * 4}px)`
                                 }}
-                                onClick={(e) => {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  setPopoverPosition({ 
-                                    top: rect.top + rect.height + 5, 
-                                    left: rect.left 
-                                  });
+                                onClick={() => {
                                   setSelectedBooking(booking);
                                 }}
                                 title={`${guestName} • ${getSourceLabel(booking.source)} • ${booking.checkin_date} → ${booking.checkout_date}`}
@@ -883,12 +823,7 @@ export default function Calendar() {
                     <div 
                       key={booking.id}
                       className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors"
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setPopoverPosition({ 
-                          top: rect.top, 
-                          left: rect.right + 10 
-                        });
+                      onClick={() => {
                         setSelectedBooking(booking);
                       }}
                     >
@@ -927,7 +862,6 @@ export default function Calendar() {
       {selectedBooking && (
         <BookingPopover
           booking={selectedBooking}
-          position={popoverPosition}
           onClose={() => setSelectedBooking(null)}
           lang={lang}
         />

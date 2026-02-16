@@ -6,7 +6,7 @@ Manage your properties, coordinate cleaners, track payments — all in one clean
 
 ## Features (MVP)
 
-- 📅 **Calendar** — iCal sync from Airbnb, Smoobu & Booking.com feeds, booking preview, see all turnovers at a glance; week view optimized for mobile
+- 📅 **Calendar** — Advanced views: timeline Gantt (multi-property rows, horizontal bars, upcoming check-ins), week/month with filters/modals/source colors/continuation indicators; popover details; iCal + primary Smoobu API sync (encrypted keys, full property/bookings sync); Moobu/Smoobu-style UX redesign V2 (gradients, shadows, typography, chips)
 - 🧹 **Cleaning coordination** — Assign cleaners to properties, track task status
 - 💶 **Payments** — Per-intervention tracking, Sunday rates, mark as paid
 - 🏗️ **Travaux (Renovation Works)** — Track renovation costs per property with automatic cashflow impact calculation
