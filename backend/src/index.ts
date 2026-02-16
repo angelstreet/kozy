@@ -353,17 +353,21 @@ app.post('/api/ical-sync-all', async (c) => {
 app.post('/api/smoobu-sync', async (c) => {
   const userId = c.get('userId');
 
-  // Get user's Smoobu API key from settings
+  // Get user's encrypted Smoobu API key
   const keyResult = await db.execute({
-    sql: 'SELECT value FROM user_settings WHERE user_id = ? AND key = ?',
-    args: [userId, 'smoobu_api_key']
+    sql: 'SELECT smoobu_api_key_encrypted FROM user WHERE id = ?',
+    args: [userId]
   });
 
-  const apiKey = keyResult.rows[0] ? (keyResult.rows[0] as any).value : null;
+  const encryptedKey = keyResult.rows[0] ? (keyResult.rows[0] as any).smoobu_api_key_encrypted : null;
 
-  if (!apiKey) {
+  if (!encryptedKey) {
     return c.json({ error: 'Smoobu API key not configured. Please add it in Settings.' }, 400);
   }
+
+  // Decrypt the API key
+  const { decryptApiKey } = await import('./encryption.js');
+  const apiKey = decryptApiKey(encryptedKey);
 
   // Get all properties for this user
   const propsResult = await db.execute({
@@ -397,31 +401,21 @@ app.post('/api/properties/:id/smoobu-sync', async (c) => {
   const id = Number(c.req.param('id'));
   const userId = c.get('userId');
 
-  // Try user settings first, fallback to secrets file
-  let apiKey: string | null = null;
-  
+  // Get user's encrypted Smoobu API key
   const keyResult = await db.execute({
-    sql: 'SELECT value FROM user_settings WHERE user_id = ? AND key = ?',
-    args: [userId, 'smoobu_api_key']
+    sql: 'SELECT smoobu_api_key_encrypted FROM user WHERE id = ?',
+    args: [userId]
   });
 
-  apiKey = keyResult.rows[0] ? (keyResult.rows[0] as any).value : null;
+  const encryptedKey = keyResult.rows[0] ? (keyResult.rows[0] as any).smoobu_api_key_encrypted : null;
 
-  // Fallback to secrets file if not in user settings
-  if (!apiKey) {
-    const secretsPath = path.join(process.env.HOME || '/root', '.openclaw', 'secrets', 'property.env');
-    if (fs.existsSync(secretsPath)) {
-      const secretsContent = fs.readFileSync(secretsPath, 'utf-8');
-      const match = secretsContent.match(/SMOOBU_API_KEY=(.+)/);
-      if (match) {
-        apiKey = match[1].trim();
-      }
-    }
+  if (!encryptedKey) {
+    return c.json({ error: 'Smoobu API key not configured. Please add it in Settings.' }, 400);
   }
 
-  if (!apiKey) {
-    return c.json({ error: 'Smoobu API key not configured. Please add it in Settings or ~/.openclaw/secrets/property.env' }, 400);
-  }
+  // Decrypt the API key
+  const { decryptApiKey } = await import('./encryption.js');
+  const apiKey = decryptApiKey(encryptedKey);
 
   // Get property's Smoobu apartment ID if configured
   const propResult = await db.execute({ sql: 'SELECT smoobu_apartment_id FROM property WHERE id = ?', args: [id] });
@@ -468,21 +462,17 @@ app.post('/api/settings/api-token/revoke', async (c) => {
 app.get('/api/settings/smoobu-key-exists', async (c) => {
   const userId = c.get('userId');
   const result = await db.execute({
-    sql: 'SELECT COUNT(*) as count FROM user_settings WHERE user_id = ? AND key = ?',
-    args: [userId, 'smoobu_api_key']
+    sql: 'SELECT smoobu_api_key_encrypted FROM user WHERE id = ?',
+    args: [userId]
   });
-  const count = (result.rows[0] as any).count || 0;
-  return c.json({ exists: count > 0 });
+  const hasKey = result.rows[0] && (result.rows[0] as any).smoobu_api_key_encrypted !== null;
+  return c.json({ exists: hasKey });
 });
 
 app.get('/api/settings/smoobu-key', async (c) => {
-  const userId = c.get('userId');
-  const result = await db.execute({
-    sql: 'SELECT value FROM user_settings WHERE user_id = ? AND key = ?',
-    args: [userId, 'smoobu_api_key']
-  });
-  const key = result.rows[0] ? (result.rows[0] as any).value : null;
-  return c.json({ key });
+  // SECURITY: Never return the plaintext key to frontend
+  // This endpoint is removed for security reasons
+  return c.json({ error: 'Endpoint disabled for security. API key is encrypted and cannot be retrieved.' }, 403);
 });
 
 app.post('/api/settings/smoobu-key', async (c) => {
@@ -511,10 +501,13 @@ app.post('/api/settings/smoobu-key', async (c) => {
     return c.json({ error: 'Failed to validate Smoobu API key' }, 400);
   }
 
-  // Save the key
+  // Encrypt and save the key
+  const { encryptApiKey } = await import('./encryption.js');
+  const encryptedKey = encryptApiKey(key);
+
   await db.execute({
-    sql: 'INSERT OR REPLACE INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, ?)',
-    args: [userId, 'smoobu_api_key', key, new Date().toISOString()]
+    sql: 'INSERT INTO user (id, smoobu_api_key_encrypted, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET smoobu_api_key_encrypted = ?, updated_at = ?',
+    args: [userId, encryptedKey, new Date().toISOString(), encryptedKey, new Date().toISOString()]
   });
 
   return c.json({ ok: true });

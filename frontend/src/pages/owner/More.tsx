@@ -26,10 +26,10 @@ export default function More() {
       const existsData = await existsRes.json();
       setSmoobuKeyExists(existsData.exists);
 
+      // Note: We don't fetch the actual key for security reasons (it's encrypted in DB)
+      // If key exists, show masked version in UI
       if (existsData.exists) {
-        const keyRes = await apiFetch('/settings/smoobu-key');
-        const keyData = await keyRes.json();
-        setSmoobuKey(keyData.key || '');
+        setSmoobuKey('****************************************'); // Masked
       }
     } catch (e) {
       console.error('Failed to load settings:', e);

@@ -128,6 +128,10 @@ export async function migrate() {
   if (!cols.rows.find((c: any) => c[1] === 'smoobu_apartment_id' || c.name === 'smoobu_apartment_id')) {
     await db.execute("ALTER TABLE property ADD COLUMN smoobu_apartment_id INTEGER");
   }
+
+  // Run encryption migration
+  const { migrateEncryption } = await import('./migrations/add_encryption.js');
+  await migrateEncryption();
 }
 
 export async function seed() {
