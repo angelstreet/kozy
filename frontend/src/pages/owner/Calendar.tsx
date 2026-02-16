@@ -293,6 +293,16 @@ export default function Calendar() {
     return `${startStr} – ${endStr}`;
   }, [timelineDays, locale]);
 
+  const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate.toDateString()]);
+  const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
+  const weekLabel = useMemo(() => {
+    if (!weekDays.length) return '';
+    const startStr = weekDays[0].toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+    const endStr = weekDays[6].toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+    return `${startStr} – ${endStr}`;
+  }, [weekDays, locale]);
+  const monthName = useMemo(() => currentDate.toLocaleString(locale, { month: 'long', year: 'numeric' }), [currentDate, locale]);
+
   const periodLabel = useMemo(() => viewMode === 'week' ? weekLabel : viewMode === 'month' ? monthName : timelineLabel, [viewMode, weekLabel, monthName, timelineLabel]);
 
   const calculateBarPosition = (booking: Booking, startDate: Date, dayWidth = 44) => {
@@ -317,8 +327,6 @@ export default function Calendar() {
   };
 
   // Week view helpers
-  const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate.toDateString()]);
-  const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
 
   const prevWeek = () => { const d = new Date(currentDate); d.setDate(d.getDate() - 7); setCurrentDate(d); };
   const nextWeek = () => { const d = new Date(currentDate); d.setDate(d.getDate() + 7); setCurrentDate(d); };
@@ -341,7 +349,6 @@ export default function Calendar() {
     }
   };
 
-  const monthName = useMemo(() => currentDate.toLocaleString(locale, { month: 'long', year: 'numeric' }), [currentDate, locale]);
   const dayNames = lang === 'fr' ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const shortDayNames = dayNames.map(d => d.slice(0,2));
@@ -372,9 +379,6 @@ export default function Calendar() {
       </div>
     );
   }
-
-  // Week range label
-  const weekLabel = useMemo(() => `${weekDays[0].toLocaleDateString(locale, { month: 'short', day: 'numeric' })} – ${weekDays[6].toLocaleDateString(locale, { month: 'short', day: 'numeric' })}`, [weekDays, locale]);
 
   // Calculate total cells needed for month view (always show 6 weeks = 42 cells)
   const totalCells = 42;
