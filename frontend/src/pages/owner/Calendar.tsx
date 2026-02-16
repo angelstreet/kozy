@@ -12,10 +12,11 @@ import {
   Moon,
   TrendingUp,
   X,
-  Filter,
-  Settings,
-  Plus,
-  Search
+  Search,
+  Home,
+  LogIn,
+  LogOut,
+  BarChart3
 } from 'lucide-react';
 
 interface Booking {
@@ -29,19 +30,19 @@ interface Booking {
   property_color: string;
 }
 
-// Source-based colors
+// Source-based colors (EXACT spec colors)
 function getSourceColor(source: string): string {
-  if (source === 'airbnb') return '#FF5A5F'; // Airbnb pink/red
-  if (source === 'booking' || source === 'booking.com') return '#003580'; // Booking.com blue
-  if (source === 'smoobu' || source === 'direct') return '#10B981'; // Direct green
+  if (source === 'airbnb') return '#EF4444'; // red
+  if (source === 'booking' || source === 'booking.com') return '#3B82F6'; // blue
+  if (source === 'smoobu' || source === 'direct') return '#10B981'; // green
   return '#6B7280'; // gray fallback
 }
 
 function getSourceInitial(source: string): string {
-  if (source === 'airbnb') return 'A';
-  if (source === 'booking' || source === 'booking.com') return 'B';
-  if (source === 'smoobu' || source === 'direct') return 'D';
-  return 'D';
+  if (source === 'airbnb') return 'A.';
+  if (source === 'booking' || source === 'booking.com') return 'B.';
+  if (source === 'smoobu' || source === 'direct') return 'D.';
+  return 'D.';
 }
 
 function getSourceLabel(source: string): string {
@@ -103,7 +104,7 @@ function getFirstDayOfWeek(year: number, month: number) {
   return d === 0 ? 6 : d - 1; // Monday-start
 }
 
-// Booking Popover Component
+// Booking Popover Component with smart positioning
 function BookingPopover({ 
   booking, 
   position,
@@ -120,6 +121,40 @@ function BookingPopover({
   const checkout = new Date(booking.checkout_date);
   const nights = Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24));
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [adjustedPosition, setAdjustedPosition] = useState(position);
+
+  // Smart positioning to avoid viewport cropping
+  useEffect(() => {
+    if (popoverRef.current) {
+      const rect = popoverRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      let { top, left } = position;
+      
+      // Check right boundary
+      if (left + rect.width > viewportWidth - 20) {
+        left = viewportWidth - rect.width - 20;
+      }
+      
+      // Check left boundary
+      if (left < 20) {
+        left = 20;
+      }
+      
+      // Check bottom boundary
+      if (top + rect.height > viewportHeight + window.scrollY - 20) {
+        top = viewportHeight + window.scrollY - rect.height - 20;
+      }
+      
+      // Check top boundary
+      if (top < window.scrollY + 20) {
+        top = window.scrollY + 20;
+      }
+      
+      setAdjustedPosition({ top, left });
+    }
+  }, [position]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -134,31 +169,31 @@ function BookingPopover({
   return (
     <div 
       ref={popoverRef}
-      className="fixed bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-5 w-80 z-50"
+      className="fixed bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 w-80 z-50"
       style={{ 
-        top: `${position.top}px`, 
-        left: `${position.left}px`,
+        top: `${adjustedPosition.top}px`, 
+        left: `${adjustedPosition.left}px`,
       }}
     >
-      <div className="flex items-start justify-between mb-4">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+      <div className="flex items-start justify-between mb-3">
+        <h3 className="text-base font-bold text-gray-900 dark:text-white">
           {cleanGuestName(booking.guest_name)}
         </h3>
         <button 
           onClick={onClose} 
-          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
         >
-          <X size={18} />
+          <X size={16} />
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <div className="flex items-center gap-2">
           <div 
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
             style={{ backgroundColor: getSourceColor(booking.source) }}
           >
-            {getSourceInitial(booking.source)}
+            {getSourceInitial(booking.source).replace('.', '')}
           </div>
           <span className="font-medium text-sm text-gray-700 dark:text-gray-300">
             {getSourceLabel(booking.source)}
@@ -166,16 +201,16 @@ function BookingPopover({
         </div>
 
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <Users size={16} />
+          <Users size={14} />
           <span>5 {lang === 'fr' ? 'voyageurs' : 'guests'}</span>
         </div>
 
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <Moon size={16} />
+          <Moon size={14} />
           <span>{nights} {lang === 'fr' ? (nights > 1 ? 'nuits' : 'nuit') : (nights > 1 ? 'nights' : 'night')}</span>
         </div>
 
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-3 space-y-2">
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-2.5 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">{lang === 'fr' ? 'Arrivée' : 'From'}</span>
             <div className="text-right">
@@ -196,23 +231,20 @@ function BookingPopover({
           </div>
         </div>
 
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-2.5">
           <div className="flex items-center gap-2 text-sm">
-            <TrendingUp size={16} className="text-gray-500" />
+            <TrendingUp size={14} className="text-gray-500" />
             <span className="text-gray-500">{lang === 'fr' ? 'Valeur du paiement' : 'Payout value'}</span>
             <span className="ml-auto font-bold text-gray-900 dark:text-white">730.41</span>
           </div>
         </div>
 
         <div className="pt-2 space-y-2">
-          <button className="w-full px-4 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
+          <button className="w-full px-3 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
             {lang === 'fr' ? 'Voir plus' : 'View more'}
           </button>
-          <button className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <button className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
             {lang === 'fr' ? 'Modifier la réservation' : 'Edit booking'}
-          </button>
-          <button className="w-full px-4 py-2.5 border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 rounded-xl font-medium hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
-            {lang === 'fr' ? 'Annuler la réservation' : 'Cancel booking'}
           </button>
         </div>
       </div>
@@ -227,8 +259,8 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
-  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<'single' | 'multi'>('single');
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
+  const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
 
   const locale = lang === 'fr' ? 'fr-FR' : 'en-US';
@@ -271,12 +303,14 @@ export default function Calendar() {
     return result;
   }, [bookings]);
 
-  // Filter bookings by selected property
+  // Filter bookings by selected properties and search
   const filteredBookings = useMemo(() => {
     let filtered = deduplicatedBookings;
-    if (selectedPropertyId) {
-      filtered = filtered.filter(b => b.property_id === selectedPropertyId);
+    
+    if (selectedPropertyIds.length > 0) {
+      filtered = filtered.filter(b => selectedPropertyIds.includes(b.property_id));
     }
+    
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(b => 
@@ -284,39 +318,35 @@ export default function Calendar() {
         b.property_name.toLowerCase().includes(query)
       );
     }
+    
     return filtered;
-  }, [deduplicatedBookings, selectedPropertyId, searchQuery]);
+  }, [deduplicatedBookings, selectedPropertyIds, searchQuery]);
 
-  // Generate 3 months for yearly view
-  const months = useMemo(() => {
-    return [0, 1, 2].map(offset => {
-      const m = month + offset;
-      const y = year + Math.floor(m / 12);
-      const actualMonth = m % 12;
-      return { year: y, month: actualMonth };
-    });
-  }, [year, month]);
+  // Today's activity
+  const todayActivity = useMemo(() => {
+    const todayStr = today.toISOString().split('T')[0];
+    const checkinsToday = filteredBookings.filter(b => b.checkin_date === todayStr);
+    const checkoutsToday = filteredBookings.filter(b => b.checkout_date === todayStr);
+    const currentlyStaying = filteredBookings.filter(b => 
+      b.checkin_date <= todayStr && b.checkout_date > todayStr
+    );
+    
+    return { checkinsToday, checkoutsToday, currentlyStaying };
+  }, [filteredBookings, today]);
+
+  const upcomingCheckins = useMemo(() => {
+    return filteredBookings
+      .filter(b => new Date(b.checkin_date) > today)
+      .sort((a, b) => new Date(a.checkin_date).getTime() - new Date(b.checkin_date).getTime())
+      .slice(0, 5);
+  }, [filteredBookings, today]);
 
   const handleBookingClick = (booking: Booking, event: React.MouseEvent) => {
     const rect = (event.target as HTMLElement).getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth;
-    
-    // Position popover to the right and below the booking, with boundary checks
-    let top = rect.top + window.scrollY;
-    let left = rect.right + window.scrollX + 10;
-    
-    // If popover would go off right edge, position it to the left instead
-    if (left + 320 > viewportWidth) {
-      left = rect.left + window.scrollX - 330;
-    }
-    
-    // If popover would go off bottom, position it higher
-    if (top + 500 > viewportHeight + window.scrollY) {
-      top = Math.max(10, viewportHeight + window.scrollY - 510);
-    }
-    
-    setPopoverPosition({ top, left });
+    setPopoverPosition({ 
+      top: rect.top + window.scrollY + rect.height + 5, 
+      left: rect.left + window.scrollX 
+    });
     setSelectedBooking(booking);
   };
 
@@ -326,6 +356,14 @@ export default function Calendar() {
   const dayNames = lang === 'fr' 
     ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] 
     : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const handlePropertySelection = (propertyId: number) => {
+    setSelectedPropertyIds(prev => 
+      prev.includes(propertyId) 
+        ? prev.filter(id => id !== propertyId)
+        : [...prev, propertyId]
+    );
+  };
 
   if (loading) {
     return (
@@ -350,291 +388,329 @@ export default function Calendar() {
     );
   }
 
+  // Calculate calendar grid for current month
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfWeek(year, month);
+  const totalCells = 42; // 6 weeks
+  const calendarDays: Array<{ date: Date | null; isCurrentMonth: boolean }> = [];
+  
+  // Previous month trailing days
+  const prevMonthNum = month === 0 ? 11 : month - 1;
+  const prevYear = month === 0 ? year - 1 : year;
+  const prevMonthDays = getDaysInMonth(prevYear, prevMonthNum);
+  
+  for (let i = firstDay - 1; i >= 0; i--) {
+    calendarDays.push({ 
+      date: new Date(prevYear, prevMonthNum, prevMonthDays - i), 
+      isCurrentMonth: false 
+    });
+  }
+  
+  // Current month days
+  for (let day = 1; day <= daysInMonth; day++) {
+    calendarDays.push({ 
+      date: new Date(year, month, day), 
+      isCurrentMonth: true 
+    });
+  }
+  
+  // Next month leading days
+  const nextMonthNum = month === 11 ? 0 : month + 1;
+  const nextYear = month === 11 ? year + 1 : year;
+  const remainingCells = totalCells - calendarDays.length;
+  
+  for (let day = 1; day <= remainingCells; day++) {
+    calendarDays.push({ 
+      date: new Date(nextYear, nextMonthNum, day), 
+      isCurrentMonth: false 
+    });
+  }
+
+  // Group days into weeks for row-based rendering
+  const weeks: Array<typeof calendarDays> = [];
+  for (let i = 0; i < calendarDays.length; i += 7) {
+    weeks.push(calendarDays.slice(i, i + 7));
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header Toolbar */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4">
-        <div className="flex items-center gap-4 mb-4">
-          <button className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
-            <Plus size={18} />
-            {lang === 'fr' ? 'Entrer une réservation' : 'Enter booking'}
-          </button>
-          <div className="flex-1 max-w-md relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder={lang === 'fr' ? "Voyageur ou ID de réservation" : "Guest or Reservation ID"}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {lang === 'fr' ? 'Calendrier' : 'Calendar'}
-          </h1>
-
+      {/* COMPACT HEADER */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          {/* Left: Navigation + Month */}
           <div className="flex items-center gap-3">
-            {/* Property Dropdown */}
-            <select
-              value={selectedPropertyId || ''}
-              onChange={(e) => setSelectedPropertyId(e.target.value ? Number(e.target.value) : null)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer font-medium"
+            <button 
+              onClick={prevMonth}
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
-              <option value="">
-                {properties.length > 1 
-                  ? (lang === 'fr' ? 'Toutes les propriétés' : 'All properties')
-                  : properties[0]?.name || (lang === 'fr' ? 'Propriété' : 'Property')
-                }
-              </option>
-              {properties.length > 1 && properties.map((p: any) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+              <ChevronLeft size={20} />
+            </button>
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white min-w-[140px]">
+              {new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
+            </h1>
+            <button 
+              onClick={nextMonth}
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
 
-            {/* Month Picker */}
-            <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
-              <CalendarIcon size={18} className="text-gray-600 dark:text-gray-400" />
-              <span className="font-medium">
-                {new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
-              </span>
+          {/* Right: Controls */}
+          <div className="flex items-center gap-3">
+            {/* Property Multi-Select Dropdown */}
+            <div className="relative">
+              <select
+                multiple={false}
+                className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors appearance-none pr-8"
+                value={selectedPropertyIds.length === 0 ? 'all' : selectedPropertyIds[0]}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'all') {
+                    setSelectedPropertyIds([]);
+                  } else {
+                    setSelectedPropertyIds([Number(val)]);
+                  }
+                }}
+              >
+                <option value="all">
+                  {lang === 'fr' ? 'Toutes les propriétés' : 'All properties'}
+                </option>
+                {properties.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">▾</div>
             </div>
 
-            <button className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2 font-medium">
-              <Filter size={18} />
-              {lang === 'fr' ? 'Filtres' : 'Filters'}
-            </button>
-
-            <button className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2 font-medium">
-              <Settings size={18} />
-              {lang === 'fr' ? 'Personnaliser' : 'Customize'}
-            </button>
-
-            <div className="flex items-center gap-1 px-1 py-1 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
-              <CalendarIcon size={18} className="ml-2 text-gray-500" />
-              <span className="mx-2 text-sm font-medium text-gray-600 dark:text-gray-400">
-                {lang === 'fr' ? 'Annuel' : 'Yearly'}
-              </span>
+            {/* Search */}
+            <div className="relative">
+              <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder={lang === 'fr' ? "Rechercher" : "Search"}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 pr-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-40"
+              />
             </div>
 
+            {/* View Mode Toggle */}
             <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
               <button
-                onClick={() => setViewMode('multi')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  viewMode === 'multi' 
-                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' 
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
-                }`}
-              >
-                {lang === 'fr' ? 'Multi' : 'Multi'}
-              </button>
-              <button
-                onClick={() => setViewMode('single')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  viewMode === 'single' 
+                onClick={() => setViewMode('calendar')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  viewMode === 'calendar' 
                     ? 'bg-blue-600 text-white' 
                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
                 }`}
               >
-                {lang === 'fr' ? 'Unique' : 'Single'}
+                <CalendarIcon size={16} />
+                {lang === 'fr' ? 'Calendrier' : 'Calendar'}
+              </button>
+              <button
+                onClick={() => setViewMode('timeline')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  viewMode === 'timeline' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
+                }`}
+              >
+                <BarChart3 size={16} />
+                {lang === 'fr' ? 'Timeline' : 'Timeline'}
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Calendar Content */}
-      <div className="px-6 py-8">
-        <div className="flex items-center justify-center gap-8 mb-8">
-          <button 
-            onClick={prevMonth}
-            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <button 
-            onClick={nextMonth}
-            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <ChevronRight size={24} />
-          </button>
-        </div>
-
-        {/* 3-Month Yearly View */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-[1600px] mx-auto">
-          {months.map(({ year: y, month: m }) => {
-            const daysInMonth = getDaysInMonth(y, m);
-            const firstDay = getFirstDayOfWeek(y, m);
-            const monthName = new Date(y, m).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
-            
-            // Calculate calendar grid (6 weeks = 42 cells)
-            const totalCells = 42;
-            const cells: Array<{ date: Date | null; isCurrentMonth: boolean }> = [];
-            
-            // Previous month trailing days
-            const prevMonth = m === 0 ? 11 : m - 1;
-            const prevYear = m === 0 ? y - 1 : y;
-            const prevMonthDays = getDaysInMonth(prevYear, prevMonth);
-            
-            for (let i = firstDay - 1; i >= 0; i--) {
-              cells.push({ 
-                date: new Date(prevYear, prevMonth, prevMonthDays - i), 
-                isCurrentMonth: false 
-              });
-            }
-            
-            // Current month days
-            for (let day = 1; day <= daysInMonth; day++) {
-              cells.push({ 
-                date: new Date(y, m, day), 
-                isCurrentMonth: true 
-              });
-            }
-            
-            // Next month leading days
-            const nextMonth = m === 11 ? 0 : m + 1;
-            const nextYear = m === 11 ? y + 1 : y;
-            const remainingCells = totalCells - cells.length;
-            
-            for (let day = 1; day <= remainingCells; day++) {
-              cells.push({ 
-                date: new Date(nextYear, nextMonth, day), 
-                isCurrentMonth: false 
-              });
-            }
-
-            return (
-              <div key={`${y}-${m}`} className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
-                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white capitalize">
-                  {monthName}
-                </h2>
-                
-                {/* Day headers */}
-                <div className="grid grid-cols-7 gap-1 mb-2">
-                  {dayNames.map((day, idx) => (
-                    <div 
-                      key={day} 
-                      className={`text-center text-xs font-semibold py-2 ${
-                        idx >= 5 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'
-                      }`}
-                    >
-                      {day}
-                    </div>
-                  ))}
+      {/* MAIN CONTENT */}
+      <div className="p-4">
+        {viewMode === 'calendar' ? (
+          /* CALENDAR VIEW */
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+            {/* Day headers */}
+            <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+              {dayNames.map((day, idx) => (
+                <div 
+                  key={day} 
+                  className={`text-center text-xs font-semibold py-2 ${
+                    idx >= 5 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  {day}
                 </div>
+              ))}
+            </div>
 
-                {/* Calendar grid */}
-                <div className="grid grid-cols-7 gap-1 relative">
-                  {cells.map((cell, idx) => {
-                    if (!cell.date) return <div key={idx} />;
+            {/* Calendar grid - WEEK ROWS with spanning bars */}
+            <div className="divide-y divide-gray-200 dark:divide-gray-800">
+              {weeks.map((week, weekIdx) => (
+                <div key={weekIdx} className="grid grid-cols-7 relative" style={{ minHeight: '100px' }}>
+                  {week.map((cell, dayIdx) => {
+                    if (!cell.date) return <div key={dayIdx} className="border-r border-gray-100 dark:border-gray-800" />;
                     
                     const dateStr = cell.date.toISOString().split('T')[0];
                     const isToday = cell.date.toDateString() === today.toDateString();
                     const dayOfWeek = cell.date.getDay();
                     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                     
-                    // Find bookings that start on this day
-                    const startingBookings = filteredBookings.filter(b => 
-                      b.checkin_date === dateStr
-                    );
-
                     return (
                       <div 
-                        key={idx}
-                        className={`relative min-h-[60px] p-1 border border-gray-100 dark:border-gray-800 ${
-                          !cell.isCurrentMonth ? 'bg-gray-50 dark:bg-gray-950 opacity-50' : ''
-                        } ${isWeekend ? 'bg-blue-50/30 dark:bg-blue-950/10' : ''}`}
+                        key={dayIdx}
+                        className={`relative p-2 border-r border-gray-100 dark:border-gray-800 ${
+                          !cell.isCurrentMonth ? 'bg-gray-50 dark:bg-gray-950 opacity-40' : ''
+                        } ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''}`}
                       >
                         <div className={`text-sm font-semibold ${
                           isToday 
-                            ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center' 
+                            ? 'bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center' 
                             : isWeekend
                             ? 'text-blue-600 dark:text-blue-400'
                             : 'text-gray-700 dark:text-gray-300'
                         }`}>
                           {cell.date.getDate()}
                         </div>
-
-                        {/* Render booking bars that start on this day */}
-                        <div className="absolute left-1 right-0 top-7 space-y-0.5">
-                          {startingBookings.map((booking) => {
-                            const checkin = new Date(booking.checkin_date);
-                            const checkout = new Date(booking.checkout_date);
-                            const nights = Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24));
-                            
-                            // Calculate how many cells this booking spans
-                            const currentCellDate = cell.date!;
-                            let span = 1;
-                            for (let i = 1; i < nights; i++) {
-                              const nextDate = new Date(currentCellDate);
-                              nextDate.setDate(nextDate.getDate() + i);
-                              
-                              // Check if next date is still in this month's view
-                              if (nextDate.getMonth() === m && nextDate.getFullYear() === y) {
-                                span++;
-                              } else {
-                                break;
-                              }
-                              
-                              // Stop at end of week
-                              if ((idx + i) % 7 === 0) break;
-                            }
-                            
-                            const sourceColor = getSourceColor(booking.source);
-                            const guestName = cleanGuestName(booking.guest_name);
-
-                            return (
-                              <div
-                                key={booking.id}
-                                onClick={(e) => handleBookingClick(booking, e)}
-                                className="absolute left-0 px-2 py-1 rounded-lg cursor-pointer hover:opacity-90 transition-opacity flex items-center gap-1.5 text-white text-xs font-medium shadow-sm"
-                                style={{
-                                  backgroundColor: sourceColor,
-                                  width: `calc(${span * 100}% + ${(span - 1) * 4}px)`,
-                                  zIndex: 10
-                                }}
-                                title={`${guestName} • ${booking.property_name} • ${nights} ${nights > 1 ? 'nights' : 'night'}`}
-                              >
-                                <div 
-                                  className="w-4 h-4 rounded-full bg-white/90 flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                                  style={{ color: sourceColor }}
-                                >
-                                  {getSourceInitial(booking.source)}
-                                </div>
-                                <span className="truncate">{guestName}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
                       </div>
                     );
                   })}
+
+                  {/* BOOKING BARS - Absolute positioned to span across week */}
+                  {week.map((cell, dayIdx) => {
+                    if (!cell.date || !cell.isCurrentMonth) return null;
+                    
+                    const dateStr = cell.date.toISOString().split('T')[0];
+                    
+                    // Find bookings that START on this specific day
+                    const startingBookings = filteredBookings.filter(b => b.checkin_date === dateStr);
+                    
+                    return startingBookings.map((booking, bookingIdx) => {
+                      const checkin = new Date(booking.checkin_date);
+                      const checkout = new Date(booking.checkout_date);
+                      const nights = Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24));
+                      
+                      // Calculate span within this week
+                      let span = 1;
+                      for (let i = 1; i < nights && dayIdx + i < 7; i++) {
+                        const nextDay = week[dayIdx + i];
+                        if (nextDay && nextDay.isCurrentMonth) {
+                          span++;
+                        } else {
+                          break;
+                        }
+                      }
+                      
+                      const sourceColor = getSourceColor(booking.source);
+                      const guestName = cleanGuestName(booking.guest_name);
+                      
+                      // Position: left = (dayIdx / 7) * 100%, width = (span / 7) * 100%
+                      const leftPercent = (dayIdx / 7) * 100;
+                      const widthPercent = (span / 7) * 100;
+                      
+                      return (
+                        <div
+                          key={`${booking.id}-${dayIdx}`}
+                          onClick={(e) => handleBookingClick(booking, e)}
+                          className="absolute px-2 py-1 rounded cursor-pointer hover:opacity-90 transition-opacity flex items-center gap-1.5 text-white text-xs font-medium shadow-sm"
+                          style={{
+                            backgroundColor: sourceColor,
+                            left: `${leftPercent}%`,
+                            width: `${widthPercent}%`,
+                            top: `${32 + bookingIdx * 24}px`, // Stack multiple bookings vertically
+                            zIndex: 10
+                          }}
+                          title={`${guestName} • ${booking.property_name}`}
+                        >
+                          <div 
+                            className="w-4 h-4 rounded-full bg-white/90 flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                            style={{ color: sourceColor }}
+                          >
+                            {getSourceInitial(booking.source).charAt(0)}
+                          </div>
+                          <span className="truncate">{guestName}</span>
+                        </div>
+                      );
+                    });
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* TIMELINE VIEW - Simplified Gantt */
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
+            <p className="text-gray-500 text-center py-8">
+              {lang === 'fr' ? 'Vue Timeline (Gantt multi-propriétés) - À implémenter' : 'Timeline View (Multi-property Gantt) - To be implemented'}
+            </p>
+          </div>
+        )}
+
+        {/* TODAY'S ACTIVITY + UPCOMING */}
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Today's Activity */}
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
+            <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+              {lang === 'fr' ? "Aujourd'hui" : 'Today'}
+            </h2>
+            
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <LogIn size={16} className="text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {lang === 'fr' ? "Arrivées aujourd'hui" : 'Check-ins today'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {todayActivity.checkinsToday.length} {lang === 'fr' ? 'réservations' : 'bookings'}
+                  </p>
                 </div>
               </div>
-            );
-          })}
-        </div>
 
-        {/* Upcoming Check-ins Section */}
-        <div className="mt-12 max-w-[1600px] mx-auto">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                {lang === 'fr' ? 'Événements à venir' : 'Upcoming events'}
-              </h2>
-              <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                {lang === 'fr' ? 'Voir tous les événements' : 'View all events'} →
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <LogOut size={16} className="text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {lang === 'fr' ? "Départs aujourd'hui" : 'Check-outs today'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {todayActivity.checkoutsToday.length} {lang === 'fr' ? 'réservations' : 'bookings'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <Home size={16} className="text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {lang === 'fr' ? 'Séjours en cours' : 'Currently staying'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {todayActivity.currentlyStaying.length} {lang === 'fr' ? 'réservations' : 'bookings'}
+                  </p>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {filteredBookings
-                .filter(b => new Date(b.checkin_date) >= today)
-                .sort((a, b) => new Date(a.checkin_date).getTime() - new Date(b.checkin_date).getTime())
-                .slice(0, 4)
-                .map(booking => {
+          {/* Upcoming Check-ins */}
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
+            <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+              {lang === 'fr' ? 'Prochaines arrivées' : 'Upcoming Check-ins'}
+            </h2>
+            
+            <div className="space-y-2">
+              {upcomingCheckins.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  {lang === 'fr' ? 'Aucune arrivée prévue' : 'No upcoming check-ins'}
+                </p>
+              ) : (
+                upcomingCheckins.map(booking => {
                   const checkin = new Date(booking.checkin_date);
                   const checkout = new Date(booking.checkout_date);
                   const nights = Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24));
@@ -642,7 +718,7 @@ export default function Calendar() {
                   return (
                     <div 
                       key={booking.id}
-                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
+                      className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors"
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         setPopoverPosition({ 
@@ -652,36 +728,33 @@ export default function Calendar() {
                         setSelectedBooking(booking);
                       }}
                     >
-                      <div className="flex items-start gap-3">
-                        <div className="text-3xl font-bold text-gray-900 dark:text-white">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
                           {checkin.getDate()}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs text-gray-500 mb-1">
-                            {checkin.toLocaleDateString(locale, { weekday: 'short', month: 'short' })}
-                          </div>
-                          <div className="font-semibold text-gray-900 dark:text-white truncate">
-                            {cleanGuestName(booking.guest_name)}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                            <Users size={12} />
-                            <span>2</span>
-                            <Moon size={12} className="ml-2" />
-                            <span>{nights}</span>
-                          </div>
+                        <div className="text-xs text-gray-500">
+                          {checkin.toLocaleDateString(locale, { month: 'short' })}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {cleanGuestName(booking.guest_name)}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{booking.property_name}</p>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                          <span 
+                            className="w-2 h-2 rounded-full" 
+                            style={{ backgroundColor: getSourceColor(booking.source) }}
+                          />
+                          <span>{getSourceLabel(booking.source)}</span>
+                          <span className="ml-1">• {nights} {lang === 'fr' ? 'nuits' : 'nights'}</span>
                         </div>
                       </div>
                     </div>
                   );
-                })}
+                })
+              )}
             </div>
-
-            {filteredBookings.filter(b => new Date(b.checkin_date) >= today).length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                <CalendarIcon size={48} className="mx-auto mb-3 opacity-30" />
-                <p>{lang === 'fr' ? 'Aucune réservation à venir' : 'No upcoming bookings'}</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
