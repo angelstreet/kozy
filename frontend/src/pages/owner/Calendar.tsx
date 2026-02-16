@@ -104,6 +104,10 @@ function getFirstDayOfWeek(year: number, month: number) {
   return d === 0 ? 6 : d - 1; // Monday-start
 }
 
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 // Booking Popover Component with smart positioning
 function BookingPopover({ 
   booking, 
@@ -142,14 +146,14 @@ function BookingPopover({
         left = 20;
       }
       
-      // Check bottom boundary
-      if (top + rect.height > viewportHeight + window.scrollY - 20) {
-        top = viewportHeight + window.scrollY - rect.height - 20;
+      // Check bottom boundary (fixed positioning = relative to viewport)
+      if (top + rect.height > viewportHeight - 20) {
+        top = viewportHeight - rect.height - 20;
       }
       
       // Check top boundary
-      if (top < window.scrollY + 20) {
-        top = window.scrollY + 20;
+      if (top < 20) {
+        top = 20;
       }
       
       setAdjustedPosition({ top, left });
@@ -341,11 +345,58 @@ export default function Calendar() {
       .slice(0, 5);
   }, [filteredBookings, today]);
 
+  // Timeline view helpers
+  const timelineStartDate = useMemo(() => {
+    const fdow = getFirstDayOfWeek(year, month);
+    const start = new Date(year, month, 1 - fdow);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }, [year, month]);
+
+  const timelineDays = useMemo(() => {
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(timelineStartDate);
+      d.setDate(timelineStartDate.getDate() + i);
+      return d;
+    });
+  }, [timelineStartDate]);
+
+  const propertyData = useMemo(() => {
+    return properties.map((p: any) => ({
+      property: p,
+      bookings: deduplicatedBookings.filter((b: Booking) => b.property_id === p.id)
+        .sort((a: Booking, b: Booking) => a.checkin_date.localeCompare(b.checkin_date))
+    }));
+  }, [properties, deduplicatedBookings]);
+
+  const calculateBarPosition = (booking: Booking, startDate: Date, dayWidth = 44) => {
+    const msPerDay = 86400000;
+    const startMs = startDate.getTime();
+    const checkinMs = new Date(booking.checkin_date).getTime();
+    const checkoutMs = new Date(booking.checkout_date).getTime();
+    const leftDays = (checkinMs - startMs) / msPerDay;
+    const durDays = (checkoutMs - checkinMs) / msPerDay;
+    let leftPx = Math.max(0, leftDays * dayWidth);
+    let widthPx = durDays * dayWidth;
+    const totalDays = timelineDays.length;
+    const totalWidth = totalDays * dayWidth;
+    if (leftPx + widthPx > totalWidth) {
+      widthPx = totalWidth - leftPx;
+    }
+    const isLeftClip = leftDays < 0;
+    const isRightClip = checkoutMs > startMs + totalDays * msPerDay;
+    if (isLeftClip) leftPx = 0;
+    if (widthPx < 20) return {left: 0, width: 0, isLeftClip: false, isRightClip: false};
+    return {left: leftPx, width: widthPx, isLeftClip, isRightClip};
+  };
+
+  const shortDayNames = dayNames.map(d => d.slice(0, 2));
+
   const handleBookingClick = (booking: Booking, event: React.MouseEvent) => {
     const rect = (event.target as HTMLElement).getBoundingClientRect();
     setPopoverPosition({ 
-      top: rect.top + window.scrollY + rect.height + 5, 
-      left: rect.left + window.scrollX 
+      top: rect.top + rect.height + 5, 
+      left: rect.left 
     });
     setSelectedBooking(booking);
   };
@@ -637,11 +688,124 @@ export default function Calendar() {
             </div>
           </div>
         ) : (
-          /* TIMELINE VIEW - Simplified Gantt */
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
-            <p className="text-gray-500 text-center py-8">
-              {lang === 'fr' ? 'Vue Timeline (Gantt multi-propriétés) - À implémenter' : 'Timeline View (Multi-property Gantt) - To be implemented'}
-            </p>
+          /* TIMELINE VIEW - Multi-property Gantt */
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <div className="overflow-x-auto">
+              <div className="min-w-max">
+                <div 
+                  className="grid gap-px bg-gray-200 dark:bg-gray-700"
+                  style={{
+                    gridTemplateColumns: '160px repeat(42, 44px)'
+                  }}
+                >
+                  {/* Property header (sticky) */}
+                  <div 
+                    className="sticky left-0 z-40 p-3 font-bold text-sm bg-gray-50 dark:bg-gray-800 border-b border-r border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                    style={{ gridRow: 1, gridColumn: 1 }}
+                  >
+                    {lang === 'fr' ? 'Propriétés' : 'Properties'}
+                  </div>
+
+                  {/* Date headers */}
+                  {timelineDays.map((day, idx) => (
+                    <div
+                      key={`head-${idx}`}
+                      className={`min-h-[48px] flex flex-col items-center justify-center p-1 text-xs font-medium border-b transition-colors ${
+                        isSameDay(day, today) 
+                          ? 'bg-blue-500 text-white font-bold' 
+                          : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300'
+                      }`}
+                      style={{
+                        gridRow: 1,
+                        gridColumn: idx + 2
+                      }}
+                    >
+                      <span className="text-base">{day.getDate()}</span>
+                      <span className="text-[9px] opacity-75 uppercase">{shortDayNames[day.getDay()]}</span>
+                    </div>
+                  ))}
+
+                  {/* Property rows */}
+                  {propertyData.map(({property, bookings}, pIdx) => {
+                    const rowNum = pIdx + 2;
+                    return (
+                      <>
+                        {/* Property name (sticky) */}
+                        <div
+                          key={`prop-${property.id}`}
+                          className="sticky left-0 z-20 bg-white dark:bg-gray-900 p-3 text-sm font-semibold border-r border-b border-gray-200 dark:border-gray-700 flex items-center gap-2"
+                          style={{
+                            gridRow: rowNum,
+                            gridColumn: 1
+                          }}
+                        >
+                          <div 
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: property.color || '#9CA3AF' }}
+                          />
+                          <span className="truncate">{property.name}</span>
+                        </div>
+
+                        {/* Timeline bar container */}
+                        <div
+                          key={`row-${property.id}`}
+                          className="relative h-[56px] border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+                          style={{
+                            gridRow: rowNum,
+                            gridColumn: '2 / 44'
+                          }}
+                        >
+                          {/* Booking bars */}
+                          {bookings.map((booking, bIdx) => {
+                            const pos = calculateBarPosition(booking, timelineStartDate);
+                            if (pos.width < 20) return null;
+                            
+                            const guestName = cleanGuestName(booking.guest_name);
+                            const sourceColor = getSourceColor(booking.source);
+                            const isLeftClip = pos.isLeftClip;
+                            const isRightClip = pos.isRightClip;
+                            
+                            return (
+                              <div
+                                key={booking.id}
+                                className="absolute inset-y-1.5 px-2 py-1 rounded-lg flex items-center gap-1.5 shadow-md border border-white/40 hover:shadow-xl hover:scale-[1.02] hover:z-10 transition-all cursor-pointer overflow-hidden"
+                                style={{
+                                  left: `${pos.left}px`,
+                                  width: `${pos.width}px`,
+                                  backgroundColor: sourceColor,
+                                  transform: `translateY(${bIdx * 4}px)`
+                                }}
+                                onClick={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setPopoverPosition({ 
+                                    top: rect.top + window.scrollY + rect.height + 5, 
+                                    left: rect.left + window.scrollX 
+                                  });
+                                  setSelectedBooking(booking);
+                                }}
+                                title={`${guestName} • ${getSourceLabel(booking.source)} • ${booking.checkin_date} → ${booking.checkout_date}`}
+                              >
+                                <div 
+                                  className="w-4 h-4 rounded-full bg-white/90 flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                  style={{ color: sourceColor }}
+                                >
+                                  {getSourceInitial(booking.source).charAt(0)}
+                                </div>
+                                <span className="truncate text-[11px] font-medium text-white">
+                                  {isLeftClip && <span className="opacity-80 mr-1">← </span>}
+                                  {guestName.slice(0, 24)}
+                                  {isRightClip && <span className="opacity-80 ml-1"> →</span>}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -722,8 +886,8 @@ export default function Calendar() {
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         setPopoverPosition({ 
-                          top: rect.top + window.scrollY, 
-                          left: rect.right + window.scrollX + 10 
+                          top: rect.top, 
+                          left: rect.right + 10 
                         });
                         setSelectedBooking(booking);
                       }}
