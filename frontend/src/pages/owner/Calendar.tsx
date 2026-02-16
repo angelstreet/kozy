@@ -404,7 +404,7 @@ export default function Calendar() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
@@ -454,7 +454,8 @@ export default function Calendar() {
     let filtered = deduplicatedBookings;
     
     if (selectedPropertyIds.length > 0) {
-      filtered = filtered.filter(b => selectedPropertyIds.includes(b.property_id));
+      const propertyIds = selectedPropertyIds.map(id => Number(id));
+      filtered = filtered.filter(b => propertyIds.includes(b.property_id));
     }
     
     if (selectedSources.length > 0) {
@@ -536,7 +537,35 @@ export default function Calendar() {
     return {left: leftPx, width: widthPx, isLeftClip, isRightClip};
   };
 
-  const handleBookingClick = (booking: Booking, _event: React.MouseEvent) => {
+  function computePropertySlots(bookings: Booking[]) {
+    if (bookings.length === 0) return new Map&lt;number, number&gt;();
+
+    const sortedBookings = [...bookings].sort((a, b) =&gt; new Date(a.checkin_date).getTime() - new Date(b.checkin_date).getTime());
+    const slotById = new Map&lt;number, number&gt;();
+
+    for (const booking of sortedBookings) {
+      const usedSlots = new Set&lt;number&gt;();
+      for (const other of sortedBookings) {
+        if (other.id === booking.id) continue;
+        if (!slotById.has(other.id)) continue;
+        const bStart = new Date(booking.checkin_date);
+        const bEnd = new Date(booking.checkout_date);
+        const oStart = new Date(other.checkin_date);
+        const oEnd = new Date(other.checkout_date);
+        if (bEnd &gt; oStart &amp;&amp; oEnd &gt; bStart) {
+          usedSlots.add(slotById.get(other.id)!);
+        }
+      }
+      let slot = 0;
+      while (usedSlots.has(slot)) {
+        slot++;
+      }
+      slotById.set(booking.id, slot);
+    }
+    return slotById;
+  }
+
+  const handleBookingClick = (booking: Booking, _event: React.MouseEvent) =&gt; {
     setSelectedBooking(booking);
   };
 
@@ -795,7 +824,7 @@ export default function Calendar() {
                 className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-xs font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors appearance-none w-36 h-auto max-h-20"
                 value={selectedPropertyIds}
                 onChange={(e) => {
-                  const newIds: number[] = Array.from(e.target.selectedOptions, option => Number(option.value));
+                  const newIds: string[] = Array.from(e.target.selectedOptions, option => option.value);
                   setSelectedPropertyIds(newIds);
                 }}
               >
@@ -976,7 +1005,7 @@ export default function Calendar() {
                         {/* Timeline bar container */}
                         <div
                           key={`row-${property.id}`}
-                          className="relative h-[56px] border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+                          className="relative h-[44px] border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
                           style={{
                             gridRow: rowNum,
                             gridColumn: '2 / 44'
@@ -999,8 +1028,7 @@ export default function Calendar() {
                                 style={{
                                   left: `${pos.left}px`,
                                   width: `${pos.width}px`,
-                                  backgroundColor: sourceColor,
-                                  transform: `translateY(${bIdx * 4}px)`
+                                  backgroundColor: sourceColor
                                 }}
                                 onClick={() => {
                                   setSelectedBooking(booking);
