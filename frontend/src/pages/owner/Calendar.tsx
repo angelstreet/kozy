@@ -4,7 +4,7 @@ import { t } from '@/i18n';
 import { useProperties } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
 import { useEffect, useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, X, Filter, Timeline, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, X, Filter, BarChart3, Clock } from 'lucide-react';
 
 interface Booking {
   id: number;
@@ -187,17 +187,22 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (viewMode === 'timeline') {
-      setSelectedPropertyId(null);
-    }
-  }, [viewMode]);
-
-  // Detect mobile for default view
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'timeline'>(() =>
     window.innerWidth < 640 ? 'week' : 'timeline'
   );
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640 && viewMode === 'timeline') {
+        setViewMode('week');
+      } else if (window.innerWidth >= 640 && viewMode === 'week') {
+        setViewMode('timeline');
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, [viewMode]);
 
   const locale = lang === 'fr' ? 'fr-FR' : 'en-US';
   const year = currentDate.getFullYear();
@@ -248,6 +253,23 @@ export default function Calendar() {
 
   const timelineBookings = deduplicatedBookings;
 
+  const timelineStartDate = useMemo(() => {
+    const fdow = getFirstDayOfWeek(year, month);
+    const start = new Date(year, month, 1 - fdow);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }, [year, month]);
+
+  const timelineDays = useMemo(() => {
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(timelineStartDate);
+      d.setDate(timelineStartDate.getDate() + i);
+      return d;
+    });
+  }, [timelineStartDate]);
+
+  const TOTAL_TIMELINE_DAYS = 42;
+
   const propertyData = useMemo(() => {
     return properties.map((p: any) => ({
       property: p,
@@ -264,6 +286,15 @@ export default function Calendar() {
       .sort((a: Booking, b: Booking) => new Date(a.checkin_date).getTime() - new Date(b.checkin_date).getTime());
   }, [deduplicatedBookings]);
 
+  const timelineLabel = useMemo(() => {
+    if (!timelineDays.length) return '';
+    const startStr = timelineDays[0].toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+    const endStr = timelineDays[timelineDays.length - 1].toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+    return `${startStr} – ${endStr}`;
+  }, [timelineDays, locale]);
+
+  const periodLabel = useMemo(() => viewMode === 'week' ? weekLabel : viewMode === 'month' ? monthName : timelineLabel, [viewMode, weekLabel, monthName, timelineLabel]);
+
   const calculateBarPosition = (booking: Booking, startDate: Date, dayWidth = 44) => {
     const msPerDay = 86400000;
     const startMs = startDate.getTime();
@@ -273,7 +304,7 @@ export default function Calendar() {
     const durDays = (checkoutMs - checkinMs) / msPerDay;
     let leftPx = Math.max(0, leftDays * dayWidth);
     let widthPx = durDays * dayWidth;
-    const totalDays = timelineDays.length;
+    const totalDays = TOTAL_TIMELINE_DAYS;
     const totalWidth = totalDays * dayWidth;
     if (leftPx + widthPx > totalWidth) {
       widthPx = totalWidth - leftPx;
@@ -310,7 +341,7 @@ export default function Calendar() {
     }
   };
 
-  const monthName = currentDate.toLocaleString(locale, { month: 'long', year: 'numeric' });
+  const monthName = useMemo(() => currentDate.toLocaleString(locale, { month: 'long', year: 'numeric' }), [currentDate, locale]);
   const dayNames = lang === 'fr' ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const shortDayNames = dayNames.map(d => d.slice(0,2));
@@ -343,31 +374,7 @@ export default function Calendar() {
   }
 
   // Week range label
-  const weekLabel = `${weekDays[0].toLocaleDateString(locale, { month: 'short', day: 'numeric' })} – ${weekDays[6].toLocaleDateString(locale, { month: 'short', day: 'numeric' })}`;
-
-  const timelineStartDate = useMemo(() => {
-    const fdow = getFirstDayOfWeek(year, month);
-    const start = new Date(year, month, 1 - fdow);
-    start.setHours(0, 0, 0, 0);
-    return start;
-  }, [year, month]);
-
-  const timelineDays = useMemo(() => {
-    return Array.from({ length: 42 }, (_, i) => {
-      const d = new Date(timelineStartDate);
-      d.setDate(timelineStartDate.getDate() + i);
-      return d;
-    });
-  }, [timelineStartDate]);
-
-  const timelineLabel = useMemo(() => {
-    if (!timelineDays.length) return '';
-    const startStr = timelineDays[0].toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-    const endStr = timelineDays[41].toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-    return `${startStr} – ${endStr}`;
-  }, [timelineDays, locale]);
-
-  const periodLabel = viewMode === 'week' ? weekLabel : viewMode === 'month' ? monthName : timelineLabel;
+  const weekLabel = useMemo(() => `${weekDays[0].toLocaleDateString(locale, { month: 'short', day: 'numeric' })} – ${weekDays[6].toLocaleDateString(locale, { month: 'short', day: 'numeric' })}`, [weekDays, locale]);
 
   // Calculate total cells needed for month view (always show 6 weeks = 42 cells)
   const totalCells = 42;
@@ -395,7 +402,7 @@ export default function Calendar() {
             onClick={() => setViewMode('timeline')}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'timeline' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
           >
-            <Timeline size={14} />
+            <BarChart3 size={14} />
           </button>
         </div>
       </div>
