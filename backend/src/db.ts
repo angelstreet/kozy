@@ -132,6 +132,10 @@ export async function migrate() {
   // Run encryption migration
   const { migrateEncryption } = await import('./migrations/add_encryption.js');
   await migrateEncryption();
+
+  // Add unique constraint on booking reference_id
+  const { migrateBookingReferenceConstraint } = await import('./migrations/add_booking_reference_constraint.js');
+  await migrateBookingReferenceConstraint();
 }
 
 export async function seed() {
