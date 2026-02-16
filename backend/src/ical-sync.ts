@@ -45,25 +45,28 @@ export async function fetchAndParseIcal(url: string): Promise<ParsedBooking[]> {
 
   for (const key of Object.keys(data)) {
     const event = data[key];
-    if (event.type !== 'VEVENT') continue;
-    if (!event.start || !event.end) continue;
+    if (!event || event.type !== 'VEVENT') continue;
+    
+    // Type assertion for VEVENT - we know it has these properties
+    const vevent = event as any;
+    if (!vevent.start || !vevent.end) continue;
 
-    const checkin = formatDate(event.start);
-    const checkout = formatDate(event.end);
+    const checkin = formatDate(vevent.start);
+    const checkout = formatDate(vevent.end);
     if (!checkin || !checkout) continue;
 
-    const summary = event.summary || '';
+    const summary = vevent.summary || '';
     if (summary === 'Not available' || summary === 'Airbnb (Not available)') continue;
 
-    const guestName = extractGuestName(event);
-    const uid = event.uid || `${checkin}-${checkout}-${source}`;
+    const guestName = extractGuestName(vevent);
+    const uid = vevent.uid || `${checkin}-${checkout}-${source}`;
 
     bookings.push({
       ical_uid: uid,
       checkin_date: checkin,
       checkout_date: checkout,
       guest_name: guestName,
-      description: event.description || '',
+      description: vevent.description || '',
       source,
     });
   }
