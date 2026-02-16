@@ -39,6 +39,40 @@ export interface SmoobuApiResponse {
   total: number;
 }
 
+export interface SmoobuApartment {
+  id: number;
+  name: string;
+  type: string;
+  capacity: number;
+}
+
+export interface SmoobuApartmentsResponse {
+  apartments: SmoobuApartment[];
+}
+
+/**
+ * Fetch all apartments from Smoobu API
+ * Docs: https://docs.smoobu.com/#get-apartments
+ */
+export async function fetchSmoobuApartments(apiKey: string): Promise<SmoobuApartment[]> {
+  const url = 'https://login.smoobu.com/api/apartments';
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Api-Key': apiKey,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Smoobu API error: ${response.status} ${response.statusText}`);
+  }
+
+  const data: SmoobuApartmentsResponse = await response.json();
+  return data.apartments || [];
+}
+
 /**
  * Fetch all reservations from Smoobu API
  * Docs: https://docs.smoobu.com/#get-bookings-api

@@ -118,25 +118,9 @@ function bookingStartsOn(booking: Booking, dateString: string): boolean {
   return booking.checkin_date === dateString;
 }
 
-// Calculate span length for booking from a given date
-function getBookingSpan(booking: Booking, startDate: string, maxDays: number): number {
-  const start = new Date(startDate);
-  const checkoutDate = new Date(booking.checkout_date);
-  let span = 0;
-  
-  for (let i = 0; i < maxDays; i++) {
-    const currentDate = new Date(start);
-    currentDate.setDate(start.getDate() + i);
-    const currentStr = dateStr(currentDate);
-    
-    if (currentStr >= booking.checkin_date && currentStr < booking.checkout_date) {
-      span++;
-    } else {
-      break;
-    }
-  }
-  
-  return span;
+// Check if booking is ongoing (middle of stay) on this date
+function bookingContinuesOn(booking: Booking, dateString: string): boolean {
+  return dateString > booking.checkin_date && dateString < booking.checkout_date;
 }
 
 // Modal component for booking details
@@ -387,6 +371,7 @@ export default function Calendar() {
                     {dayBookings.map(b => {
                       const sourceColor = getSourceColor(b.source);
                       const guestName = cleanGuestName(b.guest_name);
+                      const isStart = bookingStartsOn(b, ds);
                       return (
                         <div
                           key={b.id}
@@ -395,7 +380,7 @@ export default function Calendar() {
                           style={{ backgroundColor: sourceColor + '20' }}
                         >
                           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sourceColor }} />
-                          <span className="font-medium truncate">{guestName}</span>
+                          <span className="font-medium truncate">{isStart ? guestName : '→ ' + guestName}</span>
                           <span className="text-gray-400 truncate ml-auto text-[10px]">{b.property_name}</span>
                         </div>
                       );
@@ -408,7 +393,7 @@ export default function Calendar() {
         </div>
       )}
 
-      {/* Month View with Multi-day Spans */}
+      {/* Month View with Continuation Indicators */}
       {viewMode === 'month' && (
         <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
           {dayNames.map(d => (
@@ -423,24 +408,27 @@ export default function Calendar() {
             const day = prevMonthDays - firstDay + i + 1;
             const ds = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const dayBookings = getBookingsForDate(ds);
-            const startingBookings = dayBookings.filter(b => bookingStartsOn(b, ds));
             
             return (
               <div key={`prev-${i}`} className="bg-gray-50 dark:bg-gray-950 min-h-[80px] sm:min-h-[100px] p-2 opacity-40">
                 <div className="text-sm font-semibold mb-1 text-gray-400">{day}</div>
                 <div className="space-y-1">
-                  {startingBookings.map(booking => {
+                  {dayBookings.map(booking => {
                     const sourceColor = getSourceColor(booking.source);
                     const guestName = cleanGuestName(booking.guest_name);
+                    const isStart = bookingStartsOn(booking, ds);
+                    const isContinuation = bookingContinuesOn(booking, ds);
+                    
                     return (
                       <div
                         key={booking.id}
                         onClick={() => setSelectedBooking(booking)}
-                        className="text-[10px] sm:text-xs leading-tight px-2 py-1 rounded text-white font-medium cursor-pointer hover:opacity-90 transition-opacity truncate"
+                        className="text-[10px] sm:text-xs leading-tight px-2 py-1 rounded text-white font-medium cursor-pointer hover:opacity-90 transition-opacity truncate flex items-center gap-1"
                         style={{ backgroundColor: sourceColor }}
                         title={`${guestName} - ${booking.property_name}`}
                       >
-                        {guestName}
+                        {isContinuation && <span>→</span>}
+                        {isStart ? guestName : ''}
                       </div>
                     );
                   })}
@@ -454,9 +442,6 @@ export default function Calendar() {
             const day = i + 1;
             const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const dayBookings = getBookingsForDay(day);
-            const startingBookings = dayBookings.filter(b => bookingStartsOn(b, ds));
-            const dayOfWeek = (firstDay + i) % 7;
-            const daysUntilWeekEnd = 7 - dayOfWeek;
             
             return (
               <div 
@@ -468,26 +453,24 @@ export default function Calendar() {
                   {day}
                 </div>
                 
-                {/* Bookings as continuous bars */}
+                {/* Bookings with continuation indicators */}
                 <div className="space-y-1">
-                  {startingBookings.map(booking => {
-                    const span = getBookingSpan(booking, ds, Math.min(daysUntilWeekEnd, daysInMonth - day + 1));
+                  {dayBookings.map(booking => {
                     const sourceColor = getSourceColor(booking.source);
                     const guestName = cleanGuestName(booking.guest_name);
+                    const isStart = bookingStartsOn(booking, ds);
+                    const isContinuation = bookingContinuesOn(booking, ds);
                     
                     return (
                       <div
                         key={booking.id}
                         onClick={() => setSelectedBooking(booking)}
-                        className="text-[10px] sm:text-xs leading-tight px-2 py-1 rounded text-white font-medium cursor-pointer hover:opacity-90 transition-opacity truncate"
-                        style={{ 
-                          backgroundColor: sourceColor,
-                          position: 'relative',
-                          zIndex: 10,
-                        }}
+                        className="text-[10px] sm:text-xs leading-tight px-2 py-1 rounded text-white font-medium cursor-pointer hover:opacity-90 transition-opacity truncate flex items-center gap-1"
+                        style={{ backgroundColor: sourceColor }}
                         title={`${guestName} - ${booking.property_name}`}
                       >
-                        {guestName}
+                        {isContinuation && <span>→</span>}
+                        {isStart ? guestName : ''}
                       </div>
                     );
                   })}
@@ -503,24 +486,27 @@ export default function Calendar() {
             const nextYear = month === 11 ? year + 1 : year;
             const ds = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const dayBookings = getBookingsForDate(ds);
-            const startingBookings = dayBookings.filter(b => bookingStartsOn(b, ds));
             
             return (
               <div key={`next-${i}`} className="bg-gray-50 dark:bg-gray-950 min-h-[80px] sm:min-h-[100px] p-2 opacity-40">
                 <div className="text-sm font-semibold mb-1 text-gray-400">{day}</div>
                 <div className="space-y-1">
-                  {startingBookings.map(booking => {
+                  {dayBookings.map(booking => {
                     const sourceColor = getSourceColor(booking.source);
                     const guestName = cleanGuestName(booking.guest_name);
+                    const isStart = bookingStartsOn(booking, ds);
+                    const isContinuation = bookingContinuesOn(booking, ds);
+                    
                     return (
                       <div
                         key={booking.id}
                         onClick={() => setSelectedBooking(booking)}
-                        className="text-[10px] sm:text-xs leading-tight px-2 py-1 rounded text-white font-medium cursor-pointer hover:opacity-90 transition-opacity truncate"
+                        className="text-[10px] sm:text-xs leading-tight px-2 py-1 rounded text-white font-medium cursor-pointer hover:opacity-90 transition-opacity truncate flex items-center gap-1"
                         style={{ backgroundColor: sourceColor }}
                         title={`${guestName} - ${booking.property_name}`}
                       >
-                        {guestName}
+                        {isContinuation && <span>→</span>}
+                        {isStart ? guestName : ''}
                       </div>
                     );
                   })}
@@ -546,6 +532,9 @@ export default function Calendar() {
             <div className="w-2.5 h-2.5 rounded" style={{ backgroundColor: '#10B981' }} />
             <span>Smoobu</span>
           </div>
+        </div>
+        <div className="text-xs text-gray-500">
+          → = {lang === 'fr' ? 'Continuation du séjour' : 'Continuation of stay'}
         </div>
       </div>
 

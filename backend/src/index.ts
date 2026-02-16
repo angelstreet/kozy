@@ -417,6 +417,124 @@ app.post('/api/smoobu-sync', async (c) => {
   });
 });
 
+// List all Smoobu apartments
+app.get('/api/smoobu/apartments', async (c) => {
+  const userId = c.get('userId');
+
+  // Get user's encrypted Smoobu API key
+  const keyResult = await db.execute({
+    sql: 'SELECT smoobu_api_key_encrypted FROM user WHERE id = ?',
+    args: [userId]
+  });
+
+  const encryptedKey = keyResult.rows[0] ? (keyResult.rows[0] as any).smoobu_api_key_encrypted : null;
+
+  if (!encryptedKey) {
+    return c.json({ error: 'Smoobu API key not configured. Please add it in Settings.' }, 400);
+  }
+
+  // Decrypt the API key
+  const { decryptApiKey } = await import('./encryption.js');
+  const apiKey = decryptApiKey(encryptedKey);
+
+  try {
+    const { fetchSmoobuApartments } = await import('./smoobu-sync.js');
+    const apartments = await fetchSmoobuApartments(apiKey);
+    return c.json({ apartments });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// Sync ALL Smoobu bookings (auto-detects all apartments)
+app.post('/api/smoobu/sync-all', async (c) => {
+  const userId = c.get('userId');
+
+  // Get user's encrypted Smoobu API key
+  const keyResult = await db.execute({
+    sql: 'SELECT smoobu_api_key_encrypted FROM user WHERE id = ?',
+    args: [userId]
+  });
+
+  const encryptedKey = keyResult.rows[0] ? (keyResult.rows[0] as any).smoobu_api_key_encrypted : null;
+
+  if (!encryptedKey) {
+    return c.json({ error: 'Smoobu API key not configured. Please add it in Settings.' }, 400);
+  }
+
+  // Decrypt the API key
+  const { decryptApiKey } = await import('./encryption.js');
+  const apiKey = decryptApiKey(encryptedKey);
+
+  try {
+    const { fetchSmoobuApartments, fetchSmoobuBookings, syncSmoobuBookings } = await import('./smoobu-sync.js');
+    
+    // Step 1: Fetch all apartments from Smoobu
+    const apartments = await fetchSmoobuApartments(apiKey);
+    
+    // Step 2: Fetch all reservations from Smoobu
+    const reservations = await fetchSmoobuBookings(apiKey);
+    
+    // Step 3: Get all existing properties from DB
+    const propertiesResult = userId && userId !== 'dev-user'
+      ? await db.execute({ sql: 'SELECT id, name, smoobu_apartment_id FROM property WHERE user_id = ? OR user_id IS NULL', args: [userId] })
+      : await db.execute('SELECT id, name, smoobu_apartment_id FROM property');
+    
+    const properties = propertiesResult.rows as any[];
+    
+    // Step 4: For each apartment, find or update matching property
+    const results = [];
+    for (const apartment of apartments) {
+      // Find existing property by smoobu_apartment_id or name
+      let property = properties.find(p => p.smoobu_apartment_id === apartment.id);
+      
+      if (!property) {
+        // Try matching by name (fuzzy)
+        property = properties.find(p => 
+          p.name.toLowerCase().includes(apartment.name.toLowerCase()) ||
+          apartment.name.toLowerCase().includes(p.name.toLowerCase())
+        );
+        
+        // Auto-update smoobu_apartment_id if found
+        if (property) {
+          await db.execute({
+            sql: 'UPDATE property SET smoobu_apartment_id = ? WHERE id = ?',
+            args: [apartment.id, property.id]
+          });
+          property.smoobu_apartment_id = apartment.id;
+        }
+      }
+      
+      if (property) {
+        // Sync bookings for this property
+        const syncResult = await syncSmoobuBookings(property.id, apiKey, apartment.id);
+        results.push({
+          propertyName: property.name,
+          apartmentName: apartment.name,
+          ...syncResult
+        });
+      } else {
+        results.push({
+          apartmentId: apartment.id,
+          apartmentName: apartment.name,
+          skipped: true,
+          reason: 'No matching property in Kozy (create property manually or rename to match)'
+        });
+      }
+    }
+    
+    return c.json({
+      success: true,
+      apartments: apartments.length,
+      synced: results.filter(r => !r.skipped).length,
+      skipped: results.filter(r => r.skipped).length,
+      results
+    });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
 // Smoobu sync for a single property
 app.post('/api/properties/:id/smoobu-sync', async (c) => {
   const id = Number(c.req.param('id'));
@@ -627,7 +745,7 @@ export default app;
 // Node.js server (only when not on Vercel)
 if (!process.env.VERCEL) {
   const { serve } = await import('@hono/node-server');
-  serve({ fetch: app.fetch, port: 3002 }, () => {
-    console.log('Kozy API running on http://localhost:3002');
+  serve({ fetch: app.fetch, port: 5002 }, () => {
+    console.log('Kozy API running on http://localhost:5002');
   });
 }

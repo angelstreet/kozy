@@ -14,9 +14,9 @@ export default defineConfig({
   },
   base: process.env.VITE_BASE_PATH || '/kozy/',
   server: {
-    port: 5174,
+    port: 3002,
     proxy: {
-      '/kozy/api': { target: 'http://localhost:3002', rewrite: (p) => p.replace(/^\/kozy\/api/, '/api') },
+      '/kozy/api': { target: 'http://localhost:5002', rewrite: (p) => p.replace(/^\/kozy\/api/, '/api') },
     },
   },
 });
