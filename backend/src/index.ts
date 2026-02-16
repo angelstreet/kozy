@@ -745,7 +745,7 @@ export default app;
 // Node.js server (only when not on Vercel)
 if (!process.env.VERCEL) {
   const { serve } = await import('@hono/node-server');
-  serve({ fetch: app.fetch, port: 5003 }, () => {
+  serve({ fetch: app.fetch, port: 5002 }, () => {
     console.log('Kozy API running on http://localhost:5002');
   });
 }
