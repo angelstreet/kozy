@@ -778,8 +778,8 @@ export default function Calendar() {
                                 onClick={(e) => {
                                   const rect = e.currentTarget.getBoundingClientRect();
                                   setPopoverPosition({ 
-                                    top: rect.top + window.scrollY + rect.height + 5, 
-                                    left: rect.left + window.scrollX 
+                                    top: rect.top + rect.height + 5, 
+                                    left: rect.left 
                                   });
                                   setSelectedBooking(booking);
                                 }}
