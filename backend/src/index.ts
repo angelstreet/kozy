@@ -5,7 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import db, { initDB, seed, migrate, seedTestData, clearAll } from './db.js';
 import { fetchAndParseIcal, syncPropertyIcal } from './ical-sync.js';
-import { syncSmoobuData } from './smoobu-sync.js';
+import { syncSmoobuData, syncSmoobuBookings } from './smoobu-sync.js';
+import { syncProperty } from './unified-sync.js';
 import { clerkAuth } from './clerk-middleware.js';
 
 type Variables = {
@@ -323,24 +324,41 @@ app.post('/api/ical-preview', async (c) => {
   }
 });
 
-// iCal sync for a single property
-app.post('/api/properties/:id/ical-sync', async (c) => {
+// Sync for a single property (unified: Smoobu primary, iCal fallback)
+app.post('/api/properties/:id/sync', async (c) => {
   const id = Number(c.req.param('id'));
+  const userId = c.get('userId');
   try {
-    const result = await syncPropertyIcal(id);
+    const result = await syncProperty(id, userId);
     return c.json(result);
   } catch (e: any) {
     return c.json({ error: e.message }, 400);
   }
 });
 
-// iCal sync all properties
-app.post('/api/ical-sync-all', async (c) => {
-  const properties = await db.execute('SELECT id FROM property WHERE ical_airbnb IS NOT NULL OR ical_booking IS NOT NULL');
+// Legacy iCal sync endpoint (kept for backward compatibility)
+app.post('/api/properties/:id/ical-sync', async (c) => {
+  const id = Number(c.req.param('id'));
+  const userId = c.get('userId');
+  try {
+    const result = await syncProperty(id, userId);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// Sync all properties (unified: Smoobu primary, iCal fallback)
+app.post('/api/sync-all', async (c) => {
+  const userId = c.get('userId');
+  const properties = userId && userId !== 'dev-user'
+    ? await db.execute({ sql: 'SELECT id FROM property WHERE user_id = ? OR user_id IS NULL', args: [userId] })
+    : await db.execute('SELECT id FROM property');
+  
   const results = [];
   for (const p of properties.rows as any[]) {
     try {
-      const result = await syncPropertyIcal(p.id);
+      const result = await syncProperty(p.id, userId);
       results.push(result);
     } catch (e: any) {
       results.push({ propertyId: p.id, error: e.message });
@@ -349,49 +367,52 @@ app.post('/api/ical-sync-all', async (c) => {
   return c.json({ synced: results.length, results });
 });
 
-// Smoobu sync for all user properties
+// Legacy iCal sync all endpoint (kept for backward compatibility)
+app.post('/api/ical-sync-all', async (c) => {
+  const userId = c.get('userId');
+  const properties = userId && userId !== 'dev-user'
+    ? await db.execute({ sql: 'SELECT id FROM property WHERE user_id = ? OR user_id IS NULL', args: [userId] })
+    : await db.execute('SELECT id FROM property');
+  
+  const results = [];
+  for (const p of properties.rows as any[]) {
+    try {
+      const result = await syncProperty(p.id, userId);
+      results.push(result);
+    } catch (e: any) {
+      results.push({ propertyId: p.id, error: e.message });
+    }
+  }
+  return c.json({ synced: results.length, results });
+});
+
+// Sync all properties (unified: Smoobu primary, iCal fallback) - alias for /api/sync-all
 app.post('/api/smoobu-sync', async (c) => {
   const userId = c.get('userId');
-
-  // Get user's encrypted Smoobu API key
-  const keyResult = await db.execute({
-    sql: 'SELECT smoobu_api_key_encrypted FROM user WHERE id = ?',
-    args: [userId]
-  });
-
-  const encryptedKey = keyResult.rows[0] ? (keyResult.rows[0] as any).smoobu_api_key_encrypted : null;
-
-  if (!encryptedKey) {
-    return c.json({ error: 'Smoobu API key not configured. Please add it in Settings.' }, 400);
-  }
-
-  // Decrypt the API key
-  const { decryptApiKey } = await import('./encryption.js');
-  const apiKey = decryptApiKey(encryptedKey);
-
-  // Get all properties for this user
-  const propsResult = await db.execute({
-    sql: 'SELECT id FROM property WHERE user_id = ? OR user_id IS NULL',
-    args: [userId]
-  });
-
-  const properties = propsResult.rows as any[];
+  const properties = userId && userId !== 'dev-user'
+    ? await db.execute({ sql: 'SELECT id FROM property WHERE user_id = ? OR user_id IS NULL', args: [userId] })
+    : await db.execute('SELECT id FROM property');
+  
   const results = [];
-  let totalEnriched = 0;
+  let totalCreated = 0;
+  let totalUpdated = 0;
 
-  for (const prop of properties) {
+  for (const p of properties.rows as any[]) {
     try {
-      const result = await syncSmoobuData(prop.id, apiKey);
+      const result = await syncProperty(p.id, userId);
       results.push(result);
-      totalEnriched += result.enrichedCount;
+      totalCreated += result.created || 0;
+      totalUpdated += result.updated || 0;
     } catch (e: any) {
-      results.push({ propertyId: prop.id, error: e.message });
+      results.push({ propertyId: p.id, error: e.message });
     }
   }
 
   return c.json({
     synced: results.length,
-    totalEnriched,
+    totalEnriched: totalCreated + totalUpdated, // For backward compatibility with frontend
+    totalCreated,
+    totalUpdated,
     results
   });
 });
