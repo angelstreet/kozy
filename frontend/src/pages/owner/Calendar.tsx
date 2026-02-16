@@ -3,7 +3,7 @@ import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useProperties } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -32,32 +32,38 @@ interface Booking {
 
 // Source-based colors (muted pastels)
 function getSourceColor(source: string): string {
-  if (source === 'airbnb') return '#E8927C'; // warm coral
-  if (source === 'booking' || source === 'booking.com') return '#7C9FE8'; // soft periwinkle
-  if (source === 'smoobu' || source === 'direct') return '#7CC5A8'; // sage green
-  return '#9CA3AF'; // soft gray
+  const norm = normalizeSource(source);
+  if (norm === 'airbnb') return '#E8927C';
+  if (norm === 'booking') return '#7C9FE8';
+  if (norm === 'smoobu' || norm === 'direct') return '#7CC5A8';
+  return '#9CA3AF';
 }
 
 function getSourceInitial(source: string): string {
-  if (source === 'airbnb') return 'A.';
-  if (source === 'booking' || source === 'booking.com') return 'B.';
-  if (source === 'smoobu' || source === 'direct') return 'D.';
-  return 'D.';
+  const norm = normalizeSource(source);
+  if (norm === 'airbnb') return 'A.';
+  if (norm === 'booking') return 'B.';
+  if (norm === 'smoobu') return 'S.';
+  if (norm === 'direct') return 'D.';
+  return '?';
 }
 
 function getSourceLabel(source: string): string {
-  if (source === 'airbnb') return 'Airbnb';
-  if (source === 'booking' || source === 'booking.com') return 'Booking.com';
-  if (source === 'smoobu' || source === 'direct') return 'Direct';
+  const norm = normalizeSource(source);
+  if (norm === 'airbnb') return 'Airbnb';
+  if (norm === 'booking') return 'Booking.com';
+  if (norm === 'smoobu') return 'Smoobu';
+  if (norm === 'direct') return 'Direct';
   return source;
 }
 
 function normalizeSource(source: string): string {
-  const lower = source.toLowerCase();
+  const lower = source.toLowerCase().trim();
   if (lower === 'airbnb') return 'airbnb';
-  if (lower === 'booking' || lower === 'booking.com') return 'booking';
-  if (lower === 'smoobu' || lower === 'direct') return 'direct';
-  return 'other';
+  if (lower.includes('booking')) return 'booking';
+  if (lower === 'smoobu') return 'smoobu';
+  if (lower.includes('direct')) return 'direct';
+  return lower;
 }
 
 // Clean guest name (remove technical fields and extract real names)
@@ -409,6 +415,21 @@ export default function Calendar() {
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const displayPropertyId = useMemo(() => {
+    if (selectedPropertyIds.length === 0) return '';
+    if (selectedPropertyIds.length === 1) return selectedPropertyIds[0].toString();
+    return '';
+  }, [selectedPropertyIds]);
+
+  const displaySource = useMemo(() => {
+    if (selectedSources.length === 0) return '';
+    if (selectedSources.length === 1) return selectedSources[0];
+    return '';
+  }, [selectedSources]);
+
+  const displayPropertyId = useMemo(() =&gt; selectedPropertyIds.length === 0 ? '' : selectedPropertyIds[0]?.toString() ?? '', [selectedPropertyIds]);
+  const displaySource = useMemo(() =&gt; selectedSources.length === 0 ? '' : selectedSources[0], [selectedSources]);
+
   const locale = lang === 'fr' ? 'fr-FR' : 'en-US';
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -454,8 +475,7 @@ export default function Calendar() {
     let filtered = deduplicatedBookings;
     
     if (selectedPropertyIds.length > 0) {
-      const propertyIds = selectedPropertyIds.map(id => Number(id));
-      filtered = filtered.filter(b => propertyIds.includes(b.property_id));
+      filtered = filtered.filter(b => selectedPropertyIds.includes(b.property_id));
     }
     
     if (selectedSources.length > 0) {
@@ -550,13 +570,22 @@ export default function Calendar() {
 
   const shortDayNames = dayNames.map(d => d.slice(0, 2));
 
-  const handlePropertySelection = (propertyId: number) => {
+  const toggleProperty = useCallback((propertyId: number) => {
     setSelectedPropertyIds(prev => 
       prev.includes(propertyId) 
         ? prev.filter(id => id !== propertyId)
         : [...prev, propertyId]
     );
-  };
+  }, []);
+
+  const toggleSource = useCallback((source: string) => {
+    const norm = normalizeSource(source);
+    setSelectedSources(prev => 
+      prev.includes(norm) 
+        ? prev.filter(s => s !== norm)
+        : [...prev, norm]
+    );
+  }, []);
 
   // Calculate calendar grid for current month
   const calendarDays = useMemo(() => {
@@ -788,38 +817,37 @@ export default function Calendar() {
 
           {/* Right: Controls */}
           <div className="flex items-center gap-3">
-            {/* Properties Multi-Select */}
+            {/* Property Dropdown */}
             <div className="relative">
-              <select
-                multiple={true}
-                size={Math.min(4, properties.length + 1)}
-                className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-xs font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors appearance-none w-36 h-auto max-h-20"
-                value={selectedPropertyIds}
+              <select 
+                className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-48 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                value={displayPropertyId}
                 onChange={(e) => {
-                  const newIds: string[] = Array.from(e.target.selectedOptions, option => option.value);
-                  setSelectedPropertyIds(newIds);
+                  const val = e.target.value;
+                  setSelectedPropertyIds(val === '' ? [] : [Number(val)]);
                 }}
               >
+                <option value="">{lang === 'fr' ? 'Toutes propriétés' : 'All Properties'}</option>
                 {properties.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id.toString()}>{p.name}</option>
                 ))}
               </select>
             </div>
 
-            {/* Sources Multi-Select */}
+            {/* Platform Dropdown */}
             <div className="relative">
-              <select
-                multiple={true}
-                size={3}
-                className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-xs font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors appearance-none w-28 max-h-20"
-                value={selectedSources}
+              <select 
+                className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-40 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                value={displaySource}
                 onChange={(e) => {
-                  const values: string[] = Array.from(e.target.selectedOptions, option => option.value);
-                  setSelectedSources(values);
+                  const val = e.target.value;
+                  setSelectedSources(val === '' ? [] : [val]);
                 }}
               >
+                <option value="">{lang === 'fr' ? 'Toutes plateformes' : 'All Platforms'}</option>
                 <option value="airbnb">Airbnb</option>
                 <option value="booking">Booking</option>
+                <option value="smoobu">Smoobu</option>
                 <option value="direct">Direct</option>
               </select>
             </div>
@@ -870,21 +898,50 @@ export default function Calendar() {
         {[
           { source: 'airbnb', label: 'Airbnb' },
           { source: 'booking', label: 'Booking.com' },
+          { source: 'smoobu', label: 'Smoobu' },
           { source: 'direct', label: 'Direct' },
         ].map(({ source, label }) => (
-          <div key={source} className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getSourceColor(source) }} />
-            <span>{label}</span>
-          </div>
+          <button
+            key={source}
+            type="button"
+            onClick={() => toggleSource(source)}
+            className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer ${
+              selectedSources.includes(normalizeSource(source))
+                ? 'bg-blue-100 dark:bg-blue-900/30 shadow-sm ring-1 ring-blue-400/50'
+                : ''
+            }`}
+          >
+            <div 
+              className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
+              style={{ backgroundColor: getSourceColor(source) }}
+            />
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white truncate">
+              {label}
+            </span>
+          </button>
         ))}
         {properties.length > 0 && (
           <>
             <span className="text-gray-300 dark:text-gray-600">|</span>
             {properties.slice(0, 5).map((p: any) => (
-              <div key={p.id} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full border border-gray-300 dark:border-gray-600" style={{ backgroundColor: p.color || '#9CA3AF' }} />
-                <span className="truncate max-w-[80px]">{p.name}</span>
-              </div>
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => toggleProperty(p.id)}
+                className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer ${
+                  selectedPropertyIds.includes(p.id)
+                    ? 'bg-blue-100 dark:bg-blue-900/30 shadow-sm ring-1 ring-blue-400/50'
+                    : ''
+                }`}
+              >
+                <div 
+                  className="w-2.5 h-2.5 rounded-full border border-gray-200 dark:border-gray-600 flex-shrink-0 shadow-sm"
+                  style={{ backgroundColor: p.color || '#9CA3AF' }}
+                />
+                <span className="truncate max-w-[60px] text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                  {p.name}
+                </span>
+              </button>
             ))}
           </>
         )}
