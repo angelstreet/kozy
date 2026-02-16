@@ -36,6 +36,7 @@ export interface SmoobuApiResponse {
   bookings: SmoobuReservation[];
   page_size: number;
   page: number;
+  page_count: number;
   total: number;
 }
 
@@ -78,33 +79,46 @@ export async function fetchSmoobuApartments(apiKey: string): Promise<SmoobuApart
  * Docs: https://docs.smoobu.com/#get-bookings-api
  */
 export async function fetchSmoobuBookings(apiKey: string, fullSync = false): Promise<SmoobuReservation[]> {
-  let url: string;
+  let fromDate: string;
+  let toDate: string;
+  
   if (fullSync) {
-    // Full sync: fetch ALL history
-    url = `https://login.smoobu.com/api/reservations?from=2020-01-01&to=2030-12-31&page_size=100`;
+    fromDate = '2020-01-01';
+    toDate = '2030-12-31';
   } else {
-    // Regular sync: last 30 days + 12 months future
     const from = new Date();
     from.setDate(from.getDate() - 30);
+    fromDate = from.toISOString().split('T')[0];
     const to = new Date();
     to.setMonth(to.getMonth() + 12);
-    url = `https://login.smoobu.com/api/reservations?from=${from.toISOString().split('T')[0]}&to=${to.toISOString().split('T')[0]}&page_size=100`;
-  }
-  
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Api-Key': apiKey,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Smoobu API error: ${response.status} ${response.statusText}`);
+    toDate = to.toISOString().split('T')[0];
   }
 
-  const data: SmoobuApiResponse = await response.json();
-  return data.bookings || [];
+  const allBookings: SmoobuReservation[] = [];
+  let page = 1;
+  let pageCount = 1;
+
+  while (page <= pageCount) {
+    const url = `https://login.smoobu.com/api/reservations?from=${fromDate}&to=${toDate}&page_size=100&page=${page}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Api-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Smoobu API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data: SmoobuApiResponse = await response.json();
+    allBookings.push(...(data.bookings || []));
+    pageCount = data.page_count || 1;
+    page++;
+  }
+
+  return allBookings;
 }
 
 /**
