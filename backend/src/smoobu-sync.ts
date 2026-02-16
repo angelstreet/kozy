@@ -114,8 +114,8 @@ export function enrichBookingFromSmoobu(
 }
 
 /**
- * Sync bookings from Smoobu as PRIMARY source (replaces iCal data)
- * Uses upsert strategy: insert new bookings or update existing by reference_id
+ * Sync bookings from Smoobu as PRIMARY source (replaces ALL existing data)
+ * Strategy: DELETE all existing bookings for this property, then INSERT fresh Smoobu data
  * @param propertyId - Property ID in local DB
  * @param apiKey - Smoobu API key
  * @param apartmentId - Optional Smoobu apartment ID to filter reservations
@@ -129,115 +129,68 @@ export async function syncSmoobuBookings(propertyId: number, apiKey: string, apa
     smoobuReservations = smoobuReservations.filter(r => r.apartment.id === apartmentId);
   }
 
+  // DELETE all existing data for this property (clean slate)
+  // First delete cleaning_tasks (foreign key constraint)
+  await db.execute({
+    sql: 'DELETE FROM cleaning_task WHERE property_id = ?',
+    args: [propertyId],
+  });
+
+  // Then delete bookings
+  const deleteResult = await db.execute({
+    sql: 'DELETE FROM booking WHERE property_id = ?',
+    args: [propertyId],
+  });
+
+  const deleted = Number(deleteResult.rowsAffected) || 0;
   let created = 0;
-  let updated = 0;
 
+  // INSERT all Smoobu reservations
   for (const reservation of smoobuReservations) {
-    // Check if booking already exists by reference_id
-    const existingResult = await db.execute({
-      sql: 'SELECT id FROM booking WHERE property_id = ? AND reference_id = ?',
-      args: [propertyId, reservation['reference-id'] || `smoobu-${reservation.id}`],
-    });
-
     const referenceId = reservation['reference-id'] || `smoobu-${reservation.id}`;
     const source = reservation.channel?.name?.toLowerCase() || 'smoobu';
 
-    if (existingResult.rows.length > 0) {
-      // Update existing booking
-      const bookingId = (existingResult.rows[0] as any).id;
-      await db.execute({
-        sql: `UPDATE booking SET
-          checkin_date = ?,
-          checkout_date = ?,
-          guest_name = ?,
-          email = ?,
-          phone = ?,
-          adults = ?,
-          children = ?,
-          checkin_time = ?,
-          checkout_time = ?,
-          price = ?,
-          price_paid = ?,
-          prepayment = ?,
-          prepayment_paid = ?,
-          deposit = ?,
-          deposit_paid = ?,
-          notice = ?,
-          language = ?,
-          channel_name = ?,
-          apartment_name = ?,
-          source = ?
-        WHERE id = ?`,
-        args: [
-          reservation.arrival,
-          reservation.departure,
-          reservation['guest-name'] || null,
-          reservation.email || null,
-          reservation.phone || null,
-          reservation.adults || null,
-          reservation.children || null,
-          reservation['check-in'] || null,
-          reservation['check-out'] || null,
-          reservation.price || null,
-          reservation['price-paid'] ? 1 : 0,
-          reservation.prepayment || null,
-          reservation['prepayment-paid'] ? 1 : 0,
-          reservation.deposit || null,
-          reservation['deposit-paid'] ? 1 : 0,
-          reservation.notice || null,
-          reservation.language || null,
-          reservation.channel?.name || null,
-          reservation.apartment?.name || null,
-          source,
-          bookingId,
-        ],
-      });
-      updated++;
-    } else {
-      // Insert new booking
-      await db.execute({
-        sql: `INSERT INTO booking (
-          property_id, reference_id, checkin_date, checkout_date, guest_name,
-          email, phone, adults, children, checkin_time, checkout_time,
-          price, price_paid, prepayment, prepayment_paid, deposit, deposit_paid,
-          notice, language, channel_name, apartment_name, source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [
-          propertyId,
-          referenceId,
-          reservation.arrival,
-          reservation.departure,
-          reservation['guest-name'] || null,
-          reservation.email || null,
-          reservation.phone || null,
-          reservation.adults || null,
-          reservation.children || null,
-          reservation['check-in'] || null,
-          reservation['check-out'] || null,
-          reservation.price || null,
-          reservation['price-paid'] ? 1 : 0,
-          reservation.prepayment || null,
-          reservation['prepayment-paid'] ? 1 : 0,
-          reservation.deposit || null,
-          reservation['deposit-paid'] ? 1 : 0,
-          reservation.notice || null,
-          reservation.language || null,
-          reservation.channel?.name || null,
-          reservation.apartment?.name || null,
-          source,
-        ],
-      });
-      created++;
-    }
+    await db.execute({
+      sql: `INSERT INTO booking (
+        property_id, reference_id, checkin_date, checkout_date, guest_name,
+        email, phone, adults, children, checkin_time, checkout_time,
+        price, price_paid, prepayment, prepayment_paid, deposit, deposit_paid,
+        notice, language, channel_name, apartment_name, source
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        propertyId,
+        referenceId,
+        reservation.arrival,
+        reservation.departure,
+        reservation['guest-name'] || null,
+        reservation.email || null,
+        reservation.phone || null,
+        reservation.adults || null,
+        reservation.children || null,
+        reservation['check-in'] || null,
+        reservation['check-out'] || null,
+        reservation.price || null,
+        reservation['price-paid'] ? 1 : 0,
+        reservation.prepayment || null,
+        reservation['prepayment-paid'] ? 1 : 0,
+        reservation.deposit || null,
+        reservation['deposit-paid'] ? 1 : 0,
+        reservation.notice || null,
+        reservation.language || null,
+        reservation.channel?.name || null,
+        reservation.apartment?.name || null,
+        source,
+      ],
+    });
+    created++;
   }
 
   return {
     source: 'smoobu',
     propertyId,
     smoobuReservations: smoobuReservations.length,
+    deleted,
     created,
-    updated,
-    deleted: 0,
   };
 }
 
