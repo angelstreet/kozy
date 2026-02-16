@@ -390,8 +390,6 @@ export default function Calendar() {
     return {left: leftPx, width: widthPx, isLeftClip, isRightClip};
   };
 
-  const shortDayNames = dayNames.map(d => d.slice(0, 2));
-
   const handleBookingClick = (booking: Booking, event: React.MouseEvent) => {
     const rect = (event.target as HTMLElement).getBoundingClientRect();
     setPopoverPosition({ 
@@ -407,6 +405,8 @@ export default function Calendar() {
   const dayNames = lang === 'fr' 
     ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] 
     : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const shortDayNames = dayNames.map(d => d.slice(0, 2));
 
   const handlePropertySelection = (propertyId: number) => {
     setSelectedPropertyIds(prev => 
