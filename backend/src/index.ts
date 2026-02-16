@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import db, { initDB, seed, migrate, seedTestData, clearAll } from './db.js';
 import { fetchAndParseIcal, syncPropertyIcal } from './ical-sync.js';
+import { syncSmoobuData } from './smoobu-sync.js';
 import { clerkAuth } from './clerk-middleware.js';
 
 type Variables = {
@@ -46,15 +49,15 @@ app.get('/api/properties', async (c) => {
 
 app.post('/api/properties', async (c) => {
   const body = await c.req.json();
-  const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, cleaner_id, purchase_price, travaux, monthly_charges, monthly_revenue, credit_mensuel } = body;
+  const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, cleaner_id, purchase_price, travaux, monthly_charges, monthly_revenue, credit_mensuel, smoobu_apartment_id } = body;
 
   if (!name) return c.json({ error: 'Name is required' }, 400);
 
   const userId = c.get('userId');
   const result = await db.execute({
-    sql: `INSERT INTO property (name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, user_id, purchase_price, travaux, monthly_charges, monthly_revenue, credit_mensuel)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [name, address ?? null, checkout_time || '10:00', checkin_time || '16:00', cleaning_mins || 120, rate || 50, sunday_rate || 70, color || '#3B82F6', ical_airbnb || null, ical_booking || null, userId || null, purchase_price ?? null, travaux ?? 0, monthly_charges ?? 0, monthly_revenue ?? 0, credit_mensuel ?? 0],
+    sql: `INSERT INTO property (name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, user_id, purchase_price, travaux, monthly_charges, monthly_revenue, credit_mensuel, smoobu_apartment_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [name, address ?? null, checkout_time || '10:00', checkin_time || '16:00', cleaning_mins || 120, rate || 50, sunday_rate || 70, color || '#3B82F6', ical_airbnb || null, ical_booking || null, userId || null, purchase_price ?? null, travaux ?? 0, monthly_charges ?? 0, monthly_revenue ?? 0, credit_mensuel ?? 0, smoobu_apartment_id ?? null],
   });
 
   const propertyId = Number(result.lastInsertRowid);
@@ -195,10 +198,10 @@ app.post('/api/cleaners/:id/assign', async (c) => {
 app.put('/api/properties/:id', async (c) => {
   const id = Number(c.req.param('id'));
   const body = await c.req.json();
-  const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, purchase_price, travaux, monthly_charges, monthly_revenue, credit_mensuel } = body;
+  const { name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb, ical_booking, purchase_price, travaux, monthly_charges, monthly_revenue, credit_mensuel, smoobu_apartment_id } = body;
   await db.execute({
-    sql: `UPDATE property SET name=?, address=?, checkout_time=?, checkin_time=?, cleaning_mins=?, rate=?, sunday_rate=?, color=?, ical_airbnb=?, ical_booking=?, purchase_price=?, travaux=?, monthly_charges=?, monthly_revenue=?, credit_mensuel=? WHERE id=?`,
-    args: [name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb || null, ical_booking || null, purchase_price ?? null, travaux ?? 0, monthly_charges ?? 0, monthly_revenue ?? 0, credit_mensuel ?? 0, id],
+    sql: `UPDATE property SET name=?, address=?, checkout_time=?, checkin_time=?, cleaning_mins=?, rate=?, sunday_rate=?, color=?, ical_airbnb=?, ical_booking=?, purchase_price=?, travaux=?, monthly_charges=?, monthly_revenue=?, credit_mensuel=?, smoobu_apartment_id=? WHERE id=?`,
+    args: [name, address, checkout_time, checkin_time, cleaning_mins, rate, sunday_rate, color, ical_airbnb || null, ical_booking || null, purchase_price ?? null, travaux ?? 0, monthly_charges ?? 0, monthly_revenue ?? 0, credit_mensuel ?? 0, smoobu_apartment_id ?? null, id],
   });
   const prop = await db.execute({ sql: 'SELECT * FROM property WHERE id = ?', args: [id] });
   if (prop.rows.length === 0) return c.json({ error: 'Not found' }, 404);
@@ -346,6 +349,93 @@ app.post('/api/ical-sync-all', async (c) => {
   return c.json({ synced: results.length, results });
 });
 
+// Smoobu sync for all user properties
+app.post('/api/smoobu-sync', async (c) => {
+  const userId = c.get('userId');
+
+  // Get user's Smoobu API key from settings
+  const keyResult = await db.execute({
+    sql: 'SELECT value FROM user_settings WHERE user_id = ? AND key = ?',
+    args: [userId, 'smoobu_api_key']
+  });
+
+  const apiKey = keyResult.rows[0] ? (keyResult.rows[0] as any).value : null;
+
+  if (!apiKey) {
+    return c.json({ error: 'Smoobu API key not configured. Please add it in Settings.' }, 400);
+  }
+
+  // Get all properties for this user
+  const propsResult = await db.execute({
+    sql: 'SELECT id FROM property WHERE user_id = ? OR user_id IS NULL',
+    args: [userId]
+  });
+
+  const properties = propsResult.rows as any[];
+  const results = [];
+  let totalEnriched = 0;
+
+  for (const prop of properties) {
+    try {
+      const result = await syncSmoobuData(prop.id, apiKey);
+      results.push(result);
+      totalEnriched += result.enrichedCount;
+    } catch (e: any) {
+      results.push({ propertyId: prop.id, error: e.message });
+    }
+  }
+
+  return c.json({
+    synced: results.length,
+    totalEnriched,
+    results
+  });
+});
+
+// Smoobu sync for a single property
+app.post('/api/properties/:id/smoobu-sync', async (c) => {
+  const id = Number(c.req.param('id'));
+  const userId = c.get('userId');
+
+  // Try user settings first, fallback to secrets file
+  let apiKey: string | null = null;
+  
+  const keyResult = await db.execute({
+    sql: 'SELECT value FROM user_settings WHERE user_id = ? AND key = ?',
+    args: [userId, 'smoobu_api_key']
+  });
+
+  apiKey = keyResult.rows[0] ? (keyResult.rows[0] as any).value : null;
+
+  // Fallback to secrets file if not in user settings
+  if (!apiKey) {
+    const secretsPath = path.join(process.env.HOME || '/root', '.openclaw', 'secrets', 'property.env');
+    if (fs.existsSync(secretsPath)) {
+      const secretsContent = fs.readFileSync(secretsPath, 'utf-8');
+      const match = secretsContent.match(/SMOOBU_API_KEY=(.+)/);
+      if (match) {
+        apiKey = match[1].trim();
+      }
+    }
+  }
+
+  if (!apiKey) {
+    return c.json({ error: 'Smoobu API key not configured. Please add it in Settings or ~/.openclaw/secrets/property.env' }, 400);
+  }
+
+  // Get property's Smoobu apartment ID if configured
+  const propResult = await db.execute({ sql: 'SELECT smoobu_apartment_id FROM property WHERE id = ?', args: [id] });
+  const property = propResult.rows[0] as any;
+  const apartmentId = property?.smoobu_apartment_id || undefined;
+
+  try {
+    const result = await syncSmoobuData(id, apiKey, apartmentId);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
 // === API Token Management ===
 
 app.get('/api/settings/api-token', async (c) => {
@@ -371,6 +461,63 @@ app.post('/api/settings/api-token/regenerate', async (c) => {
 app.post('/api/settings/api-token/revoke', async (c) => {
   await db.execute('UPDATE api_token SET revoked = 1 WHERE revoked = 0');
   return c.json({ ok: true, message: 'All tokens revoked' });
+});
+
+// === Smoobu Settings ===
+
+app.get('/api/settings/smoobu-key-exists', async (c) => {
+  const userId = c.get('userId');
+  const result = await db.execute({
+    sql: 'SELECT COUNT(*) as count FROM user_settings WHERE user_id = ? AND key = ?',
+    args: [userId, 'smoobu_api_key']
+  });
+  const count = (result.rows[0] as any).count || 0;
+  return c.json({ exists: count > 0 });
+});
+
+app.get('/api/settings/smoobu-key', async (c) => {
+  const userId = c.get('userId');
+  const result = await db.execute({
+    sql: 'SELECT value FROM user_settings WHERE user_id = ? AND key = ?',
+    args: [userId, 'smoobu_api_key']
+  });
+  const key = result.rows[0] ? (result.rows[0] as any).value : null;
+  return c.json({ key });
+});
+
+app.post('/api/settings/smoobu-key', async (c) => {
+  const userId = c.get('userId');
+  const body = await c.req.json();
+  const { key } = body;
+
+  if (!key) {
+    return c.json({ error: 'key is required' }, 400);
+  }
+
+  // Test the API key first
+  try {
+    const testResponse = await fetch('https://login.smoobu.com/api/reservations', {
+      method: 'GET',
+      headers: {
+        'Api-Key': key,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!testResponse.ok) {
+      return c.json({ error: 'Invalid Smoobu API key' }, 400);
+    }
+  } catch (e: any) {
+    return c.json({ error: 'Failed to validate Smoobu API key' }, 400);
+  }
+
+  // Save the key
+  await db.execute({
+    sql: 'INSERT OR REPLACE INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, ?)',
+    args: [userId, 'smoobu_api_key', key, new Date().toISOString()]
+  });
+
+  return c.json({ ok: true });
 });
 
 // === External API ===

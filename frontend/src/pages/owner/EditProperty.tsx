@@ -13,6 +13,7 @@ export default function EditProperty() {
   const { invalidateCache } = useApp();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [smoobuKeyExists, setSmoobuKeyExists] = useState(false);
   const [form, setForm] = useState({
     name: '', address: '', ical_airbnb: '', ical_booking: '',
     checkout_time: '10:00', checkin_time: '16:00', cleaning_mins: 120,
@@ -39,6 +40,7 @@ export default function EditProperty() {
       }
       setLoading(false);
     }).catch(() => setLoading(false));
+    apiFetch(`/settings/smoobu-key-exists`).then(r => r.json()).then(data => setSmoobuKeyExists(data.exists)).catch(() => {});
   }, [id]);
 
   const submit = async () => {
@@ -179,19 +181,30 @@ export default function EditProperty() {
           })()}
         </div>
 
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Airbnb iCal URL</label>
-          <input value={form.ical_airbnb} onChange={e => upd('ical_airbnb', e.target.value)}
-            placeholder="https://www.airbnb.com/calendar/ical/..."
-            className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm" />
-        </div>
+        {!smoobuKeyExists && (
+          <>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Airbnb iCal URL</label>
+              <input value={form.ical_airbnb} onChange={e => upd('ical_airbnb', e.target.value)}
+                placeholder="https://www.airbnb.com/calendar/ical/..."
+                className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm" />
+            </div>
 
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Booking.com iCal URL</label>
-          <input value={form.ical_booking} onChange={e => upd('ical_booking', e.target.value)}
-            placeholder="https://admin.booking.com/..."
-            className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm" />
-        </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Booking.com iCal URL</label>
+              <input value={form.ical_booking} onChange={e => upd('ical_booking', e.target.value)}
+                placeholder="https://admin.booking.com/..."
+                className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm" />
+            </div>
+          </>
+        )}
+
+        {smoobuKeyExists && (
+          <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 text-sm">
+            <p className="font-medium text-green-700 dark:text-green-300 mb-1">✅ Smoobu Integration Active</p>
+            <p className="text-green-600 dark:text-green-400">Bookings are automatically synced from Smoobu with full guest details.</p>
+          </div>
+        )}
 
         <div>
           <label className="block text-xs text-gray-500 mb-2">Color</label>

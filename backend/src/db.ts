@@ -81,6 +81,13 @@ export async function initDB() {
       last_used_at TEXT,
       revoked INTEGER DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS user_settings (
+      user_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT,
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, key)
+    );
   `);
 }
 
@@ -111,6 +118,15 @@ export async function migrate() {
     await db.execute("ALTER TABLE cleaner ADD COLUMN invite_accepted_at TEXT");
     await db.execute("ALTER TABLE cleaner ADD COLUMN language TEXT DEFAULT 'fr'");
     await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaner_invite_token ON cleaner(invite_token)");
+  }
+
+  // Run Smoobu fields migration
+  const { migrateSmoobuFields } = await import('./migrations/add_smoobu_fields.js');
+  await migrateSmoobuFields();
+
+  // Add smoobu_apartment_id to property
+  if (!cols.rows.find((c: any) => c[1] === 'smoobu_apartment_id' || c.name === 'smoobu_apartment_id')) {
+    await db.execute("ALTER TABLE property ADD COLUMN smoobu_apartment_id INTEGER");
   }
 }
 

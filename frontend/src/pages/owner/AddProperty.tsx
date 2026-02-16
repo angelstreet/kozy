@@ -30,6 +30,7 @@ export default function AddProperty() {
   const [airbnbPreview, setAirbnbPreview] = useState<any[] | null>(null);
   const [bookingPreview, setBookingPreview] = useState<any[] | null>(null);
   const [existingCleaners, setExistingCleaners] = useState<any[]>([]);
+  const [smoobuKeyExists, setSmoobuKeyExists] = useState(false);
   const [form, setForm] = useState<FormData>({
     name: '', ical_airbnb: '', ical_booking: '', color: '#3B82F6',
     cleaner_option: 'skip', cleaner_name: '', cleaner_email: '', cleaner_id: null,
@@ -57,6 +58,7 @@ export default function AddProperty() {
 
   useEffect(() => {
     apiFetch(`/cleaners`).then(r => r.json()).then(setExistingCleaners).catch(() => {});
+    apiFetch(`/settings/smoobu-key-exists`).then(r => r.json()).then(data => setSmoobuKeyExists(data.exists)).catch(() => {});
   }, []);
 
   const submit = async () => {
@@ -118,66 +120,77 @@ export default function AddProperty() {
               />
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-sm mt-4">
-              <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">📅 Connect your calendars</p>
-              <p className="text-blue-600 dark:text-blue-400">Import bookings from Airbnb and/or Booking.com. Both optional.</p>
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Airbnb iCal URL</label>
-              <div className="flex gap-2">
-                <input
-                  value={form.ical_airbnb} onChange={e => { upd('ical_airbnb', e.target.value); setAirbnbValid(null); }}
-                  placeholder="https://www.airbnb.com/calendar/ical/..."
-                  className="flex-1 px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm"
-                />
-                <button disabled={!form.ical_airbnb.trim()} onClick={() => testIcal(form.ical_airbnb, 'airbnb')}
-                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
-                    {testingAirbnb ? <Loader2 size={16} className="animate-spin" /> : 'Test'}
-                  </button>
-              </div>
-              {airbnbValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
-              {airbnbValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
-              {airbnbPreview && airbnbPreview.length > 0 && (
-                <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3 max-h-40 overflow-y-auto">
-                  <p className="text-xs font-medium text-gray-500 mb-2">{airbnbPreview.length} booking(s) found:</p>
-                  {airbnbPreview.slice(0, 5).map((b: any, i: number) => (
-                    <div key={i} className="text-xs py-1 border-b dark:border-gray-700 last:border-0">
-                      <span className="font-medium">{b.guest_name || 'Unknown'}</span> · {b.checkin_date} → {b.checkout_date}
-                    </div>
-                  ))}
-                  {airbnbPreview.length > 5 && <p className="text-xs text-gray-400 mt-1">...and {airbnbPreview.length - 5} more</p>}
+            {!smoobuKeyExists && (
+              <>
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-sm mt-4">
+                  <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">📅 Connect your calendars</p>
+                  <p className="text-blue-600 dark:text-blue-400">Import bookings from Airbnb and/or Booking.com. Both optional.</p>
                 </div>
-              )}
-            </div>
 
-            <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Booking.com iCal URL</label>
-              <div className="flex gap-2">
-                <input
-                  value={form.ical_booking} onChange={e => { upd('ical_booking', e.target.value); setBookingValid(null); }}
-                  placeholder="https://admin.booking.com/..."
-                  className="flex-1 px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm"
-                />
-                <button disabled={!form.ical_booking.trim()} onClick={() => testIcal(form.ical_booking, 'booking')}
-                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
-                    {testingBooking ? <Loader2 size={16} className="animate-spin" /> : 'Test'}
-                  </button>
-              </div>
-              {bookingValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
-              {bookingValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
-              {bookingPreview && bookingPreview.length > 0 && (
-                <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3 max-h-40 overflow-y-auto">
-                  <p className="text-xs font-medium text-gray-500 mb-2">{bookingPreview.length} booking(s) found:</p>
-                  {bookingPreview.slice(0, 5).map((b: any, i: number) => (
-                    <div key={i} className="text-xs py-1 border-b dark:border-gray-700 last:border-0">
-                      <span className="font-medium">{b.guest_name || 'Unknown'}</span> · {b.checkin_date} → {b.checkout_date}
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Airbnb iCal URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      value={form.ical_airbnb} onChange={e => { upd('ical_airbnb', e.target.value); setAirbnbValid(null); }}
+                      placeholder="https://www.airbnb.com/calendar/ical/..."
+                      className="flex-1 px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm"
+                    />
+                    <button disabled={!form.ical_airbnb.trim()} onClick={() => testIcal(form.ical_airbnb, 'airbnb')}
+                        className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+                        {testingAirbnb ? <Loader2 size={16} className="animate-spin" /> : 'Test'}
+                      </button>
+                  </div>
+                  {airbnbValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
+                  {airbnbValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
+                  {airbnbPreview && airbnbPreview.length > 0 && (
+                    <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3 max-h-40 overflow-y-auto">
+                      <p className="text-xs font-medium text-gray-500 mb-2">{airbnbPreview.length} booking(s) found:</p>
+                      {airbnbPreview.slice(0, 5).map((b: any, i: number) => (
+                        <div key={i} className="text-xs py-1 border-b dark:border-gray-700 last:border-0">
+                          <span className="font-medium">{b.guest_name || 'Unknown'}</span> · {b.checkin_date} → {b.checkout_date}
+                        </div>
+                      ))}
+                      {airbnbPreview.length > 5 && <p className="text-xs text-gray-400 mt-1">...and {airbnbPreview.length - 5} more</p>}
                     </div>
-                  ))}
-                  {bookingPreview.length > 5 && <p className="text-xs text-gray-400 mt-1">...and {bookingPreview.length - 5} more</p>}
+                  )}
                 </div>
-              )}
-            </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Booking.com iCal URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      value={form.ical_booking} onChange={e => { upd('ical_booking', e.target.value); setBookingValid(null); }}
+                      placeholder="https://admin.booking.com/..."
+                      className="flex-1 px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm"
+                    />
+                    <button disabled={!form.ical_booking.trim()} onClick={() => testIcal(form.ical_booking, 'booking')}
+                        className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+                        {testingBooking ? <Loader2 size={16} className="animate-spin" /> : 'Test'}
+                      </button>
+                  </div>
+                  {bookingValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
+                  {bookingValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
+                  {bookingPreview && bookingPreview.length > 0 && (
+                    <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3 max-h-40 overflow-y-auto">
+                      <p className="text-xs font-medium text-gray-500 mb-2">{bookingPreview.length} booking(s) found:</p>
+                      {bookingPreview.slice(0, 5).map((b: any, i: number) => (
+                        <div key={i} className="text-xs py-1 border-b dark:border-gray-700 last:border-0">
+                          <span className="font-medium">{b.guest_name || 'Unknown'}</span> · {b.checkin_date} → {b.checkout_date}
+                        </div>
+                      ))}
+                      {bookingPreview.length > 5 && <p className="text-xs text-gray-400 mt-1">...and {bookingPreview.length - 5} more</p>}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {smoobuKeyExists && (
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 text-sm mt-4">
+                <p className="font-medium text-green-700 dark:text-green-300 mb-1">✅ Smoobu Integration Active</p>
+                <p className="text-green-600 dark:text-green-400">Bookings will be automatically synced from Smoobu with full guest details.</p>
+              </div>
+            )}
 
             <button
               disabled={!form.name.trim()}
