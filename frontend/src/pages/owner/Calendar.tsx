@@ -537,35 +537,7 @@ export default function Calendar() {
     return {left: leftPx, width: widthPx, isLeftClip, isRightClip};
   };
 
-  function computePropertySlots(bookings: Booking[]) {
-    if (bookings.length === 0) return new Map&lt;number, number&gt;();
-
-    const sortedBookings = [...bookings].sort((a, b) =&gt; new Date(a.checkin_date).getTime() - new Date(b.checkin_date).getTime());
-    const slotById = new Map&lt;number, number&gt;();
-
-    for (const booking of sortedBookings) {
-      const usedSlots = new Set&lt;number&gt;();
-      for (const other of sortedBookings) {
-        if (other.id === booking.id) continue;
-        if (!slotById.has(other.id)) continue;
-        const bStart = new Date(booking.checkin_date);
-        const bEnd = new Date(booking.checkout_date);
-        const oStart = new Date(other.checkin_date);
-        const oEnd = new Date(other.checkout_date);
-        if (bEnd &gt; oStart &amp;&amp; oEnd &gt; bStart) {
-          usedSlots.add(slotById.get(other.id)!);
-        }
-      }
-      let slot = 0;
-      while (usedSlots.has(slot)) {
-        slot++;
-      }
-      slotById.set(booking.id, slot);
-    }
-    return slotById;
-  }
-
-  const handleBookingClick = (booking: Booking, _event: React.MouseEvent) =&gt; {
+  const handleBookingClick = (booking: Booking, _event: React.MouseEvent) => {
     setSelectedBooking(booking);
   };
 
