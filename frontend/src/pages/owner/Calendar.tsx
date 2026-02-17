@@ -1041,7 +1041,7 @@ export default function Calendar() {
         {viewMode === 'calendar' ? (
           /* 3-MONTH CALENDAR VIEW */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {[-1, 0, 1].map(offset => {
+            {[0, 1, 2].map(offset => {
               const m = month + offset;
               const y = year + Math.floor(m / 12);
               const mo = ((m % 12) + 12) % 12;
