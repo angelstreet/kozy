@@ -411,7 +411,7 @@ export default function Calendar() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
