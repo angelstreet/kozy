@@ -585,31 +585,59 @@ export default function Calendar() {
   const propertyData = useMemo(() => {
     return properties.map((p: any) => ({
       property: p,
-      bookings: deduplicatedBookings.filter((b: Booking) => b.property_id === p.id)
+      bookings: filteredBookings.filter((b: Booking) => b.property_id === p.id)
         .sort((a: Booking, b: Booking) => a.checkin_date.localeCompare(b.checkin_date))
     }));
-  }, [properties, deduplicatedBookings]);
+  }, [properties, filteredBookings]);
 
-  const calculateBarPosition = (booking: Booking, startDate: Date, dayWidth = 44) => {
+  const propertyLaneData = useMemo(() => {
+  return propertyData.map(({ property, bookings }: { property: any; bookings: Booking[] }) => {
     const msPerDay = 86400000;
-    const startMs = startDate.getTime();
-    const checkinMs = new Date(booking.checkin_date).getTime();
-    const checkoutMs = new Date(booking.checkout_date).getTime();
-    const leftDays = (checkinMs - startMs) / msPerDay;
-    const durDays = (checkoutMs - checkinMs) / msPerDay;
-    let leftPx = Math.max(0, leftDays * dayWidth);
-    let widthPx = durDays * dayWidth;
     const totalDays = timelineDays.length;
-    const totalWidth = totalDays * dayWidth;
-    if (leftPx + widthPx > totalWidth) {
-      widthPx = totalWidth - leftPx;
+    const startMs = timelineStartDate.getTime();
+    type BarRaw = { booking: Booking; leftFrac: number; widthFrac: number; isLeftClip: boolean; isRightClip: boolean };
+    const barsRaw: BarRaw[] = bookings
+      .map((booking): BarRaw | null => {
+        const checkinMs = new Date(booking.checkin_date).getTime();
+        const checkoutMs = new Date(booking.checkout_date).getTime();
+        const leftDaysRaw = (checkinMs - startMs) / msPerDay;
+        const durDays = (checkoutMs - checkinMs) / msPerDay;
+        const leftDays = Math.max(0, leftDaysRaw);
+        let widthDays = durDays;
+        if (leftDays + durDays > totalDays) {
+          widthDays = totalDays - leftDays;
+        }
+        const leftFrac = leftDays / totalDays;
+        const widthFrac = widthDays / totalDays;
+        const isLeftClip = leftDaysRaw < 0;
+        const isRightClip = leftDaysRaw + durDays > totalDays;
+        if (widthFrac < 0.04) return null;
+        return { booking, leftFrac, widthFrac, isLeftClip, isRightClip };
+      })
+      .filter((b): b is BarRaw => b !== null)
+      .sort((a, b) => a.leftFrac - b.leftFrac);
+    const laneOccupancy: Array<Array<{ left: number; width: number }>> = [];
+    const barsWithLanes: Array<BarRaw & { lane: number }> = [];
+    for (const bar of barsRaw) {
+      let lane = 0;
+      while (true) {
+        const occupied = laneOccupancy[lane] ?? [];
+        const barLeft = bar.leftFrac * 100;
+        const barWidth = bar.widthFrac * 100;
+        const overlaps = occupied.some((o: { left: number; width: number }) =>
+          barLeft < o.left + o.width && barLeft + barWidth > o.left
+        );
+        if (!overlaps) break;
+        lane++;
+      }
+      if (!laneOccupancy[lane]) laneOccupancy[lane] = [];
+      laneOccupancy[lane].push({ left: bar.leftFrac * 100, width: bar.widthFrac * 100 });
+      barsWithLanes.push({ ...bar, lane });
     }
-    const isLeftClip = leftDays < 0;
-    const isRightClip = checkoutMs > startMs + totalDays * msPerDay;
-    if (isLeftClip) leftPx = 0;
-    if (widthPx < 20) return {left: 0, width: 0, isLeftClip: false, isRightClip: false};
-    return {left: leftPx, width: widthPx, isLeftClip, isRightClip};
-  };
+    const maxLanes = barsWithLanes.length > 0 ? Math.max(...barsWithLanes.map((b) => b.lane + 1)) : 1;
+    return { property, bars: barsWithLanes, maxLanes };
+  });
+}, [propertyData, timelineStartDate]);
 
   const handleBookingClick = (booking: Booking, _event: React.MouseEvent) => {
     setSelectedBooking(booking);
@@ -1041,14 +1069,10 @@ export default function Calendar() {
         ) : (
           /* TIMELINE VIEW - Multi-property Gantt */
           <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <div className="overflow-x-auto">
-              <div className="min-w-max">
-                <div 
-                  className="grid gap-px bg-gray-200 dark:bg-gray-700"
-                  style={{
-                    gridTemplateColumns: '160px repeat(42, 44px)'
-                  }}
-                >
+            <div
+              className="grid gap-px bg-gray-200 dark:bg-gray-700"
+              style={{ gridTemplateColumns: '160px repeat(42, 1fr)' }}
+            >
                   {/* Property header (sticky) */}
                   <div 
                     className="sticky left-0 z-40 p-3 font-bold text-sm bg-gray-50 dark:bg-gray-800 border-b border-r border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
@@ -1077,18 +1101,16 @@ export default function Calendar() {
                   ))}
 
                   {/* Property rows */}
-                  {propertyData.map(({property, bookings}, pIdx) => {
+                  {propertyLaneData.map(({property, bars, maxLanes}, pIdx) => {
                     const rowNum = pIdx + 2;
+                    const rowHeight = maxLanes * 44;
                     return (
                       <>
                         {/* Property name (sticky) */}
                         <div
                           key={`prop-${property.id}`}
                           className="sticky left-0 z-20 bg-white dark:bg-gray-900 p-3 text-sm font-semibold border-r border-b border-gray-200 dark:border-gray-700 flex items-center gap-2"
-                          style={{
-                            gridRow: rowNum,
-                            gridColumn: 1
-                          }}
+                          style={{ gridRow: rowNum, gridColumn: 1, height: rowHeight }}
                         >
                           <div 
                             className="w-3 h-3 rounded-full flex-shrink-0"
@@ -1100,46 +1122,36 @@ export default function Calendar() {
                         {/* Timeline bar container */}
                         <div
                           key={`row-${property.id}`}
-                          className="relative h-[44px] border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
-                          style={{
-                            gridRow: rowNum,
-                            gridColumn: '2 / 44'
-                          }}
+                          className="relative border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+                          style={{ gridRow: rowNum, gridColumn: '2 / 44', height: rowHeight }}
                         >
-                          {/* Booking bars */}
-                          {bookings.map((booking, bIdx) => {
-                            const pos = calculateBarPosition(booking, timelineStartDate);
-                            if (pos.width < 20) return null;
-                            
-                            const guestName = cleanGuestName(booking.guest_name);
-                            const sourceColor = getSourceColor(booking.source);
-                            const isLeftClip = pos.isLeftClip;
-                            const isRightClip = pos.isRightClip;
-                            
+                          {bars.map((bar, bIdx) => {
+                            const guestName = cleanGuestName(bar.booking.guest_name);
+                            const sourceColor = getSourceColor(bar.booking.source);
                             return (
                               <div
-                                key={booking.id}
-                                className="absolute inset-y-1.5 px-2 py-1 rounded-lg flex items-center gap-1.5 shadow-md border border-white/40 hover:shadow-xl hover:scale-[1.02] hover:z-10 transition-all cursor-pointer overflow-hidden"
+                                key={bar.booking.id}
+                                className="absolute px-2 py-1 rounded-lg flex items-center gap-1.5 shadow-md border border-white/40 hover:shadow-xl hover:scale-[1.02] hover:z-10 transition-all cursor-pointer overflow-hidden"
                                 style={{
-                                  left: `${pos.left}px`,
-                                  width: `${pos.width}px`,
+                                  left: `${bar.leftFrac * 100}%`,
+                                  width: `${bar.widthFrac * 100}%`,
+                                  top: `${bar.lane * 44 + 4}px`,
+                                  height: '36px',
                                   backgroundColor: sourceColor
                                 }}
-                                onClick={() => {
-                                  setSelectedBooking(booking);
-                                }}
-                                title={`${guestName} • ${getSourceLabel(booking.source)} • ${booking.checkin_date} → ${booking.checkout_date}`}
+                                onClick={() => setSelectedBooking(bar.booking)}
+                                title={`${guestName} • ${getSourceLabel(bar.booking.source)} • ${bar.booking.checkin_date} → ${bar.booking.checkout_date}`}
                               >
                                 <div 
                                   className="w-4 h-4 rounded-full bg-white/90 flex items-center justify-center text-[9px] font-bold flex-shrink-0"
                                   style={{ color: sourceColor }}
                                 >
-                                  {getSourceInitial(booking.source).charAt(0)}
+                                  {getSourceInitial(bar.booking.source).charAt(0)}
                                 </div>
                                 <span className="truncate text-[11px] font-medium text-white">
-                                  {isLeftClip && <span className="opacity-80 mr-1">← </span>}
+                                  {bar.isLeftClip && <span className="opacity-80 mr-1">← </span>}
                                   {guestName.slice(0, 24)}
-                                  {isRightClip && <span className="opacity-80 ml-1"> →</span>}
+                                  {bar.isRightClip && <span className="opacity-80 ml-1"> →</span>}
                                 </span>
                               </div>
                             );
@@ -1148,8 +1160,6 @@ export default function Calendar() {
                       </>
                     );
                   })}
-                </div>
-              </div>
             </div>
           </div>
         )}
