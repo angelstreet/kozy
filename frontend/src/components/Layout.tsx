@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -23,7 +24,9 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-16">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
+  <Sidebar />
+  <div className="flex-1 lg:ml-16 xl:ml-64">
       <header className="flex items-center justify-between px-4 py-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
         <span className="font-bold text-lg">🏠 Kozy</span>
         <div className="flex items-center gap-2 text-sm">
@@ -40,5 +43,6 @@ export default function Layout() {
       <Outlet />
       <BottomNav />
     </div>
+  </div>
   );
 }
