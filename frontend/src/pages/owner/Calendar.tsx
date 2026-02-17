@@ -590,8 +590,24 @@ export default function Calendar() {
       })
       .filter((b): b is BarRaw => b !== null)
       .sort((a, b) => a.leftFrac - b.leftFrac);
-    const barsWithLanes = barsRaw.map(bar => ({ ...bar, lane: 0 }));
-    return { property, bars: barsWithLanes, maxLanes: 1 };
+    const laneOccupancy: Array<Array<{ leftFrac: number; widthFrac: number }>> = [];
+    const barsWithLanes = barsRaw.map(bar => {
+      let lane = 0;
+      while (true) {
+        const occupied = laneOccupancy[lane] ?? [];
+        const overlaps = occupied.some(other =>
+          bar.leftFrac < other.leftFrac + other.widthFrac &&
+          bar.leftFrac + bar.widthFrac > other.leftFrac
+        );
+        if (!overlaps) break;
+        lane++;
+      }
+      if (!laneOccupancy[lane]) laneOccupancy[lane] = [];
+      laneOccupancy[lane].push({ leftFrac: bar.leftFrac, widthFrac: bar.widthFrac });
+      return { ...bar, lane };
+    });
+    const maxLanes = Math.max(...barsWithLanes.map((b: any) => b.lane + 1), 1);
+    return { property, bars: barsWithLanes, maxLanes };
   });
 }, [propertyData, timelineStartDate]);
 
