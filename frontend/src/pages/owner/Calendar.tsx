@@ -879,9 +879,9 @@ export default function Calendar() {
                 onChange={(e) => {
                   const val = e.target.value;
                   setSelectedPropertyIds(val === '' ? [] : [Number(val)]);
-                  // On mobile (no tabs), sync dropdown selection to active calendar property
+                  // Sync dropdown selection to active calendar property badge
                   if (val === '') {
-                    setActiveCalendarPropertyId(properties[0]?.id ?? null);
+                    setActiveCalendarPropertyId(null);
                   } else {
                     setActiveCalendarPropertyId(Number(val));
                   }
@@ -953,9 +953,39 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* SOURCE LEGEND — desktop only */}
-      <div className="hidden sm:block px-4 pt-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-      <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 min-w-max pb-1">
+      {/* UNIFIED BADGE ROW — desktop only (properties first, then separator, then platforms) */}
+      <div className="hidden sm:flex px-4 pt-3 pb-1 overflow-x-auto items-center gap-3 text-xs text-gray-500 dark:text-gray-400 min-w-max" style={{ scrollbarWidth: 'none' }}>
+        {/* Property badges */}
+        {properties.map((p: any) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => {
+              setActiveCalendarPropertyId(p.id);
+              setSelectedPropertyIds([p.id]);
+            }}
+            className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer whitespace-nowrap ${
+              activeCalendarPropertyId === p.id
+                ? 'bg-blue-100 dark:bg-blue-900/30 shadow-sm ring-1 ring-blue-400/50'
+                : ''
+            }`}
+          >
+            <div
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
+              style={{ backgroundColor: p.color || '#9CA3AF' }}
+            />
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+              {p.name}
+            </span>
+          </button>
+        ))}
+
+        {/* Separator */}
+        {properties.length > 0 && (
+          <span className="text-gray-300 dark:text-gray-600 select-none">|</span>
+        )}
+
+        {/* Platform badges */}
         {[
           { source: 'airbnb', label: 'Airbnb' },
           { source: 'booking', label: 'Booking.com' },
@@ -966,75 +996,22 @@ export default function Calendar() {
             key={source}
             type="button"
             onClick={() => toggleSource(source)}
-            className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer ${
+            className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer whitespace-nowrap ${
               selectedSources.includes(normalizeSource(source))
                 ? 'bg-blue-100 dark:bg-blue-900/30 shadow-sm ring-1 ring-blue-400/50'
                 : ''
             }`}
           >
-            <div 
+            <div
               className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
               style={{ backgroundColor: getSourceColor(source) }}
             />
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white truncate">
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
               {label}
             </span>
           </button>
         ))}
-        {properties.length > 0 && (
-          <>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
-            {properties.slice(0, 5).map((p: any) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => toggleProperty(p.id)}
-                className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer ${
-                  selectedPropertyIds.includes(p.id)
-                    ? 'bg-blue-100 dark:bg-blue-900/30 shadow-sm ring-1 ring-blue-400/50'
-                    : ''
-                }`}
-              >
-                <div 
-                  className="w-2.5 h-2.5 rounded-full border border-gray-200 dark:border-gray-600 flex-shrink-0 shadow-sm"
-                  style={{ backgroundColor: p.color || '#9CA3AF' }}
-                />
-                <span className="truncate max-w-[60px] text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
-                  {p.name}
-                </span>
-              </button>
-            ))}
-          </>
-        )}
       </div>
-      </div>
-
-      {/* PROPERTY TABS — Calendar mode only, desktop only (mobile uses dropdown) */}
-      {viewMode === 'calendar' && properties.length > 0 && (
-        <div className="hidden sm:block px-4 pt-2 pb-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          <div className="flex gap-2 min-w-max pb-1">
-            {properties.map((p: any) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setActiveCalendarPropertyId(p.id)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-3 rounded-full text-sm font-medium transition-all whitespace-nowrap border ${
-                  activeCalendarPropertyId === p.id
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500'
-                }`}
-                style={{ minHeight: '36px' }}
-              >
-                <div
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: p.color || '#9CA3AF' }}
-                />
-                {p.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* MAIN CONTENT */}
       <div className="p-4">
