@@ -879,6 +879,12 @@ export default function Calendar() {
                 onChange={(e) => {
                   const val = e.target.value;
                   setSelectedPropertyIds(val === '' ? [] : [Number(val)]);
+                  // On mobile (no tabs), sync dropdown selection to active calendar property
+                  if (val === '') {
+                    setActiveCalendarPropertyId(properties[0]?.id ?? null);
+                  } else {
+                    setActiveCalendarPropertyId(Number(val));
+                  }
                 }}
               >
                 <option value="">{lang === 'fr' ? 'Toutes propriétés' : 'All Properties'}</option>
@@ -947,8 +953,8 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* SOURCE LEGEND */}
-      <div className="px-4 pt-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      {/* SOURCE LEGEND — desktop only */}
+      <div className="hidden sm:block px-4 pt-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
       <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 min-w-max pb-1">
         {[
           { source: 'airbnb', label: 'Airbnb' },
@@ -1003,9 +1009,9 @@ export default function Calendar() {
       </div>
       </div>
 
-      {/* PROPERTY TABS — Calendar mode only (one property at a time) */}
+      {/* PROPERTY TABS — Calendar mode only, desktop only (mobile uses dropdown) */}
       {viewMode === 'calendar' && properties.length > 0 && (
-        <div className="px-4 pt-2 pb-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <div className="hidden sm:block px-4 pt-2 pb-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <div className="flex gap-2 min-w-max pb-1">
             {properties.map((p: any) => (
               <button
