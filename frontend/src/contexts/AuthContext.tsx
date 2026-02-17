@@ -25,6 +25,8 @@ try {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRoleState] = useState<Role>(() => {
+    // Local dev (no Clerk): auto-login as owner
+    if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) return 'owner';
     const saved = localStorage.getItem('kozy_role');
     return (saved === 'owner' || saved === 'cleaner') ? saved : null;
   });
