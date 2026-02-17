@@ -472,35 +472,10 @@ export default function Calendar() {
     }
   }, [isEmpty]);
 
-  // Deduplicate bookings
-  const deduplicatedBookings = useMemo(() => {
-    const groups = new Map<string, Booking[]>();
-    for (const b of bookings) {
-      const key = `${b.property_id}|${b.checkin_date}|${b.checkout_date}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(b);
-    }
-
-    const isNoise = (name: string) => {
-      if (!name) return true;
-      const n = name.trim();
-      if (/^language:\s/i.test(n)) return true;
-      if (/^message:\s/i.test(n)) return true;
-      if (/^Check-(in|out)\s/i.test(n)) return true;
-      return false;
-    };
-
-    const result: Booking[] = [];
-    for (const group of groups.values()) {
-      const best = group.find(b => !isNoise(b.guest_name)) || group[0];
-      result.push(best);
-    }
-    return result;
-  }, [bookings]);
-
+  // Smoobu is single source of truth — no deduplication needed.
   // Filter bookings by selected properties and search
   const filteredBookings = useMemo(() => {
-    let filtered = deduplicatedBookings;
+    let filtered = bookings;
     
     if (selectedPropertyIds.length > 0) {
       filtered = filtered.filter(b => selectedPropertyIds.includes(b.property_id));
@@ -519,12 +494,12 @@ export default function Calendar() {
     }
     
     return filtered;
-  }, [deduplicatedBookings, selectedPropertyIds, selectedSources, searchQuery]);
+  }, [bookings, selectedPropertyIds, selectedSources, searchQuery]);
 
   // Calendar mode: bookings for the single active property tab (ignores property dropdown)
   const calendarBookings = useMemo(() => {
     if (activeCalendarPropertyId === null) return filteredBookings;
-    let filtered = deduplicatedBookings.filter(b => b.property_id === activeCalendarPropertyId);
+    let filtered = bookings.filter(b => b.property_id === activeCalendarPropertyId);
     if (selectedSources.length > 0) {
       filtered = filtered.filter(b => selectedSources.includes(normalizeSource(b.source)));
     }
@@ -536,7 +511,7 @@ export default function Calendar() {
       );
     }
     return filtered;
-  }, [activeCalendarPropertyId, deduplicatedBookings, selectedSources, searchQuery, filteredBookings]);
+  }, [activeCalendarPropertyId, bookings, selectedSources, searchQuery, filteredBookings]);
 
   const calendarPropertySlotMap = useMemo(() => {
     const map = new Map<number, number>();
@@ -563,24 +538,23 @@ export default function Calendar() {
     return filteredBookings
       .filter(b => new Date(b.checkin_date) > today)
       .sort((a, b) => new Date(a.checkin_date).getTime() - new Date(b.checkin_date).getTime())
-      .slice(0, 5);
+      .slice(0, 3);
+  }, [filteredBookings, today]);
+
+  const upcomingCheckouts = useMemo(() => {
+    return filteredBookings
+      .filter(b => new Date(b.checkout_date) > today)
+      .sort((a, b) => new Date(a.checkout_date).getTime() - new Date(b.checkout_date).getTime())
+      .slice(0, 3);
   }, [filteredBookings, today]);
 
   // Timeline view helpers
-  const timelineStartDate = useMemo(() => {
-    const fdow = getFirstDayOfWeek(year, month);
-    const start = new Date(year, month, 1 - fdow);
-    start.setHours(0, 0, 0, 0);
-    return start;
-  }, [year, month]);
+  const timelineStartDate = useMemo(() => new Date(year, month, 1), [year, month]);
 
   const timelineDays = useMemo(() => {
-    return Array.from({ length: 42 }, (_, i) => {
-      const d = new Date(timelineStartDate);
-      d.setDate(timelineStartDate.getDate() + i);
-      return d;
-    });
-  }, [timelineStartDate]);
+    const n = getDaysInMonth(year, month);
+    return Array.from({ length: n }, (_, i) => new Date(year, month, i + 1));
+  }, [year, month]);
 
   const propertyData = useMemo(() => {
     return properties.map((p: any) => ({
@@ -596,46 +570,28 @@ export default function Calendar() {
     const totalDays = timelineDays.length;
     const startMs = timelineStartDate.getTime();
     type BarRaw = { booking: Booking; leftFrac: number; widthFrac: number; isLeftClip: boolean; isRightClip: boolean };
+    const endMs = startMs + totalDays * msPerDay;
     const barsRaw: BarRaw[] = bookings
       .map((booking): BarRaw | null => {
         const checkinMs = new Date(booking.checkin_date).getTime();
         const checkoutMs = new Date(booking.checkout_date).getTime();
-        const leftDaysRaw = (checkinMs - startMs) / msPerDay;
-        const durDays = (checkoutMs - checkinMs) / msPerDay;
-        const leftDays = Math.max(0, leftDaysRaw);
-        let widthDays = durDays;
-        if (leftDays + durDays > totalDays) {
-          widthDays = totalDays - leftDays;
-        }
+        // Clip to visible month window
+        const visibleStart = Math.max(checkinMs, startMs);
+        const visibleEnd = Math.min(checkoutMs, endMs);
+        if (visibleEnd <= visibleStart) return null;
+        const leftDays = (visibleStart - startMs) / msPerDay;
+        const widthDays = (visibleEnd - visibleStart) / msPerDay;
         const leftFrac = leftDays / totalDays;
         const widthFrac = widthDays / totalDays;
-        const isLeftClip = leftDaysRaw < 0;
-        const isRightClip = leftDaysRaw + durDays > totalDays;
-        if (widthFrac < 0.04) return null;
+        const isLeftClip = checkinMs < startMs;
+        const isRightClip = checkoutMs > endMs;
+        if (widthFrac < 0.01) return null;
         return { booking, leftFrac, widthFrac, isLeftClip, isRightClip };
       })
       .filter((b): b is BarRaw => b !== null)
       .sort((a, b) => a.leftFrac - b.leftFrac);
-    const laneOccupancy: Array<Array<{ left: number; width: number }>> = [];
-    const barsWithLanes: Array<BarRaw & { lane: number }> = [];
-    for (const bar of barsRaw) {
-      let lane = 0;
-      while (true) {
-        const occupied = laneOccupancy[lane] ?? [];
-        const barLeft = bar.leftFrac * 100;
-        const barWidth = bar.widthFrac * 100;
-        const overlaps = occupied.some((o: { left: number; width: number }) =>
-          barLeft < o.left + o.width && barLeft + barWidth > o.left
-        );
-        if (!overlaps) break;
-        lane++;
-      }
-      if (!laneOccupancy[lane]) laneOccupancy[lane] = [];
-      laneOccupancy[lane].push({ left: bar.leftFrac * 100, width: bar.widthFrac * 100 });
-      barsWithLanes.push({ ...bar, lane });
-    }
-    const maxLanes = barsWithLanes.length > 0 ? Math.max(...barsWithLanes.map((b) => b.lane + 1)) : 1;
-    return { property, bars: barsWithLanes, maxLanes };
+    const barsWithLanes = barsRaw.map(bar => ({ ...bar, lane: 0 }));
+    return { property, bars: barsWithLanes, maxLanes: 1 };
   });
 }, [propertyData, timelineStartDate]);
 
@@ -1070,8 +1026,11 @@ export default function Calendar() {
           /* TIMELINE VIEW - Multi-property Gantt */
           <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
             <div
+              className="overflow-x-auto"
+            >
+          <div
               className="grid gap-px bg-gray-200 dark:bg-gray-700"
-              style={{ gridTemplateColumns: '160px repeat(42, 1fr)' }}
+              style={{ gridTemplateColumns: `140px repeat(${timelineDays.length}, minmax(32px, 1fr))`, minWidth: `${140 + timelineDays.length * 32}px` }}
             >
                   {/* Property header (sticky) */}
                   <div 
@@ -1123,7 +1082,7 @@ export default function Calendar() {
                         <div
                           key={`row-${property.id}`}
                           className="relative border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
-                          style={{ gridRow: rowNum, gridColumn: '2 / 44', height: rowHeight }}
+                          style={{ gridRow: rowNum, gridColumn: `2 / ${timelineDays.length + 2}`, height: rowHeight }}
                         >
                           {bars.map((bar, bIdx) => {
                             const guestName = cleanGuestName(bar.booking.guest_name);
@@ -1162,16 +1121,17 @@ export default function Calendar() {
                   })}
             </div>
           </div>
+          </div>
         )}
 
-        {/* TODAY'S ACTIVITY + UPCOMING */}
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* TODAY'S ACTIVITY + UPCOMING CHECK-INS + UPCOMING CHECK-OUTS */}
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Today's Activity */}
           <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
-            <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+            <h2 className="text-base font-bold mb-3 text-gray-900 dark:text-white">
               {lang === 'fr' ? "Aujourd'hui" : 'Today'}
             </h2>
-            
+
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
@@ -1219,10 +1179,13 @@ export default function Calendar() {
 
           {/* Upcoming Check-ins */}
           <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
-            <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
-              {lang === 'fr' ? 'Prochaines arrivées' : 'Upcoming Check-ins'}
-            </h2>
-            
+            <div className="flex items-center gap-2 mb-3">
+              <LogIn size={16} className="text-green-600 dark:text-green-400" />
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                {lang === 'fr' ? 'Prochaines arrivées' : 'Upcoming Check-ins'}
+              </h2>
+            </div>
+
             <div className="space-y-2">
               {upcomingCheckins.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-4">
@@ -1233,20 +1196,17 @@ export default function Calendar() {
                   const checkin = new Date(booking.checkin_date);
                   const checkout = new Date(booking.checkout_date);
                   const nights = Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24));
-                  
                   return (
-                    <div 
+                    <div
                       key={booking.id}
                       className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors"
-                      onClick={() => {
-                        setSelectedBooking(booking);
-                      }}
+                      onClick={() => setSelectedBooking(booking)}
                     >
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                      <div className="text-center w-9 flex-shrink-0">
+                        <div className="text-xl font-bold text-gray-900 dark:text-white leading-none">
                           {checkin.getDate()}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-[10px] text-gray-500 uppercase">
                           {checkin.toLocaleDateString(locale, { month: 'short' })}
                         </div>
                       </div>
@@ -1255,13 +1215,61 @@ export default function Calendar() {
                           {cleanGuestName(booking.guest_name)}
                         </p>
                         <p className="text-xs text-gray-500 truncate">{booking.property_name}</p>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                          <span 
-                            className="w-2 h-2 rounded-full" 
-                            style={{ backgroundColor: getSourceColor(booking.source) }}
-                          />
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getSourceColor(booking.source) }} />
                           <span>{getSourceLabel(booking.source)}</span>
-                          <span className="ml-1">• {nights} {lang === 'fr' ? 'nuits' : 'nights'}</span>
+                          <span>· {nights}n</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Upcoming Check-outs */}
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <LogOut size={16} className="text-red-500 dark:text-red-400" />
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                {lang === 'fr' ? 'Prochains départs' : 'Upcoming Check-outs'}
+              </h2>
+            </div>
+
+            <div className="space-y-2">
+              {upcomingCheckouts.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  {lang === 'fr' ? 'Aucun départ prévu' : 'No upcoming check-outs'}
+                </p>
+              ) : (
+                upcomingCheckouts.map(booking => {
+                  const checkout = new Date(booking.checkout_date);
+                  const checkin = new Date(booking.checkin_date);
+                  const nights = Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <div
+                      key={booking.id}
+                      className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors"
+                      onClick={() => setSelectedBooking(booking)}
+                    >
+                      <div className="text-center w-9 flex-shrink-0">
+                        <div className="text-xl font-bold text-gray-900 dark:text-white leading-none">
+                          {checkout.getDate()}
+                        </div>
+                        <div className="text-[10px] text-gray-500 uppercase">
+                          {checkout.toLocaleDateString(locale, { month: 'short' })}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {cleanGuestName(booking.guest_name)}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{booking.property_name}</p>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getSourceColor(booking.source) }} />
+                          <span>{getSourceLabel(booking.source)}</span>
+                          <span>· {nights}n</span>
                         </div>
                       </div>
                     </div>
