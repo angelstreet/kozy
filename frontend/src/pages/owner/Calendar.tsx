@@ -288,7 +288,7 @@ function MonthGrid({
 
       const overlapping = filteredBookings.filter(b => b.checkin_date <= weekEndStr && b.checkout_date > weekStartStr);
 
-      return overlapping.map(booking => {
+      const bars = overlapping.map(booking => {
         const checkin = new Date(booking.checkin_date);
         const checkout = new Date(booking.checkout_date);
         let startDayIdx = 0;
@@ -329,6 +329,25 @@ function MonthGrid({
 
         return { booking, leftPercent, widthPercent, slot, startDayIdx, isCheckoutDay, hasHandoff, hasIncomingHandoff };
       }).filter(bar => bar.widthPercent > 0);
+
+      // Assign lanes to prevent horizontal overlap within the same week row
+      bars.sort((a, b) => a.leftPercent - b.leftPercent);
+      const laneOccupancy: Array<Array<{ leftPercent: number; widthPercent: number }>> = [];
+      return bars.map(bar => {
+        let lane = 0;
+        while (true) {
+          const occupied = laneOccupancy[lane] ?? [];
+          const overlaps = occupied.some(other =>
+            bar.leftPercent < other.leftPercent + other.widthPercent &&
+            bar.leftPercent + bar.widthPercent > other.leftPercent
+          );
+          if (!overlaps) break;
+          lane++;
+        }
+        if (!laneOccupancy[lane]) laneOccupancy[lane] = [];
+        laneOccupancy[lane].push({ leftPercent: bar.leftPercent, widthPercent: bar.widthPercent });
+        return { ...bar, lane };
+      });
     });
   }, [weeks, filteredBookings, propertySlotMap]);
 
@@ -348,7 +367,8 @@ function MonthGrid({
       </div>
       <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {weeks.map((week, weekIdx) => {
-          const rowMinHeight = Math.max(56, 22 + numPropertySlots * 22 + 6);
+          const maxLanes = Math.max(1, ...(weekBookingBars[weekIdx]?.map(b => (b.lane ?? 0) + 1) ?? [1]));
+          const rowMinHeight = Math.max(56, 22 + maxLanes * 22 + 6);
           return (
             <div key={weekIdx} className="grid grid-cols-7 relative" style={{ minHeight: `${rowMinHeight}px` }}>
               {week.map((cell, dayIdx) => {
@@ -364,7 +384,7 @@ function MonthGrid({
                 );
               })}
               {weekBookingBars[weekIdx]?.map((bar) => {
-                const { booking, leftPercent, widthPercent, slot } = bar;
+                const { booking, leftPercent, widthPercent, slot, lane } = bar;
                 const sourceColor = getSourceColor(booking.source);
                 const guestName = cleanGuestName(booking.guest_name);
                 const propertyColor = booking.property_color || '#9CA3AF';
@@ -383,7 +403,7 @@ function MonthGrid({
                       backgroundColor: sourceColor,
                       left: `${leftPercent}%`,
                       width: `${widthPercent}%`,
-                      top: `${22 + slot * 22}px`,
+                      top: `${22 + (lane ?? slot) * 22}px`,
                       height: '20px',
                       zIndex: 10
                     }}
