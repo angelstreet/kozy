@@ -415,6 +415,8 @@ export default function Calendar() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
+  // Calendar mode: one property at a time via tabs
+  const [activeCalendarPropertyId, setActiveCalendarPropertyId] = useState<number | null>(null);
 
   const displayPropertyId = useMemo(() => {
     if (selectedPropertyIds.length === 0) return '';
@@ -433,6 +435,13 @@ export default function Calendar() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const today = new Date();
+
+  // Initialize active calendar property when properties load
+  useEffect(() => {
+    if (properties.length > 0 && activeCalendarPropertyId === null) {
+      setActiveCalendarPropertyId(properties[0].id);
+    }
+  }, [properties.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isEmpty) {
@@ -491,6 +500,32 @@ export default function Calendar() {
     
     return filtered;
   }, [deduplicatedBookings, selectedPropertyIds, selectedSources, searchQuery]);
+
+  // Calendar mode: bookings for the single active property tab (ignores property dropdown)
+  const calendarBookings = useMemo(() => {
+    if (activeCalendarPropertyId === null) return filteredBookings;
+    let filtered = deduplicatedBookings.filter(b => b.property_id === activeCalendarPropertyId);
+    if (selectedSources.length > 0) {
+      filtered = filtered.filter(b => selectedSources.includes(normalizeSource(b.source)));
+    }
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(b =>
+        cleanGuestName(b.guest_name).toLowerCase().includes(query) ||
+        b.property_name.toLowerCase().includes(query)
+      );
+    }
+    return filtered;
+  }, [activeCalendarPropertyId, deduplicatedBookings, selectedSources, searchQuery, filteredBookings]);
+
+  const calendarPropertySlotMap = useMemo(() => {
+    const map = new Map<number, number>();
+    const ids = [...new Set(calendarBookings.map(b => b.property_id))];
+    ids.forEach((id, idx) => map.set(id, idx));
+    return map;
+  }, [calendarBookings]);
+
+  const calendarNumPropertySlots = calendarPropertySlotMap.size;
 
   // Today's activity
   const todayActivity = useMemo(() => {
@@ -786,7 +821,7 @@ export default function Calendar() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* COMPACT HEADER */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
           {/* Left: Navigation + Month */}
           <div className="flex items-center gap-3">
             <button
@@ -803,7 +838,7 @@ export default function Calendar() {
                 {lang === 'fr' ? "Aujourd'hui" : 'Today'}
               </button>
             )}
-            <h1 className="text-lg font-bold text-gray-900 dark:text-white min-w-[140px]">
+            <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white whitespace-nowrap">
               {new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
             </h1>
             <button
@@ -814,8 +849,8 @@ export default function Calendar() {
             </button>
           </div>
 
-          {/* Right: Controls */}
-          <div className="flex items-center gap-3">
+          {/* Right: Controls (scrollable on mobile) */}
+          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-0.5 sm:pb-0" style={{ scrollbarWidth: 'none' }}>
             {/* Property Dropdown */}
             <div className="relative">
               <select 
@@ -893,7 +928,8 @@ export default function Calendar() {
       </div>
 
       {/* SOURCE LEGEND */}
-      <div className="px-4 pt-3 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+      <div className="px-4 pt-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 min-w-max pb-1">
         {[
           { source: 'airbnb', label: 'Airbnb' },
           { source: 'booking', label: 'Booking.com' },
@@ -945,6 +981,34 @@ export default function Calendar() {
           </>
         )}
       </div>
+      </div>
+
+      {/* PROPERTY TABS — Calendar mode only (one property at a time) */}
+      {viewMode === 'calendar' && properties.length > 0 && (
+        <div className="px-4 pt-2 pb-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex gap-2 min-w-max pb-1">
+            {properties.map((p: any) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setActiveCalendarPropertyId(p.id)}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 rounded-full text-sm font-medium transition-all whitespace-nowrap border ${
+                  activeCalendarPropertyId === p.id
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500'
+                }`}
+                style={{ minHeight: '36px' }}
+              >
+                <div
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: p.color || '#9CA3AF' }}
+                />
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* MAIN CONTENT */}
       <div className="p-4">
@@ -960,9 +1024,9 @@ export default function Calendar() {
                   key={`${y}-${mo}`}
                   year={y}
                   month={mo}
-                  filteredBookings={filteredBookings}
-                  propertySlotMap={propertySlotMap}
-                  numPropertySlots={numPropertySlots}
+                  filteredBookings={calendarBookings}
+                  propertySlotMap={calendarPropertySlotMap}
+                  numPropertySlots={calendarNumPropertySlots}
                   today={today}
                   dayNames={dayNames}
                   lang={lang}
