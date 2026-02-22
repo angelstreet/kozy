@@ -456,10 +456,11 @@ export default function Calendar() {
   const month = currentDate.getMonth();
   const today = new Date();
 
-  // Initialize active calendar property when properties load
+  // Initialize active calendar property when properties load; pre-select first property
   useEffect(() => {
     if (properties.length > 0 && activeCalendarPropertyId === null) {
       setActiveCalendarPropertyId(properties[0].id);
+      setSelectedPropertyIds([properties[0].id]);
     }
   }, [properties.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -869,11 +870,11 @@ export default function Calendar() {
             </button>
           </div>
 
-          {/* Right: Controls (scrollable on mobile) */}
+          {/* Right: Controls */}
           <div className="flex items-center gap-2 sm:gap-3 pb-0.5 sm:pb-0">
             {/* Property Dropdown */}
             <div className="relative flex-1 sm:flex-none">
-              <select 
+              <select
                 className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-full sm:w-48 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
                 value={displayPropertyId}
                 onChange={(e) => {
@@ -887,24 +888,24 @@ export default function Calendar() {
                   }
                 }}
               >
-                <option value="">{lang === 'fr' ? 'Toutes propriétés' : 'All Properties'}</option>
+                <option value="">{lang === 'fr' ? 'Propriétés' : 'Properties'}</option>
                 {properties.map((p: any) => (
                   <option key={p.id} value={p.id.toString()}>{p.name}</option>
                 ))}
               </select>
             </div>
 
-            {/* Platform Dropdown */}
-            <div className="relative flex-1 sm:flex-none">
-              <select 
-                className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-full sm:w-40 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+            {/* Platform Dropdown — desktop only */}
+            <div className="relative hidden sm:block">
+              <select
+                className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-40 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
                 value={displaySource}
                 onChange={(e) => {
                   const val = e.target.value;
                   setSelectedSources(val === '' ? [] : [val]);
                 }}
               >
-                <option value="">{lang === 'fr' ? 'Toutes plateformes' : 'All Platforms'}</option>
+                <option value="">{lang === 'fr' ? 'Plateformes' : 'Platforms'}</option>
                 <option value="airbnb">Airbnb</option>
                 <option value="booking">Booking</option>
                 <option value="smoobu">Smoobu</option>
@@ -912,8 +913,8 @@ export default function Calendar() {
               </select>
             </div>
 
-            {/* Search */}
-            <div className="relative">
+            {/* Search — desktop only */}
+            <div className="relative hidden sm:flex">
               <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
@@ -924,29 +925,31 @@ export default function Calendar() {
               />
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
+            {/* View Mode Toggle — icon-only on mobile, icon+text on desktop */}
+            <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden flex-shrink-0">
               <button
                 onClick={() => setViewMode('calendar')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  viewMode === 'calendar' 
-                    ? 'bg-blue-600 text-white' 
+                className={`px-2 sm:px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  viewMode === 'calendar'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
                 }`}
+                title={lang === 'fr' ? 'Calendrier' : 'Calendar'}
               >
                 <CalendarIcon size={16} />
-                {lang === 'fr' ? 'Calendrier' : 'Calendar'}
+                <span className="hidden sm:inline">{lang === 'fr' ? 'Calendrier' : 'Calendar'}</span>
               </button>
               <button
                 onClick={() => setViewMode('timeline')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  viewMode === 'timeline' 
-                    ? 'bg-blue-600 text-white' 
+                className={`px-2 sm:px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  viewMode === 'timeline'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
                 }`}
+                title={lang === 'fr' ? 'Timeline' : 'Timeline'}
               >
                 <BarChart3 size={16} />
-                {lang === 'fr' ? 'Timeline' : 'Timeline'}
+                <span className="hidden sm:inline">{lang === 'fr' ? 'Timeline' : 'Timeline'}</span>
               </button>
             </div>
           </div>
