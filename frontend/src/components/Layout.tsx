@@ -26,7 +26,7 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
   <Sidebar />
-  <div className="flex-1 lg:ml-16 xl:ml-64">
+  <div className="flex-1 lg:ml-16 xl:ml-64 overflow-x-hidden">
       <header className="flex items-center justify-between px-4 py-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
         <span className="lg:hidden font-bold text-lg">🏠 Kozy</span>
         <div className="flex items-center gap-2 text-sm">

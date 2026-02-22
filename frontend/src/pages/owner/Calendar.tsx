@@ -352,9 +352,9 @@ function MonthGrid({
   }, [weeks, filteredBookings, propertySlotMap]);
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
-      <div className="px-4 py-2.5">
-        <h2 className="text-base font-bold text-gray-900 dark:text-white">
+    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden max-w-full">
+      <div className="px-3 sm:px-4 py-2.5">
+        <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
           {new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
         </h2>
       </div>
@@ -838,9 +838,9 @@ export default function Calendar() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       {/* COMPACT HEADER */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3 overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
           {/* Left: Navigation + Month */}
           <div className="flex items-center gap-3">
@@ -870,11 +870,11 @@ export default function Calendar() {
           </div>
 
           {/* Right: Controls (scrollable on mobile) */}
-          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-0.5 sm:pb-0" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex items-center gap-2 sm:gap-3 pb-0.5 sm:pb-0">
             {/* Property Dropdown */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <select 
-                className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-48 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-full sm:w-48 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
                 value={displayPropertyId}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -895,9 +895,9 @@ export default function Calendar() {
             </div>
 
             {/* Platform Dropdown */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <select 
-                className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-40 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-full sm:w-40 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
                 value={displaySource}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -1014,10 +1014,10 @@ export default function Calendar() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="p-4">
+      <div className="p-2 sm:p-4 overflow-hidden">
         {viewMode === 'calendar' ? (
           /* 3-MONTH CALENDAR VIEW */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4">
             {[0, 1, 2].map(offset => {
               const m = month + offset;
               const y = year + Math.floor(m / 12);
@@ -1031,7 +1031,7 @@ export default function Calendar() {
                   propertySlotMap={calendarPropertySlotMap}
                   numPropertySlots={calendarNumPropertySlots}
                   today={today}
-                  dayNames={dayNames}
+                  dayNames={shortDayNames}
                   lang={lang}
                   onBookingClick={handleBookingClick}
                 />
