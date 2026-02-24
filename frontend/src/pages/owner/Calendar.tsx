@@ -929,27 +929,25 @@ export default function Calendar() {
             <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden flex-shrink-0">
               <button
                 onClick={() => setViewMode('calendar')}
-                className={`px-2 sm:px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                className={`p-2 transition-colors flex items-center justify-center rounded-l-lg ${
                   viewMode === 'calendar'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
                 }`}
                 title={lang === 'fr' ? 'Calendrier' : 'Calendar'}
               >
-                <CalendarIcon size={16} />
-                <span className="hidden sm:inline">{lang === 'fr' ? 'Calendrier' : 'Calendar'}</span>
+                <CalendarIcon size={20} />
               </button>
               <button
                 onClick={() => setViewMode('timeline')}
-                className={`px-2 sm:px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                className={`p-2 transition-colors flex items-center justify-center rounded-r-lg ${
                   viewMode === 'timeline'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
                 }`}
                 title={lang === 'fr' ? 'Timeline' : 'Timeline'}
               >
-                <BarChart3 size={16} />
-                <span className="hidden sm:inline">{lang === 'fr' ? 'Timeline' : 'Timeline'}</span>
+                <BarChart3 size={20} />
               </button>
             </div>
           </div>
