@@ -6,7 +6,8 @@ Manage your properties, coordinate cleaners, track payments — all in one clean
 
 ## Features (MVP)
 
-- 📅 **Calendar** — Advanced views: timeline Gantt (multi-property rows, horizontal bars, upcoming check-ins), week/month with filters/modals/source colors/continuation indicators; popover details; iCal + primary Smoobu API sync (encrypted keys, full property/bookings sync); Moobu/Smoobu-style UX redesign V2 (gradients, shadows, typography, chips)
+- 📅 **Calendar** — Advanced views: timeline Gantt (multi-property rows, horizontal bars, upcoming check-ins), week/month with filters/modals/source colors/continuation indicators; popover details; iCal + primary Smoobu API sync (encrypted keys, full property/bookings sync); Moobu/Smoobu-style UX redesign V2 (gradients, shadows, typography, chips); mobile-optimised filter bar (icon-only toggle, viewport-friendly)
+- 📊 **Analytics** — Revenue & booking trend charts (area charts via Recharts); filter by property and period (30d / 3m / 6m / 1y); breakdown by source (Airbnb, Booking.com, Smoobu, Direct) with deduplication logic; owner-only page accessible from sidebar
 - 🧹 **Cleaning coordination** — Assign cleaners to properties, track task status
 - 💶 **Payments** — Per-intervention tracking, Sunday rates, mark as paid
 - 🏗️ **Travaux (Renovation Works)** — Track renovation costs per property with automatic cashflow impact calculation
@@ -25,7 +26,7 @@ Manage your properties, coordinate cleaners, track payments — all in one clean
 | Cleaning tasks | ✅ | ✅ (assigned only) |
 | Payments | ✅ | 👀 (own earnings) |
 | Shopping requests | ✅ (resolve) | ✅ (create) |
-| Analytics | 🔜 Step 2 | — |
+| Analytics | ✅ | — |
 
 ## Tech Stack
 
