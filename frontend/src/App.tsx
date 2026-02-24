@@ -12,6 +12,7 @@ import Cleaners from '@/pages/owner/Cleaners';
 import Payments from '@/pages/owner/Payments';
 import AddProperty from '@/pages/owner/AddProperty';
 import EditProperty from '@/pages/owner/EditProperty';
+import Analytics from '@/pages/owner/Analytics';
 import Schedule from '@/pages/cleaner/Schedule';
 import Shopping from '@/pages/cleaner/Shopping';
 import CleanerMore from '@/pages/cleaner/CleanerMore';
@@ -45,6 +46,7 @@ function AppRoutes() {
           <Route path="/payments" element={<Payments />} />
           <Route path="/add-property" element={<AddProperty />} />
           <Route path="/edit-property/:id" element={<EditProperty />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </>}
         {role === 'cleaner' && <>
