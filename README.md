@@ -39,7 +39,7 @@ Manage your properties, coordinate cleaners, track payments — all in one clean
 
 ## Deployment
 
-The app runs under the `/kozy/` base path for subpath routing (e.g. `https://yourdomain.com/kozy/`).
+The app supports configurable base path routing via the `VITE_BASE_PATH` environment variable. Set it to the desired subpath (e.g. `/kozy/`) and the router will use it automatically. If not set, the app runs at the root path. Previously this was hardcoded to `/kozy`.
 
 Backend is deployed as a Vercel serverless function via `backend/api/index.ts`.
 
