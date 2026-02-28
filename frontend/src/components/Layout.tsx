@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import NotificationBell from './NotificationBell';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +38,7 @@ export default function Layout() {
           </button>
           <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')} className="text-blue-500 font-medium">{lang.toUpperCase()}</button>
           <button onClick={toggleDark}>{dark ? '☀️' : '🌙'}</button>
+          {role === 'cleaner' && <NotificationBell />}
           {clerkEnabled ? <UserBtn /> : <button onClick={logout} className="text-red-400 text-xs">⏻</button>}
         </div>
       </header>

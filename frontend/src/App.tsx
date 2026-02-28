@@ -16,6 +16,7 @@ import Analytics from '@/pages/owner/Analytics';
 import Schedule from '@/pages/cleaner/Schedule';
 import Shopping from '@/pages/cleaner/Shopping';
 import CleanerMore from '@/pages/cleaner/CleanerMore';
+import CleanerNotifications from '@/pages/cleaner/CleanerNotifications';
 import Invite from '@/pages/Invite';
 
 function AppRoutes() {
@@ -53,6 +54,7 @@ function AppRoutes() {
           <Route path="/c/schedule" element={<Schedule />} />
           <Route path="/c/shopping" element={<Shopping />} />
           <Route path="/c/more" element={<CleanerMore />} />
+          <Route path="/c/notifications" element={<CleanerNotifications />} />
           <Route path="*" element={<Navigate to="/c/schedule" />} />
         </>}
       </Route>

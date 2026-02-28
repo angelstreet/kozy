@@ -81,6 +81,15 @@ export async function initDB() {
       last_used_at TEXT,
       revoked INTEGER DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS notification (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cleaner_id INTEGER REFERENCES cleaner(id),
+      type TEXT DEFAULT 'weekly_summary',
+      title TEXT NOT NULL,
+      body TEXT,
+      read INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS user_settings (
       user_id TEXT NOT NULL,
       key TEXT NOT NULL,
@@ -120,6 +129,20 @@ export async function migrate() {
     await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaner_invite_token ON cleaner(invite_token)");
   }
 
+  // Add notification table
+  const notifTables = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='notification'");
+  if (notifTables.rows.length === 0) {
+    await db.execute(`CREATE TABLE IF NOT EXISTS notification (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cleaner_id INTEGER REFERENCES cleaner(id),
+      type TEXT DEFAULT 'weekly_summary',
+      title TEXT NOT NULL,
+      body TEXT,
+      read INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`);
+  }
+
   // Run Smoobu fields migration
   const { migrateSmoobuFields } = await import('./migrations/add_smoobu_fields.js');
   await migrateSmoobuFields();
@@ -128,6 +151,19 @@ export async function migrate() {
   if (!cols.rows.find((c: any) => c[1] === 'smoobu_apartment_id' || c.name === 'smoobu_apartment_id')) {
     await db.execute("ALTER TABLE property ADD COLUMN smoobu_apartment_id INTEGER");
   }
+
+  // Ensure notification table exists
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS notification (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cleaner_id INTEGER REFERENCES cleaner(id),
+      type TEXT DEFAULT 'daily_reminder',
+      title TEXT,
+      body TEXT,
+      read INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
 
   // Run encryption migration
   const { migrateEncryption } = await import('./migrations/add_encryption.js');
@@ -143,12 +179,21 @@ export async function seed() {
 }
 
 export async function seedTestData() {
+  // Ensure notification table exists before deletion
+  await db.execute(`CREATE TABLE IF NOT EXISTS notification (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cleaner_id INTEGER REFERENCES cleaner(id),
+    type TEXT DEFAULT 'daily_reminder',
+    title TEXT, body TEXT, read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
   await db.executeMultiple(`
     DELETE FROM shopping_request;
     DELETE FROM payment;
     DELETE FROM cleaning_task;
     DELETE FROM booking;
     DELETE FROM property_cleaner;
+    DELETE FROM notification;
     DELETE FROM cleaner;
     DELETE FROM property;
   `);
@@ -180,6 +225,7 @@ export async function clearAll() {
     DELETE FROM cleaning_task;
     DELETE FROM booking;
     DELETE FROM property_cleaner;
+    DELETE FROM notification;
     DELETE FROM cleaner;
     DELETE FROM property;
   `);

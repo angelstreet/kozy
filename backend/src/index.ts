@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import db, { initDB, seed, migrate, seedTestData, clearAll } from './db.js';
+import { seedCleanerTestData } from './seed.js';
 import { fetchAndParseIcal, syncPropertyIcal } from './ical-sync.js';
 import { syncSmoobuData, syncSmoobuBookings } from './smoobu-sync.js';
 import { syncProperty } from './unified-sync.js';
@@ -21,7 +22,8 @@ app.use('/api/*', async (c, next) => {
   const path = c.req.path;
   // Skip auth for external API (has own token), invite routes, seed/reset, and health
   if (path.startsWith('/api/external/') || path.startsWith('/api/invite/') ||
-      path === '/api/seed' || path === '/api/reset') {
+      path.startsWith('/api/notifications') || path.startsWith('/api/dev/') ||
+      path === '/api/seed' || path === '/api/reset' || path === '/api/dev/seed') {
     return next();
   }
   return clerkAuth(c, next);
@@ -97,6 +99,15 @@ app.get('/api/cleaners', async (c) => {
     ORDER BY c.name
   `);
   return c.json(result.rows);
+});
+
+// GET /api/cleaners/by-email?email=X — look up cleaner by email (for local dev auth)
+app.get('/api/cleaners/by-email', async (c) => {
+  const email = c.req.query('email');
+  if (!email) return c.json({ error: 'email required' }, 400);
+  const result = await db.execute({ sql: 'SELECT * FROM cleaner WHERE email = ?', args: [email] });
+  if (!result.rows[0]) return c.json({ error: 'Not found' }, 404);
+  return c.json(result.rows[0]);
 });
 
 app.post('/api/cleaners', async (c) => {
@@ -277,6 +288,18 @@ app.get('/api/tasks', async (c) => {
     LEFT JOIN cleaner cl ON cl.id = ct.assigned_to
   `);
   return c.json(result.rows);
+});
+
+app.post('/api/tasks', async (c) => {
+  const body = await c.req.json();
+  const { property_id, booking_id, date, status, assigned_to, rate } = body;
+  if (!property_id || !date) return c.json({ error: 'property_id and date required' }, 400);
+  const result = await db.execute({
+    sql: 'INSERT INTO cleaning_task (property_id, booking_id, date, status, assigned_to, rate) VALUES (?, ?, ?, ?, ?, ?)',
+    args: [property_id, booking_id || null, date, status || 'pending', assigned_to || null, rate || null],
+  });
+  const task = await db.execute({ sql: 'SELECT * FROM cleaning_task WHERE id = ?', args: [Number(result.lastInsertRowid)] });
+  return c.json(task.rows[0], 201);
 });
 
 app.patch('/api/tasks/:id', async (c) => {
@@ -767,6 +790,148 @@ app.get('/api/external/properties', async (c) => {
   return c.json({ properties: result, generated_at: new Date().toISOString() });
 });
 
+
+// ==================== NOTIFICATIONS ====================
+
+// Ensure notification table exists (also called in migrate)
+async function ensureNotificationTable() {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS notification (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cleaner_id INTEGER REFERENCES cleaner(id),
+      type TEXT DEFAULT 'daily_reminder',
+      title TEXT,
+      body TEXT,
+      read INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+}
+
+// GET /api/notifications?cleaner_id=X
+app.get('/api/notifications', async (c) => {
+  await ensureNotificationTable();
+  const cleaner_id = c.req.query('cleaner_id');
+  if (!cleaner_id) return c.json({ error: 'cleaner_id required' }, 400);
+  const result = await db.execute({
+    sql: 'SELECT * FROM notification WHERE cleaner_id = ? ORDER BY created_at DESC LIMIT 50',
+    args: [Number(cleaner_id)],
+  });
+  return c.json(result.rows);
+});
+
+// PATCH /api/notifications/:id/read
+app.patch('/api/notifications/:id/read', async (c) => {
+  await ensureNotificationTable();
+  const id = Number(c.req.param('id'));
+  await db.execute({ sql: 'UPDATE notification SET read = 1 WHERE id = ?', args: [id] });
+  return c.json({ ok: true });
+});
+
+// DELETE /api/notifications/read-all?cleaner_id=X
+app.delete('/api/notifications/read-all', async (c) => {
+  await ensureNotificationTable();
+  const cleaner_id = c.req.query('cleaner_id');
+  if (!cleaner_id) return c.json({ error: 'cleaner_id required' }, 400);
+  await db.execute({ sql: 'UPDATE notification SET read = 1 WHERE cleaner_id = ?', args: [Number(cleaner_id)] });
+  return c.json({ ok: true });
+});
+
+// GET /api/notifications/daily-check — check which cleaners have tasks tomorrow
+app.get('/api/notifications/daily-check', async (c) => {
+  await ensureNotificationTable();
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+  const result = await db.execute({
+    sql: `
+      SELECT ct.assigned_to as cleaner_id, cl.name as cleaner_name,
+             p.name as property_name, p.checkout_time,
+             COUNT(*) OVER (PARTITION BY ct.assigned_to) as task_count
+      FROM cleaning_task ct
+      JOIN property p ON p.id = ct.property_id
+      JOIN cleaner cl ON cl.id = ct.assigned_to
+      WHERE ct.date = ? AND ct.assigned_to IS NOT NULL
+    `,
+    args: [tomorrowStr],
+  });
+
+  return c.json({ date: tomorrowStr, tasks: result.rows });
+});
+
+// POST /api/notifications/trigger-daily — create daily reminder notifications
+app.post('/api/notifications/trigger-daily', async (c) => {
+  await ensureNotificationTable();
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+  // Get all cleaners with tasks tomorrow
+  const result = await db.execute({
+    sql: `
+      SELECT ct.assigned_to as cleaner_id, cl.name as cleaner_name,
+             p.name as property_name, p.checkout_time
+      FROM cleaning_task ct
+      JOIN property p ON p.id = ct.property_id
+      JOIN cleaner cl ON cl.id = ct.assigned_to
+      WHERE ct.date = ? AND ct.assigned_to IS NOT NULL
+      ORDER BY ct.assigned_to, p.checkout_time
+    `,
+    args: [tomorrowStr],
+  });
+
+  const rows = result.rows as any[];
+
+  // Group by cleaner
+  const byCleanerMap = new Map<number, { name: string; tasks: { property_name: string; checkout_time: string }[] }>();
+  for (const row of rows) {
+    if (!byCleanerMap.has(row.cleaner_id)) {
+      byCleanerMap.set(row.cleaner_id, { name: row.cleaner_name, tasks: [] });
+    }
+    byCleanerMap.get(row.cleaner_id)!.tasks.push({
+      property_name: row.property_name,
+      checkout_time: row.checkout_time,
+    });
+  }
+
+  const created: number[] = [];
+
+  for (const [cleaner_id, { name, tasks }] of byCleanerMap) {
+    const count = tasks.length;
+    const taskList = tasks.map(t => `${t.property_name} at ${t.checkout_time || '?'}`).join(', ');
+    const body = `Tomorrow you have ${count} intervention(s): ${taskList}`;
+    const title = `📅 Reminder: ${count} cleaning${count > 1 ? 's' : ''} tomorrow`;
+
+    await db.execute({
+      sql: 'INSERT INTO notification (cleaner_id, type, title, body) VALUES (?, ?, ?, ?)',
+      args: [cleaner_id, 'daily_reminder', title, body],
+    });
+    created.push(cleaner_id);
+  }
+
+  return c.json({
+    ok: true,
+    date: tomorrowStr,
+    notifications_created: created.length,
+    cleaner_ids: created,
+  });
+});
+
+// /api/dev/seed — Task #829: Seed test bookings + cleaning tasks for cleaner testing
+app.post('/api/dev/seed', async (c) => {
+  if (process.env.NODE_ENV === 'production') {
+    return c.json({ error: 'Dev-only endpoint' }, 403);
+  }
+  try {
+    const result = await seedCleanerTestData();
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+
 // Seed / Reset
 app.post('/api/seed', async (c) => {
   await seedTestData();
@@ -778,13 +943,136 @@ app.post('/api/reset', async (c) => {
   return c.json({ ok: true, message: 'All data cleared' });
 });
 
+// ── Notifications ──────────────────────────────────────
+app.get('/api/notifications', async (c) => {
+  const cleaner_id = c.req.query('cleaner_id');
+  if (!cleaner_id) return c.json({ error: 'cleaner_id required' }, 400);
+  const result = await db.execute({
+    sql: 'SELECT * FROM notification WHERE cleaner_id = ? ORDER BY created_at DESC',
+    args: [cleaner_id],
+  });
+  return c.json(result.rows);
+});
+
+app.patch('/api/notifications/:id', async (c) => {
+  const id = c.req.param('id');
+  await db.execute({ sql: 'UPDATE notification SET read = 1 WHERE id = ?', args: [id] });
+  return c.json({ ok: true });
+});
+
+// Weekly summary helper
+function getNextWeekRange() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon
+  const daysUntilMon = day === 0 ? 1 : 8 - day;
+  const mon = new Date(now);
+  mon.setDate(now.getDate() + daysUntilMon);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: fmt(mon), to: fmt(sun) };
+}
+
+app.get('/api/notifications/weekly-summary', async (c) => {
+  const { from, to } = getNextWeekRange();
+  const tasks = await db.execute({
+    sql: `SELECT ct.id, ct.date, ct.status, ct.rate, ct.assigned_to,
+                 p.name as property_name, p.address,
+                 cl.name as cleaner_name
+          FROM cleaning_task ct
+          JOIN property p ON p.id = ct.property_id
+          JOIN cleaner cl ON cl.id = ct.assigned_to
+          WHERE ct.date >= ? AND ct.date <= ?
+          ORDER BY ct.assigned_to, ct.date`,
+    args: [from, to],
+  });
+  return c.json({ week: { from, to }, tasks: tasks.rows });
+});
+
+app.post('/api/notifications/trigger-weekly', async (c) => {
+  const { from, to } = getNextWeekRange();
+  const tasksRes = await db.execute({
+    sql: `SELECT ct.id, ct.date, ct.status, ct.rate, ct.assigned_to,
+                 p.name as property_name,
+                 cl.name as cleaner_name
+          FROM cleaning_task ct
+          JOIN property p ON p.id = ct.property_id
+          JOIN cleaner cl ON cl.id = ct.assigned_to
+          WHERE ct.date >= ? AND ct.date <= ?
+          ORDER BY ct.assigned_to, ct.date`,
+    args: [from, to],
+  });
+
+  const byCleanerId: Record<string, any[]> = {};
+  for (const row of tasksRes.rows as any[]) {
+    const cid = String((row as any).assigned_to);
+    if (!byCleanerId[cid]) byCleanerId[cid] = [];
+    byCleanerId[cid].push(row);
+  }
+
+  const created = [];
+  for (const [cleaner_id, tasks] of Object.entries(byCleanerId)) {
+    const count = tasks.length;
+    const title = `Your week: ${count} cleaning${count > 1 ? 's' : ''} scheduled`;
+    const lines = (tasks as any[]).map((t: any) => `• ${t.date} — ${t.property_name}`);
+    const body = `Week of ${from} to ${to}:\n${lines.join('\n')}` as string;
+    const r = await db.execute({
+      sql: `INSERT INTO notification (cleaner_id, type, title, body, read, created_at) VALUES (?, ?, ?, ?, 0, datetime('now'))`,
+      args: [Number(cleaner_id), 'weekly_summary', title, body],
+    });
+    created.push({ cleaner_id: Number(cleaner_id), notification_id: Number(r.lastInsertRowid) });
+  }
+  return c.json({ ok: true, created, week: { from, to } });
+});
+
+// ── Dev Seed (for testing notifications) ──────────────
+app.post('/api/dev/seed', async (c) => {
+  // Ensure we have test cleaners/properties
+  const cleaners = await db.execute('SELECT COUNT(*) as cnt FROM cleaner');
+  if ((cleaners.rows[0] as any).cnt === 0) {
+    await db.execute({ sql: 'INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)', args: ['Test Owner','owner@example.com','+33600000001'] });
+    await db.execute({ sql: 'INSERT INTO cleaner (name,email,phone) VALUES (?,?,?)', args: ['Test Cleaner','cleaner@example.com','+33600000002'] });
+  }
+  const props = await db.execute('SELECT COUNT(*) as cnt FROM property');
+  if ((props.rows[0] as any).cnt === 0) {
+    await db.execute({ sql: 'INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)', args: ['Studio Montmartre','12 Rue Lepic, Paris',50,70,'#3B82F6'] });
+    await db.execute({ sql: 'INSERT INTO property (name,address,rate,sunday_rate,color) VALUES (?,?,?,?,?)', args: ['Apt Marais','8 Rue de Turenne, Paris',60,80,'#10B981'] });
+  }
+  // Get IDs
+  const cl = await db.execute('SELECT id FROM cleaner ORDER BY id LIMIT 2');
+  const pr = await db.execute('SELECT id FROM property ORDER BY id LIMIT 2');
+  const cleanerId = (cl.rows[0] as any).id;
+  const propId1 = (pr.rows[0] as any).id;
+  const propId2 = pr.rows.length > 1 ? (pr.rows[1] as any).id : propId1;
+
+  // Assign cleaner to properties
+  await db.execute({ sql: 'INSERT OR IGNORE INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)', args: [propId1, cleanerId, 'primary'] });
+  await db.execute({ sql: 'INSERT OR IGNORE INTO property_cleaner (property_id,cleaner_id,role) VALUES (?,?,?)', args: [propId2, cleanerId, 'primary'] });
+
+  // Create cleaning tasks for next week
+  const { from } = getNextWeekRange();
+  const day1 = from; // Monday
+  const day2 = (() => { const d = new Date(from); d.setDate(d.getDate() + 2); return d.toISOString().slice(0,10); })(); // Wednesday
+  const day3 = (() => { const d = new Date(from); d.setDate(d.getDate() + 4); return d.toISOString().slice(0,10); })(); // Friday
+
+  // Check if tasks already exist for that week
+  const existing = await db.execute({ sql: 'SELECT id FROM cleaning_task WHERE date >= ? AND assigned_to = ?', args: [from, cleanerId] });
+  if ((existing.rows as any[]).length === 0) {
+    await db.execute({ sql: 'INSERT INTO cleaning_task (property_id,date,status,assigned_to,rate) VALUES (?,?,?,?,?)', args: [propId1, day1, 'pending', cleanerId, 50] });
+    await db.execute({ sql: 'INSERT INTO cleaning_task (property_id,date,status,assigned_to,rate) VALUES (?,?,?,?,?)', args: [propId2, day2, 'pending', cleanerId, 60] });
+    await db.execute({ sql: 'INSERT INTO cleaning_task (property_id,date,status,assigned_to,rate) VALUES (?,?,?,?,?)', args: [propId1, day3, 'confirmed', cleanerId, 50] });
+  }
+
+  return c.json({ ok: true, cleanerId, message: 'Dev seed complete — tasks for next week created' });
+});
+
 // Export app for Vercel adapter
 export default app;
 
 // Node.js server (only when not on Vercel)
 if (!process.env.VERCEL) {
   const { serve } = await import('@hono/node-server');
-  serve({ fetch: app.fetch, port: 5002 }, () => {
+  serve({ fetch: app.fetch, port: Number(process.env.PORT) || 5002 }, () => {
     console.log('Kozy API running on http://localhost:5002');
   });
 }

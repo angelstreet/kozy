@@ -14,5 +14,9 @@
   "weather": "Météo: 12°C ☁️",
   "logout": "Déconnexion",
   "language": "Langue",
-  "theme": "Thème"
+  "theme": "Thème",
+  "notifications": "Notifications",
+  "mark_read": "Marquer comme lu",
+  "no_notifications": "Aucune notification",
+  "unread": "non lu"
 }
