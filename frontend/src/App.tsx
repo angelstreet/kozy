@@ -66,7 +66,7 @@ export default function App() {
   return (
     <AppProvider>
       <AuthProvider>
-        <BrowserRouter basename={import.meta.env.VITE_BASE_PATH?.replace(/\/$/, '') || ''}>
+        <BrowserRouter basename={window.location.pathname.startsWith('/kozy') ? (import.meta.env.VITE_BASE_PATH?.replace(/\/$/, '') || '') : ''}>
           <Routes>
             <Route path="/invite/:token" element={<Invite />} />
             <Route path="/*" element={<AppRoutes />} />
