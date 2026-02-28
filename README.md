@@ -9,6 +9,8 @@ Manage your properties, coordinate cleaners, track payments — all in one clean
 - 📅 **Calendar** — Advanced views: timeline Gantt (multi-property rows, horizontal bars, upcoming check-ins), week/month with filters/modals/source colors/continuation indicators; popover details; iCal + primary Smoobu API sync (encrypted keys, full property/bookings sync); Moobu/Smoobu-style UX redesign V2 (gradients, shadows, typography, chips); mobile-optimised filter bar (icon-only toggle, viewport-friendly)
 - 📊 **Analytics** — Revenue & booking trend charts (area charts via Recharts); filter by property and period (30d / 3m / 6m / 1y); breakdown by source (Airbnb, Booking.com, Smoobu, Direct) with deduplication logic; owner-only page accessible from sidebar
 - 🧹 **Cleaning coordination** — Assign cleaners to properties, track task status
+- 👥 **Cleaners management** — Full CRUD for cleaners (list, add, edit, delete); cleaner detail page with property assignment manager (primary/backup roles); accessible from More page (`GET /cleaners`, `PUT /cleaners/:id`, `DELETE /cleaners/:id`, `GET/PUT /cleaners/:id/assignments`)
+- 🔔 **Notification system** — Weekly notifications for cleaners; bell icon with unread badge in Sidebar and BottomNav; `/c/notifications` route with mark-as-read support (`GET /api/notifications`, `PATCH /api/notifications`, `POST /api/dev/seed`)
 - 💶 **Payments** — Per-intervention tracking, Sunday rates, mark as paid
 - 🏗️ **Travaux (Renovation Works)** — Track renovation costs per property with automatic cashflow impact calculation
 - 🛒 **Shopping requests** — Cleaners flag what's needed, owners resolve
@@ -27,6 +29,8 @@ Manage your properties, coordinate cleaners, track payments — all in one clean
 | Payments | ✅ | 👀 (own earnings) |
 | Shopping requests | ✅ (resolve) | ✅ (create) |
 | Analytics | ✅ | — |
+| Notifications | — | ✅ (own) |
+| Cleaners mgmt | ✅ (CRUD + assign) | — |
 
 ## Tech Stack
 
