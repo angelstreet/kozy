@@ -4,7 +4,29 @@
   "buildCommand": "cd frontend && VITE_BASE_PATH=/ npm run build",
   "outputDirectory": "frontend/dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/((?!api).*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/kozy/manifest.webmanifest",
+      "destination": "/manifest.webmanifest"
+    },
+    {
+      "source": "/kozy/sw.js",
+      "destination": "/sw.js"
+    },
+    {
+      "source": "/kozy/registerSW.js",
+      "destination": "/registerSW.js"
+    },
+    {
+      "source": "/kozy/workbox-:path*",
+      "destination": "/workbox-:path*"
+    },
+    {
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
+    }
   ]
 }
