@@ -2,7 +2,8 @@ import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useState, useEffect } from 'react';
 import { apiFetch } from '@/api';
-import { Loader2, Key, Check, X } from 'lucide-react';
+import { Loader2, Key, Check, X, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function More() {
   const { lang } = useApp();
@@ -103,6 +104,18 @@ export default function More() {
   return (
     <div className="p-4 space-y-6">
       <h1 className="text-2xl font-bold">{t('settings', lang)}</h1>
+
+      {/* Cleaners Section */}
+      <Link to="/cleaners" className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+        <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+          <Users className="text-purple-600 dark:text-purple-400" size={20} />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-base font-semibold">Cleaners</h2>
+          <p className="text-sm text-gray-500">Manage your cleaning team</p>
+        </div>
+        <span className="text-gray-400">›</span>
+      </Link>
 
       {/* Smoobu Integration Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 space-y-4">

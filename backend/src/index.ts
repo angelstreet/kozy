@@ -89,7 +89,13 @@ app.post('/api/properties/:id/ical-test', async (c) => {
 
 // Cleaners
 app.get('/api/cleaners', async (c) => {
-  const result = await db.execute('SELECT * FROM cleaner');
+  const result = await db.execute(`
+    SELECT c.*, COUNT(pc.property_id) as property_count
+    FROM cleaner c
+    LEFT JOIN property_cleaner pc ON pc.cleaner_id = c.id
+    GROUP BY c.id
+    ORDER BY c.name
+  `);
   return c.json(result.rows);
 });
 
@@ -192,6 +198,38 @@ app.post('/api/cleaners/:id/assign', async (c) => {
   if (!property_id || !role) return c.json({ error: 'property_id and role required' }, 400);
 
   await db.execute({ sql: 'INSERT OR REPLACE INTO property_cleaner (property_id, cleaner_id, role) VALUES (?, ?, ?)', args: [property_id, id, role] });
+  return c.json({ ok: true });
+});
+
+app.put('/api/cleaners/:id/assignments', async (c) => {
+  const id = Number(c.req.param('id'));
+  const body = await c.req.json();
+  const { assignments } = body; // [{property_id, role}]
+  await db.execute({ sql: 'DELETE FROM property_cleaner WHERE cleaner_id = ?', args: [id] });
+  if (Array.isArray(assignments)) {
+    for (const { property_id, role } of assignments) {
+      await db.execute({ sql: 'INSERT INTO property_cleaner (property_id, cleaner_id, role) VALUES (?, ?, ?)', args: [property_id, id, role || 'primary'] });
+    }
+  }
+  return c.json({ ok: true });
+});
+
+app.put('/api/cleaners/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  const body = await c.req.json();
+  const { name, email, phone } = body;
+  if (!name) return c.json({ error: 'Name is required' }, 400);
+  await db.execute({ sql: 'UPDATE cleaner SET name = ?, email = ?, phone = ? WHERE id = ?', args: [name, email || null, phone || null, id] });
+  const result = await db.execute({ sql: 'SELECT * FROM cleaner WHERE id = ?', args: [id] });
+  return c.json(result.rows[0]);
+});
+
+app.delete('/api/cleaners/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  await db.execute({ sql: 'DELETE FROM property_cleaner WHERE cleaner_id = ?', args: [id] });
+  await db.execute({ sql: 'DELETE FROM cleaning_task WHERE assigned_to = ?', args: [id] });
+  await db.execute({ sql: 'DELETE FROM payment WHERE cleaner_id = ?', args: [id] });
+  await db.execute({ sql: 'DELETE FROM cleaner WHERE id = ?', args: [id] });
   return c.json({ ok: true });
 });
 

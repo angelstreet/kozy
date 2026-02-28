@@ -4,7 +4,7 @@ import { t } from '@/i18n';
 import { useProperties, Property } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, MoreVertical, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, MoreVertical, X, EyeOff, Eye } from 'lucide-react';
 
 export default function Properties() {
   const { lang } = useApp();
@@ -101,7 +101,7 @@ export default function Properties() {
                       onClick={() => handleToggle(p)}
                       className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2"
                     >
-                      {p.enabled ? '🔇' : '🔔'} {p.enabled ? 'Disable' : 'Enable'}
+                      {p.enabled ? <EyeOff size={14} /> : <Eye size={14} />} {p.enabled ? 'Disable' : 'Enable'}
                     </button>
                     <hr className="my-1 dark:border-gray-600" />
                     <button
