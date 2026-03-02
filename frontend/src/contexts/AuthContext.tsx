@@ -51,8 +51,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then(res => res.ok ? res.json() : null)
         .then(data => { if (data?.id) { setCleanerId(data.id); localStorage.setItem('kozy_cleaner_id', String(data.id)); } })
         .catch(() => {});
+    } else {
+      setCleanerId(null);
+      localStorage.removeItem('kozy_cleaner_id');
     }
-    else if (r !== 'cleaner') { setCleanerId(null); localStorage.removeItem('kozy_cleaner_id'); }
   };
 
   const lookupCleanerId = async (email: string) => {
