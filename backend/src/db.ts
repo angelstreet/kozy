@@ -172,6 +172,13 @@ export async function migrate() {
   // Add unique constraint on booking reference_id
   const { migrateBookingReferenceConstraint } = await import('./migrations/add_booking_reference_constraint.js');
   await migrateBookingReferenceConstraint();
+
+  // Add status column to booking table
+  const bookingCols = await db.execute("PRAGMA table_info(booking)");
+  const bookingColNames = bookingCols.rows.map((c: any) => c[1] || c.name);
+  if (!bookingColNames.includes('status')) {
+    await db.execute("ALTER TABLE booking ADD COLUMN status TEXT DEFAULT NULL");
+  }
 }
 
 export async function seed() {

@@ -192,6 +192,18 @@ export async function syncSmoobuBookings(propertyId: number, apiKey: string, apa
 
   let smoobuReservations = await fetchSmoobuBookings(apiKey, isFullSync);
 
+  // Mark cancelled bookings in DB before filtering them out
+  const cancellations = smoobuReservations.filter(r => r.type === 'cancellation');
+  if (!isFullSync && cancellations.length > 0) {
+    for (const c of cancellations) {
+      const refId = c['reference-id'] || `smoobu-${c.id}`;
+      await db.execute({
+        sql: `UPDATE booking SET status = 'cancelled' WHERE property_id = ? AND reference_id = ?`,
+        args: [propertyId, refId],
+      });
+    }
+  }
+
   // Filter out cancellations - only keep actual reservations
   smoobuReservations = smoobuReservations.filter(r => r.type !== 'cancellation');
 

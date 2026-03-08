@@ -375,12 +375,24 @@ app.patch('/api/shopping/:id', async (c) => {
 
 // Bookings
 app.get('/api/bookings', async (c) => {
-  const result = await db.execute(`
-    SELECT b.*, p.name as property_name, p.color as property_color
-    FROM booking b
-    LEFT JOIN property p ON p.id = b.property_id
-    WHERE b.status != 'cancelled'
-  `);
+  const userId = c.get('userId');
+  const result = userId && userId !== 'dev-user'
+    ? await db.execute({
+        sql: `
+          SELECT b.*, p.name as property_name, p.color as property_color
+          FROM booking b
+          LEFT JOIN property p ON p.id = b.property_id
+          WHERE (b.status IS NULL OR b.status != 'cancelled')
+            AND (p.user_id = ? OR p.user_id IS NULL)
+        `,
+        args: [userId],
+      })
+    : await db.execute(`
+        SELECT b.*, p.name as property_name, p.color as property_color
+        FROM booking b
+        LEFT JOIN property p ON p.id = b.property_id
+        WHERE (b.status IS NULL OR b.status != 'cancelled')
+      `);
   return c.json(result.rows);
 });
 

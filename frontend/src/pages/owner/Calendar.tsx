@@ -477,8 +477,9 @@ export default function Calendar() {
   // Smoobu is single source of truth — no deduplication needed.
   // Filter bookings by selected properties and search
   const filteredBookings = useMemo(() => {
-    let filtered = bookings;
-    
+    // Always exclude cancelled bookings
+    let filtered = bookings.filter(b => !b.status || b.status !== 'cancelled');
+
     if (selectedPropertyIds.length > 0) {
       filtered = filtered.filter(b => selectedPropertyIds.includes(b.property_id));
     }
@@ -501,7 +502,7 @@ export default function Calendar() {
   // Calendar mode: bookings for the single active property tab (ignores property dropdown)
   const calendarBookings = useMemo(() => {
     if (activeCalendarPropertyId === null) return filteredBookings;
-    let filtered = bookings.filter(b => b.property_id === activeCalendarPropertyId);
+    let filtered = filteredBookings.filter(b => b.property_id === activeCalendarPropertyId);
     if (selectedSources.length > 0) {
       filtered = filtered.filter(b => selectedSources.includes(normalizeSource(b.source)));
     }
@@ -1043,12 +1044,10 @@ export default function Calendar() {
         ) : (
           /* TIMELINE VIEW - Multi-property Gantt */
           <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <div
-              className="overflow-x-auto"
-            >
+            <div>
           <div
               className="grid gap-px bg-gray-200 dark:bg-gray-700"
-              style={{ gridTemplateColumns: `140px repeat(${timelineDays.length}, minmax(32px, 1fr))`, minWidth: `${140 + timelineDays.length * 32}px` }}
+              style={{ gridTemplateColumns: `140px repeat(${timelineDays.length}, minmax(0, 1fr))` }}
             >
                   {/* Property header (sticky) */}
                   <div 
