@@ -456,11 +456,12 @@ export default function Calendar() {
   const month = currentDate.getMonth();
   const today = new Date();
 
-  // Initialize active calendar property when properties load; pre-select first property
+  // Initialize active calendar property when properties load; show ALL by default
   useEffect(() => {
     if (properties.length > 0 && activeCalendarPropertyId === null) {
-      setActiveCalendarPropertyId(properties[0].id);
-      setSelectedPropertyIds([properties[0].id]);
+      // Show all properties by default (empty array = show all)
+      setActiveCalendarPropertyId(null);
+      setSelectedPropertyIds([]);  // Empty = all properties
     }
   }, [properties.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
