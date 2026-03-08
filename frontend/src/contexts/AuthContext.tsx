@@ -1,18 +1,19 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+import { API_BASE } from '@/apiBase';
 
 type Role = 'owner' | 'cleaner' | null;
 interface AuthCtx {
   role: Role;
   userId: string | null;
   cleanerId: number | null;
-  login: (u: string, p: string) => boolean;
+  login: (u: string, p: string) => Promise<boolean>;
   logout: () => void;
   setRole: (r: Role) => void;
   isLoaded: boolean;
 }
 
 const AuthContext = createContext<AuthCtx>({
-  role: null, userId: null, cleanerId: null, login: () => false, logout: () => {}, setRole: () => {}, isLoaded: false,
+  role: null, userId: null, cleanerId: null, login: async () => false, logout: () => {}, setRole: () => {}, isLoaded: false,
 });
 
 let clerkAuth: any = null;
@@ -32,6 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) return 'owner';
     return null;
   });
+
+  const [userId, setUserId] = useState<string | null>(() => localStorage.getItem('kozy_user_id'));
 
   // cleanerId: maps the logged-in local cleaner user to a DB cleaner record
   // In local dev: cleaner@example.com maps to cleaner id=2 (after seed)
@@ -67,18 +70,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   };
 
-  const login = (u: string, p: string) => {
+  const login = async (u: string, p: string) => {
     const ul = u.toLowerCase().trim();
     const pl = p.toLowerCase().trim();
-    if (ul === 'owner@example.com' && pl === 'user') { setRole('owner'); setCleanerId(null); localStorage.removeItem('kozy_cleaner_id'); return true; }
-    if (ul === 'cleaner@example.com' && pl === 'user') { setRole('cleaner'); lookupCleanerId('cleaner@example.com'); return true; }
+    
+    // Hardcoded test accounts
+    if (ul === 'owner@example.com' && pl === 'user') { 
+      localStorage.setItem('kozy_user_id', 'dev-user');
+      setRole('owner'); 
+      setCleanerId(null); 
+      localStorage.removeItem('kozy_cleaner_id'); 
+      return true; 
+    }
+    if (ul === 'cleaner@example.com' && pl === 'user') { 
+      setRole('cleaner'); 
+      lookupCleanerId('cleaner@example.com'); 
+      return true; 
+    }
+    
+    // Check API for user credentials
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: ul, password: pl })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('kozy_user_id', data.userId);
+        setRole('owner');
+        return true;
+      }
+    } catch {}
+    
     return false;
   };
 
   const logout = () => setRole(null);
 
   return (
-    <AuthContext.Provider value={{ role, userId: 'dev-user', cleanerId, login, logout, setRole, isLoaded: true }}>
+    <AuthContext.Provider value={{ role, userId, cleanerId, login, logout, setRole, isLoaded: true }}>
       {children}
     </AuthContext.Provider>
   );

@@ -11,7 +11,13 @@ const clerkSecretKey = process.env.CLERK_SECRET_KEY;
 export async function clerkAuth(c: Context, next: Next) {
   // Dev mode: no Clerk key = skip auth
   if (!clerkSecretKey) {
-    c.set('userId', 'dev-user');
+    // Check for local dev user ID header
+    const localUserId = c.req.header('X-Local-User-Id');
+    if (localUserId) {
+      c.set('userId', localUserId);
+    } else {
+      c.set('userId', 'dev-user');
+    }
     return next();
   }
 

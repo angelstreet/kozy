@@ -12,7 +12,7 @@ function ClerkLogin() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">🏠 Kozy</h1>
+        <img src="/kozy/logo.png" alt="Kozy" className="h-16 mx-auto mb-6" />
         <div className="flex justify-center">
           <SignIn routing="hash" appearance={{ baseTheme: clerkDark, elements: { rootBox: 'w-full', card: 'shadow-none border dark:border-gray-700 dark:bg-gray-800' } }} />
         </div>
@@ -32,10 +32,11 @@ function LegacyLogin() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (login(email, password)) {
+    const success = await login(email, password);
+    if (success) {
       return;
     }
     setError('Invalid credentials');
@@ -46,7 +47,7 @@ function LegacyLogin() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">🏠 Kozy</h1>
+        <img src="/kozy/logo.png" alt="Kozy" className="h-16 mx-auto mb-6" />
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="email"
@@ -70,7 +71,7 @@ function LegacyLogin() {
         </form>
         {error && <p className="text-red-500 text-sm mt-2 text-center">{error}</p>}
         <div className="text-xs text-gray-500 mt-4 text-center">
-          Test accounts: owner@example.com / user   cleaner@example.com / user
+          Test: owner@example.com / user | Your account: joachim.ndoye@gmail.com / kozy123
         </div>
         <div className="flex justify-center gap-4 mt-4 text-sm">
           <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')} className="text-blue-500">{lang === 'en' ? 'FR' : 'EN'}</button>

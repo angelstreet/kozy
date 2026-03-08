@@ -29,7 +29,7 @@ export default function Layout() {
   <Sidebar />
   <div className="flex-1 lg:ml-16 xl:ml-64 overflow-x-hidden">
       <header className="flex items-center justify-between px-4 py-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
-        <span className="lg:hidden font-bold text-lg">🏠 Kozy</span>
+        <img src="/kozy/logo.png" alt="Kozy" className="lg:hidden h-7" />
         <div className="flex items-center gap-2 text-sm">
           <button onClick={toggleRole} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs font-medium">
             <span>{role === 'owner' ? '👑' : '🧹'}</span>

@@ -20,5 +20,11 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
     if (token) headers.set('Authorization', `Bearer ${token}`);
   }
 
+  // Add local user ID header for dev mode
+  const localUserId = localStorage.getItem('kozy_user_id');
+  if (localUserId) {
+    headers.set('X-Local-User-Id', localUserId);
+  }
+
   return fetch(url, { ...options, headers });
 }

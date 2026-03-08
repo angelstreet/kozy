@@ -13,7 +13,7 @@ export default function RoleSelect() {
         <div className="absolute top-4 right-4">
           
         </div>
-        <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">🏠 Kozy</h1>
+        <img src="/kozy/logo.png" alt="Kozy" className="h-16 mx-auto mb-4" />
         <p className="text-gray-500 dark:text-gray-400 mb-8">{t('selectRole', lang) || 'How will you use Kozy?'}</p>
         <div className="space-y-3">
           <button

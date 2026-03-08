@@ -44,8 +44,7 @@ export default function Sidebar() {
   return (
     <div className="fixed left-0 top-0 h-screen w-16 lg:w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-40 hidden lg:block">
       <div className="p-4 border-b dark:border-gray-700">
-        <span className="font-bold text-xl block lg:hidden">Kozy</span>
-        <span className="font-bold text-2xl hidden lg:block">🏠 Kozy</span>
+        <img src="/kozy/logo.png" alt="Kozy" className="h-8" />
       </div>
       <nav className="flex-1 p-2 lg:p-4 space-y-1">
         {navItems.map(({ to, icon: Icon, label }) => (
