@@ -9,6 +9,8 @@
     }
   },
   "rewrites": [
+    { "source": "/api/:path*", "destination": "/api" },
+    { "source": "/kozy/manifest.webmanifest",
     {
       "source": "/kozy/manifest.webmanifest",
       "destination": "/manifest.webmanifest"
