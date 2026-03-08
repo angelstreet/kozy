@@ -2,6 +2,7 @@ import db from './db.js';
 
 export interface SmoobuReservation {
   id: number;
+  type: string; // "reservation" or "cancellation"
   arrival: string; // "2026-02-20"
   departure: string; // "2026-02-25"
   'guest-name': string;
@@ -191,6 +192,9 @@ export async function syncSmoobuBookings(propertyId: number, apiKey: string, apa
 
   let smoobuReservations = await fetchSmoobuBookings(apiKey, isFullSync);
 
+  // Filter out cancellations - only keep actual reservations
+  smoobuReservations = smoobuReservations.filter(r => r.type !== 'cancellation');
+
   if (apartmentId) {
     smoobuReservations = smoobuReservations.filter(r => r.apartment.id === apartmentId);
   }
@@ -304,6 +308,9 @@ export async function syncSmoobuBookings(propertyId: number, apiKey: string, apa
 export async function syncSmoobuData(propertyId: number, apiKey: string, apartmentId?: number) {
   // Fetch all Smoobu reservations
   let smoobuReservations = await fetchSmoobuBookings(apiKey);
+
+  // Filter out cancellations
+  smoobuReservations = smoobuReservations.filter(r => r.type !== 'cancellation');
 
   // Filter by apartment if specified
   if (apartmentId) {
