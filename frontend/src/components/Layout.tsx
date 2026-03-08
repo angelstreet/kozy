@@ -1,10 +1,12 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { lazy, Suspense } from 'react';
+import Calendar from '@/pages/owner/Calendar';
+import Analytics from '@/pages/owner/Analytics';
 
 const clerkEnabled = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -19,6 +21,11 @@ function UserBtn() {
 export default function Layout() {
   const { role, logout, setRole } = useAuth();
   const { lang, setLang, dark, toggleDark } = useApp();
+  const location = useLocation();
+  const path = location.pathname;
+  const isCalendar = path.endsWith('/calendar');
+  const isAnalytics = path.endsWith('/analytics');
+  const isCachedPage = isCalendar || isAnalytics;
 
   const toggleRole = () => {
     setRole(role === 'owner' ? 'cleaner' : 'owner');
@@ -43,7 +50,13 @@ export default function Layout() {
         </div>
       </header>
       <div className="pb-20 lg:pb-0">
-        <Outlet />
+        {role === 'owner' && (
+          <>
+            <div style={{ display: isCalendar ? 'block' : 'none' }}><Calendar /></div>
+            <div style={{ display: isAnalytics ? 'block' : 'none' }}><Analytics /></div>
+          </>
+        )}
+        {!isCachedPage && <Outlet />}
       </div>
       <BottomNav />
     </div>

@@ -5,14 +5,12 @@ import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
 import RoleSelect from '@/pages/RoleSelect';
 import Dashboard from '@/pages/owner/Dashboard';
-import Calendar from '@/pages/owner/Calendar';
 import Properties from '@/pages/owner/Properties';
 import More from '@/pages/owner/More';
 import Cleaners from '@/pages/owner/Cleaners';
 import Payments from '@/pages/owner/Payments';
 import AddProperty from '@/pages/owner/AddProperty';
 import EditProperty from '@/pages/owner/EditProperty';
-import Analytics from '@/pages/owner/Analytics';
 import Schedule from '@/pages/cleaner/Schedule';
 import Shopping from '@/pages/cleaner/Shopping';
 import CleanerMore from '@/pages/cleaner/CleanerMore';
@@ -40,14 +38,14 @@ function AppRoutes() {
       <Route element={<Layout />}>
         {role === 'owner' && <>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/calendar" element={null} />
           <Route path="/properties" element={<Properties />} />
           <Route path="/more" element={<More />} />
           <Route path="/cleaners" element={<Cleaners />} />
           <Route path="/payments" element={<Payments />} />
           <Route path="/add-property" element={<AddProperty />} />
           <Route path="/edit-property/:id" element={<EditProperty />} />
-          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/analytics" element={null} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </>}
         {role === 'cleaner' && <>

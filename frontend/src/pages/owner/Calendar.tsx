@@ -964,8 +964,13 @@ export default function Calendar() {
             key={p.id}
             type="button"
             onClick={() => {
-              setActiveCalendarPropertyId(p.id);
-              setSelectedPropertyIds([p.id]);
+              if (activeCalendarPropertyId === p.id) {
+                setActiveCalendarPropertyId(null);
+                setSelectedPropertyIds([]);
+              } else {
+                setActiveCalendarPropertyId(p.id);
+                setSelectedPropertyIds([p.id]);
+              }
             }}
             className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer whitespace-nowrap ${
               activeCalendarPropertyId === p.id
