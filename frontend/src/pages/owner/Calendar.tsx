@@ -66,6 +66,30 @@ function addDays(date: Date, days: number) {
   return result;
 }
 
+const CALENDAR_PREFS_KEY = 'kozy.owner.calendar.preferences';
+
+type CalendarPrefs = {
+  currentDate?: string;
+  selectedPropertyIds?: number[];
+  selectedSources?: string[];
+  viewMode?: 'calendar' | 'timeline';
+  calendarSpan?: 'threeMonths' | 'oneMonth' | 'threeWeeks' | 'oneWeek';
+  timelineSpan?: 'oneMonth' | 'twoWeeks' | 'oneWeek';
+  searchQuery?: string;
+  activeCalendarPropertyId?: number | null;
+};
+
+function readCalendarPrefs(): CalendarPrefs {
+  try {
+    const raw = window.localStorage.getItem(CALENDAR_PREFS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 // Booking Popover Component - centered modal
 function BookingPopover({
   booking,
@@ -541,20 +565,37 @@ function WeekGrid({
 }
 
 export default function Calendar() {
+  const savedPrefs = readCalendarPrefs();
   const { lang } = useApp();
   const { properties, loading, isEmpty } = useProperties();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(() => savedPrefs.currentDate ? new Date(savedPrefs.currentDate) : new Date());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
-  const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
-  const [calendarSpan, setCalendarSpan] = useState<'threeMonths' | 'oneMonth' | 'threeWeeks' | 'oneWeek'>('threeMonths');
-  const [timelineSpan, setTimelineSpan] = useState<'oneMonth' | 'twoWeeks' | 'oneWeek'>('oneMonth');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>(
+    () => Array.isArray(savedPrefs.selectedPropertyIds) ? savedPrefs.selectedPropertyIds : []
+  );
+  const [selectedSources, setSelectedSources] = useState<string[]>(
+    () => Array.isArray(savedPrefs.selectedSources) ? savedPrefs.selectedSources : []
+  );
+  const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>(
+    () => savedPrefs.viewMode === 'timeline' ? 'timeline' : 'calendar'
+  );
+  const [calendarSpan, setCalendarSpan] = useState<'threeMonths' | 'oneMonth' | 'threeWeeks' | 'oneWeek'>(
+    () => ['threeMonths', 'oneMonth', 'threeWeeks', 'oneWeek'].includes(savedPrefs.calendarSpan || '')
+      ? (savedPrefs.calendarSpan as 'threeMonths' | 'oneMonth' | 'threeWeeks' | 'oneWeek')
+      : 'threeMonths'
+  );
+  const [timelineSpan, setTimelineSpan] = useState<'oneMonth' | 'twoWeeks' | 'oneWeek'>(
+    () => ['oneMonth', 'twoWeeks', 'oneWeek'].includes(savedPrefs.timelineSpan || '')
+      ? (savedPrefs.timelineSpan as 'oneMonth' | 'twoWeeks' | 'oneWeek')
+      : 'oneMonth'
+  );
+  const [searchQuery, setSearchQuery] = useState(() => savedPrefs.searchQuery || '');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   // Calendar mode: one property at a time via tabs
-  const [activeCalendarPropertyId, setActiveCalendarPropertyId] = useState<number | null>(null);
+  const [activeCalendarPropertyId, setActiveCalendarPropertyId] = useState<number | null>(
+    () => typeof savedPrefs.activeCalendarPropertyId === 'number' ? savedPrefs.activeCalendarPropertyId : null
+  );
 
   const displayPropertyId = useMemo(() => {
     if (selectedPropertyIds.length === 0) return '';
@@ -592,6 +633,19 @@ export default function Calendar() {
       setTimelineSpan('oneWeek');
     }
   }, [isMobile, timelineSpan]);
+
+  useEffect(() => {
+    window.localStorage.setItem(CALENDAR_PREFS_KEY, JSON.stringify({
+      currentDate: currentDate.toISOString(),
+      selectedPropertyIds,
+      selectedSources,
+      viewMode,
+      calendarSpan,
+      timelineSpan,
+      searchQuery,
+      activeCalendarPropertyId,
+    }));
+  }, [activeCalendarPropertyId, calendarSpan, currentDate, searchQuery, selectedPropertyIds, selectedSources, timelineSpan, viewMode]);
 
   // Initialize active calendar property when properties load; show ALL by default
   useEffect(() => {
