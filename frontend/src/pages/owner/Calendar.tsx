@@ -730,7 +730,7 @@ export default function Calendar() {
     const maxLanes = Math.max(...barsWithLanes.map((b: any) => b.lane + 1), 1);
     return { property, bars: barsWithLanes, maxLanes };
   });
-}, [propertyData, timelineStartDate]);
+}, [propertyData, timelineDays, timelineStartDate]);
 
   const handleBookingClick = (booking: Booking, _event: React.MouseEvent) => {
     setSelectedBooking(booking);
