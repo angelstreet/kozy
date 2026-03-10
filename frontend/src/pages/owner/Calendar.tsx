@@ -550,6 +550,7 @@ export default function Calendar() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [calendarSpan, setCalendarSpan] = useState<'threeMonths' | 'oneMonth' | 'threeWeeks' | 'oneWeek'>('threeMonths');
+  const [timelineSpan, setTimelineSpan] = useState<'oneMonth' | 'twoWeeks' | 'oneWeek'>('oneMonth');
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   // Calendar mode: one property at a time via tabs
@@ -585,6 +586,12 @@ export default function Calendar() {
       setCalendarSpan('threeWeeks');
     }
   }, [calendarSpan, isMobile]);
+
+  useEffect(() => {
+    if (isMobile && timelineSpan !== 'oneWeek') {
+      setTimelineSpan('oneWeek');
+    }
+  }, [isMobile, timelineSpan]);
 
   // Initialize active calendar property when properties load; show ALL by default
   useEffect(() => {
@@ -656,12 +663,19 @@ export default function Calendar() {
   const calendarNumPropertySlots = calendarPropertySlotMap.size;
 
   // Timeline view helpers
-  const timelineStartDate = useMemo(() => new Date(year, month, 1), [year, month]);
+  const timelineStartDate = useMemo(() => {
+    if (timelineSpan === 'oneMonth') return new Date(year, month, 1);
+    return weekStart;
+  }, [month, timelineSpan, weekStart, year]);
 
   const timelineDays = useMemo(() => {
-    const n = getDaysInMonth(year, month);
-    return Array.from({ length: n }, (_, i) => new Date(year, month, i + 1));
-  }, [year, month]);
+    if (timelineSpan === 'oneMonth') {
+      const n = getDaysInMonth(year, month);
+      return Array.from({ length: n }, (_, i) => new Date(year, month, i + 1));
+    }
+    const count = timelineSpan === 'twoWeeks' ? 14 : 7;
+    return Array.from({ length: count }, (_, i) => addDays(timelineStartDate, i));
+  }, [month, timelineSpan, timelineStartDate, year]);
 
   const propertyData = useMemo(() => {
     return properties.map((p: any) => ({
@@ -728,12 +742,22 @@ export default function Calendar() {
       setCurrentDate(prev => addDays(prev, -step));
       return;
     }
+    if (viewMode === 'timeline' && timelineSpan !== 'oneMonth') {
+      const step = timelineSpan === 'twoWeeks' ? 14 : 7;
+      setCurrentDate(prev => addDays(prev, -step));
+      return;
+    }
     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
   const goNext = () => {
     if (viewMode === 'calendar' && (calendarSpan === 'threeWeeks' || calendarSpan === 'oneWeek')) {
       const step = calendarSpan === 'threeWeeks' ? 21 : 7;
+      setCurrentDate(prev => addDays(prev, step));
+      return;
+    }
+    if (viewMode === 'timeline' && timelineSpan !== 'oneMonth') {
+      const step = timelineSpan === 'twoWeeks' ? 14 : 7;
       setCurrentDate(prev => addDays(prev, step));
       return;
     }
@@ -785,7 +809,11 @@ export default function Calendar() {
 
   const headerLabel = useMemo(() => {
     if (viewMode === 'timeline') {
-      return new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+      if (timelineSpan === 'oneMonth') {
+        return new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+      }
+      const endDate = addDays(timelineStartDate, timelineSpan === 'twoWeeks' ? 13 : 6);
+      return `${timelineStartDate.toLocaleDateString(locale, { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}`;
     }
     if (calendarSpan === 'threeMonths') {
       const endDate = new Date(year, month + 2, 1);
@@ -796,7 +824,7 @@ export default function Calendar() {
     }
     const endDate = addDays(weekStart, calendarSpan === 'threeWeeks' ? 20 : 6);
     return `${weekStart.toLocaleDateString(locale, { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}`;
-  }, [calendarSpan, locale, month, viewMode, weekStart, year]);
+  }, [calendarSpan, locale, month, timelineSpan, timelineStartDate, viewMode, weekStart, year]);
 
   if (loading) {
     return (
@@ -950,6 +978,31 @@ export default function Calendar() {
                         { key: 'threeMonths', label: lang === 'fr' ? '3 mois' : '3 months' },
                         { key: 'oneMonth', label: lang === 'fr' ? '1 mois' : '1 month' },
                         { key: 'threeWeeks', label: lang === 'fr' ? '3 semaines' : '3 weeks' },
+                        { key: 'oneWeek', label: lang === 'fr' ? '1 semaine' : '1 week' },
+                      ]
+                  ).map(option => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {viewMode === 'timeline' && (
+              <div className="relative flex-shrink-0">
+                <select
+                  className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-full sm:w-36 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                  value={timelineSpan}
+                  onChange={(e) => setTimelineSpan(e.target.value as typeof timelineSpan)}
+                >
+                  {(isMobile
+                    ? [
+                        { key: 'oneWeek', label: lang === 'fr' ? '1 semaine' : '1 week' },
+                      ]
+                    : [
+                        { key: 'oneMonth', label: lang === 'fr' ? '1 mois' : '1 month' },
+                        { key: 'twoWeeks', label: lang === 'fr' ? '2 semaines' : '2 weeks' },
                         { key: 'oneWeek', label: lang === 'fr' ? '1 semaine' : '1 week' },
                       ]
                   ).map(option => (
