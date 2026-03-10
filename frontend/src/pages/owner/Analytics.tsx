@@ -334,7 +334,9 @@ export default function Analytics() {
           <p className="text-xs text-gray-400 uppercase tracking-wide">
             {lang === 'fr' ? 'Occupation' : 'Occupancy'}
           </p>
-          <p className="text-2xl font-bold mt-1">{occupancyPct}%</p>
+          <p className={`text-2xl font-bold mt-1 ${occupancyPct < 60 ? 'text-red-500' : occupancyPct < 70 ? 'text-orange-500' : 'text-green-600 dark:text-green-400'}`}>
+            {occupancyPct}%
+          </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-gray-400 uppercase tracking-wide">
