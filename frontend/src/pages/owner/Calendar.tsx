@@ -318,7 +318,10 @@ function MonthGrid({
                 const isToday = cell.date.toDateString() === today.toDateString();
                 const isWeekend = cell.date.getDay() === 0 || cell.date.getDay() === 6;
                 return (
-                  <div key={dayIdx} className={`relative p-1 border-r border-gray-50 dark:border-gray-800 ${!cell.isCurrentMonth ? 'opacity-30' : ''} ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''}`}>
+                  <div
+                    key={dayIdx}
+                    className={`relative p-1 border-r border-gray-50 dark:border-gray-800 ${!cell.isCurrentMonth ? 'opacity-30' : ''} ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''} ${isToday ? 'ring-2 ring-inset ring-blue-500 dark:ring-blue-400' : ''}`}
+                  >
                     <div className={`text-[11px] font-semibold ${isToday ? 'bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]' : isWeekend ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
                       {cell.date.getDate()}
                     </div>
@@ -494,7 +497,10 @@ function WeekGrid({
           const isToday = cell.date.toDateString() === today.toDateString();
           const isWeekend = cell.date.getDay() === 0 || cell.date.getDay() === 6;
           return (
-            <div key={dayIdx} className={`relative p-1 border-r border-gray-50 dark:border-gray-800 ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''}`}>
+            <div
+              key={dayIdx}
+              className={`relative p-1 border-r border-gray-50 dark:border-gray-800 ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''} ${isToday ? 'ring-2 ring-inset ring-blue-500 dark:ring-blue-400' : ''}`}
+            >
               <div className={`text-[11px] font-semibold ${isToday ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px]' : isWeekend ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
                 {cell.date.getDate()}
               </div>
