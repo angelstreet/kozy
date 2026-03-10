@@ -35,7 +35,7 @@ function DistributionDonut({
   const totalPositive = positiveData.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-4">
+    <div className="flex flex-col items-center gap-4">
       <div className="w-40 h-40 relative flex-shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -63,7 +63,7 @@ function DistributionDonut({
           <span className="text-xs font-bold text-gray-900 dark:text-white">€{fmt(total)}</span>
         </div>
       </div>
-      <div className="flex-1 space-y-1.5 w-full">
+      <div className="space-y-1.5 w-full">
         {positiveData.map(item => {
           const pct = totalPositive > 0 ? (item.value / totalPositive) * 100 : 0;
           return (
