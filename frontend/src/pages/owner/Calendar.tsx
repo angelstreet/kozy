@@ -929,31 +929,29 @@ export default function Calendar() {
             </div>
 
             {viewMode === 'calendar' && (
-              <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden flex-shrink-0">
-                {(isMobile
-                  ? [
-                      { key: 'threeWeeks', label: lang === 'fr' ? '3 sem.' : '3 weeks' },
-                      { key: 'oneWeek', label: lang === 'fr' ? '1 sem.' : '1 week' },
-                    ]
-                  : [
-                      { key: 'threeMonths', label: lang === 'fr' ? '3 mois' : '3 months' },
-                      { key: 'oneMonth', label: lang === 'fr' ? '1 mois' : '1 month' },
-                      { key: 'threeWeeks', label: lang === 'fr' ? '3 sem.' : '3 weeks' },
-                      { key: 'oneWeek', label: lang === 'fr' ? '1 sem.' : '1 week' },
-                    ]
-                ).map(option => (
-                  <button
-                    key={option.key}
-                    onClick={() => setCalendarSpan(option.key as typeof calendarSpan)}
-                    className={`px-2.5 py-2 text-[11px] sm:text-xs font-semibold transition-colors whitespace-nowrap ${
-                      calendarSpan === option.key
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+              <div className="relative flex-shrink-0">
+                <select
+                  className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-full sm:w-36 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                  value={calendarSpan}
+                  onChange={(e) => setCalendarSpan(e.target.value as typeof calendarSpan)}
+                >
+                  {(isMobile
+                    ? [
+                        { key: 'threeWeeks', label: lang === 'fr' ? '3 semaines' : '3 weeks' },
+                        { key: 'oneWeek', label: lang === 'fr' ? '1 semaine' : '1 week' },
+                      ]
+                    : [
+                        { key: 'threeMonths', label: lang === 'fr' ? '3 mois' : '3 months' },
+                        { key: 'oneMonth', label: lang === 'fr' ? '1 mois' : '1 month' },
+                        { key: 'threeWeeks', label: lang === 'fr' ? '3 semaines' : '3 weeks' },
+                        { key: 'oneWeek', label: lang === 'fr' ? '1 semaine' : '1 week' },
+                      ]
+                  ).map(option => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </div>
