@@ -477,11 +477,15 @@ export default function Analytics() {
                   const cost = cleanerCostByProp[ps.name] || 0;
                   const net = ps.revenue - cost;
                   return (
-                    <tr key={ps.id} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <tr
+                      key={ps.id}
+                      className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      style={{ borderLeft: `3px solid ${ps.color}` }}
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: ps.color }} />
-                          <span className="font-medium truncate max-w-[140px]">{ps.name}</span>
+                          <span className="font-medium truncate max-w-[140px]" style={{ color: ps.color }}>{ps.name}</span>
                         </div>
                       </td>
                       <td className="text-right px-4 py-3 tabular-nums">{ps.bookings}</td>
