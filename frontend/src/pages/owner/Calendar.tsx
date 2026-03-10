@@ -1085,8 +1085,8 @@ export default function Calendar() {
                         gridColumn: idx + 2
                       }}
                     >
-                      <span className="text-base">{day.getDate()}</span>
-                      <span className="text-[9px] opacity-75 uppercase">{shortDayNames[day.getDay()]}</span>
+                      <span className="block w-full text-center text-base leading-none">{day.getDate()}</span>
+                      <span className="block w-full text-center text-[9px] opacity-75 uppercase leading-none mt-0.5">{shortDayNames[day.getDay()]}</span>
                     </div>
                   ))}
 
