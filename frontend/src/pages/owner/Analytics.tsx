@@ -3,30 +3,22 @@ import { useApp } from '@/contexts/AppContext';
 import { useProperties } from '@/hooks/useProperties';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 
-const SOURCE_COLORS: Record<string, string> = {
-  airbnb: '#FF385C',
-  booking: '#003580',
-  smoobu: '#7C3AED',
-  direct: '#10B981',
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  airbnb: 'Airbnb',
-  booking: 'Booking.com',
-  smoobu: 'Smoobu',
-  direct: 'Direct',
-};
-
-type Period = '30d' | '3m' | '6m' | '1y';
-
-const PERIOD_DAYS: Record<Period, number> = { '30d': 30, '3m': 90, '6m': 180, '1y': 365 };
-
 function nightsBetween(checkin: string, checkout: string) {
   return Math.max(0, (new Date(checkout).getTime() - new Date(checkin).getTime()) / 86400000);
+}
+
+type Period = 'currentMonth' | 'next3m' | 'next6m' | `year-${number}`;
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date: Date, months: number) {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
 }
 
 export default function Analytics() {
@@ -34,7 +26,8 @@ export default function Analytics() {
   const { properties, loading: propsLoading } = useProperties();
   const [bookings, setBookings] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
-  const [period, setPeriod] = useState<Period>('3m');
+  const currentYear = new Date().getFullYear();
+  const [period, setPeriod] = useState<Period>('next3m');
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -64,13 +57,24 @@ export default function Analytics() {
       .finally(() => setLoading(false));
   }, []);
 
-  const cutoffStr = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - PERIOD_DAYS[period]);
-    return d.toISOString().slice(0, 10);
-  }, [period]);
+  const range = useMemo(() => {
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    if (period === 'currentMonth') {
+      return { start: monthStart, end: addMonths(monthStart, 1), chartYear: currentYear };
+    }
+    if (period === 'next3m') {
+      return { start: monthStart, end: addMonths(monthStart, 3), chartYear: currentYear };
+    }
+    if (period === 'next6m') {
+      return { start: monthStart, end: addMonths(monthStart, 6), chartYear: currentYear };
+    }
+    const year = Number(period.replace('year-', ''));
+    return { start: new Date(year, 0, 1), end: new Date(year + 1, 0, 1), chartYear: year };
+  }, [currentYear, period]);
 
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const rangeStartStr = useMemo(() => range.start.toISOString().slice(0, 10), [range]);
+  const rangeEndStr = useMemo(() => range.end.toISOString().slice(0, 10), [range]);
 
   const rateMap = useMemo(() => {
     const m: Record<number, number> = {};
@@ -79,16 +83,14 @@ export default function Analytics() {
   }, [properties]);
 
   const enriched = useMemo(() => {
-    const cutoffMs = new Date(cutoffStr).getTime();
-    const todayMs = new Date(todayStr).getTime();
+    const startMs = range.start.getTime();
+    const endMs = range.end.getTime();
     return bookings
-      // Include any booking whose stay overlaps the window
-      .filter(b => b.checkout_date > cutoffStr && b.checkin_date <= todayStr)
+      .filter(b => b.checkout_date > rangeStartStr && b.checkin_date < rangeEndStr)
       .filter(b => selectedPropertyId === null || b.property_id === selectedPropertyId)
       .map(b => {
-        // Clip nights to the period window [cutoff, today]
-        const checkinMs = Math.max(new Date(b.checkin_date).getTime(), cutoffMs);
-        const checkoutMs = Math.min(new Date(b.checkout_date).getTime(), todayMs + 86400000);
+        const checkinMs = Math.max(new Date(b.checkin_date).getTime(), startMs);
+        const checkoutMs = Math.min(new Date(b.checkout_date).getTime(), endMs);
         const nights = Math.max(0, (checkoutMs - checkinMs) / 86400000);
         return {
           ...b,
@@ -96,15 +98,13 @@ export default function Analytics() {
           revenue: nights * (rateMap[b.property_id] || 0),
         };
       });
-  }, [bookings, cutoffStr, todayStr, rateMap, selectedPropertyId]);
+  }, [bookings, range, rangeEndStr, rangeStartStr, rateMap, selectedPropertyId]);
 
   const totalRevenue = useMemo(() => enriched.reduce((s, b) => s + b.revenue, 0), [enriched]);
 
   const actualPeriodDays = useMemo(() => {
-    const cutoffMs = new Date(cutoffStr).getTime();
-    const endMs = new Date(todayStr).getTime() + 86400000;
-    return Math.round((endMs - cutoffMs) / 86400000);
-  }, [cutoffStr, todayStr]);
+    return Math.round((range.end.getTime() - range.start.getTime()) / 86400000);
+  }, [range]);
 
   const occupancyPct = useMemo(() => {
     const totalNights = enriched.reduce((s, b) => s + b.nights, 0);
@@ -125,10 +125,10 @@ export default function Analytics() {
 
   const cleanerCost = useMemo(() =>
     payments
-      .filter(p => p.task_date >= cutoffStr)
+      .filter(p => p.task_date >= rangeStartStr && p.task_date < rangeEndStr)
       .filter(p => selectedPropertyId === null || p.property_id === selectedPropertyId)
       .reduce((s, p) => s + (p.amount || 0), 0),
-    [payments, cutoffStr, selectedPropertyId]
+    [payments, rangeEndStr, rangeStartStr, selectedPropertyId]
   );
 
   const netCashflow = useMemo(() => {
@@ -139,26 +139,11 @@ export default function Analytics() {
     const charges = filteredProps.reduce((s, p) => s + (p.monthly_charges || 0) * months, 0);
     const credit = filteredProps.reduce((s, p) => s + (p.credit_mensuel || 0) * months, 0);
     return Math.round(totalRevenue - charges - credit - cleanerCost);
-  }, [totalRevenue, properties, period, cleanerCost, selectedPropertyId]);
-
-  const chartData = useMemo(() => {
-    const months: Record<string, Record<string, number>> = {};
-    enriched.forEach(b => {
-      const month = b.checkin_date.slice(0, 7);
-      if (!months[month]) months[month] = {};
-      const src = b.source || 'direct';
-      months[month][src] = (months[month][src] || 0) + b.revenue;
-    });
-    return Object.entries(months)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, srcs]) => ({ month, ...srcs }));
-  }, [enriched]);
-
-  const sources = useMemo(() => Array.from(new Set(enriched.map(b => b.source || 'direct'))), [enriched]);
+  }, [actualPeriodDays, cleanerCost, properties, selectedPropertyId, totalRevenue]);
 
   const propertyStats = useMemo(() => {
-    const cutoffMs = new Date(cutoffStr).getTime();
-    const endMs = new Date(todayStr).getTime() + 86400000;
+    const startMs = range.start.getTime();
+    const endMs = range.end.getTime();
     const map: Record<number, {
       name: string; color: string; bookings: number; revenue: number;
       ranges: Array<[number, number]>;
@@ -173,9 +158,8 @@ export default function Analytics() {
       }
       map[b.property_id].bookings++;
       map[b.property_id].revenue += b.revenue;
-      // Clip range to period window
       map[b.property_id].ranges.push([
-        Math.max(new Date(b.checkin_date).getTime(), cutoffMs),
+        Math.max(new Date(b.checkin_date).getTime(), startMs),
         Math.min(new Date(b.checkout_date).getTime(), endMs),
       ]);
     });
@@ -198,20 +182,62 @@ export default function Analytics() {
         return { id: Number(id), name: s.name, color: s.color, bookings: s.bookings, nights: uniqueNights, revenue: s.revenue };
       })
       .sort((a, b) => b.revenue - a.revenue);
-  }, [enriched]);
+  }, [enriched, range]);
 
   const cleanerCostByProp = useMemo(() => {
     const map: Record<string, number> = {};
-    payments.filter(p => p.task_date >= cutoffStr).forEach(p => {
+    payments.filter(p => p.task_date >= rangeStartStr && p.task_date < rangeEndStr).forEach(p => {
       map[p.property_name] = (map[p.property_name] || 0) + (p.amount || 0);
     });
     return map;
-  }, [payments, cutoffStr]);
+  }, [payments, rangeEndStr, rangeStartStr]);
+
+  const distributionData = useMemo(() =>
+    propertyStats.map(ps => ({ name: ps.name, value: Math.round(ps.revenue), color: ps.color })),
+  [propertyStats]);
+
+  const revenueHistogramData = useMemo(() => {
+    const months = Array.from({ length: 12 }, (_, idx) => {
+      const date = new Date(range.chartYear, idx, 1);
+      return {
+        key: date.toISOString().slice(0, 7),
+        month: date.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { month: 'short' }),
+      } as Record<string, string | number>;
+    });
+
+    const visibleProperties = selectedPropertyId !== null
+      ? properties.filter(p => p.id === selectedPropertyId)
+      : properties;
+
+    months.forEach(entry => {
+      visibleProperties.forEach((property: any) => {
+        entry[`prop_${property.id}`] = 0;
+      });
+      entry.total = 0;
+    });
+
+    enriched.forEach((booking) => {
+      const monthKey = booking.checkin_date.slice(0, 7);
+      const monthEntry = months.find(entry => entry.key === monthKey);
+      if (!monthEntry) return;
+      const propKey = `prop_${booking.property_id}`;
+      monthEntry[propKey] = Number(monthEntry[propKey] || 0) + booking.revenue;
+      monthEntry.total = Number(monthEntry.total || 0) + booking.revenue;
+    });
+
+    return months;
+  }, [enriched, lang, properties, range.chartYear, selectedPropertyId]);
 
   const fmt = (n: number) =>
     n.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 0 });
 
-  const PERIODS: Period[] = ['30d', '3m', '6m', '1y'];
+  const PERIODS: Array<{ value: Period; label: string }> = [
+    { value: 'currentMonth', label: lang === 'fr' ? 'Mois en cours' : 'Current Month' },
+    { value: 'next3m', label: lang === 'fr' ? '3 prochains mois' : 'Next 3 Months' },
+    { value: 'next6m', label: lang === 'fr' ? '6 prochains mois' : 'Next 6 Months' },
+    { value: `year-${currentYear}`, label: String(currentYear) },
+    { value: `year-${currentYear - 1}`, label: String(currentYear - 1) },
+  ];
 
   if (loading || propsLoading) {
     return (
@@ -230,62 +256,61 @@ export default function Analytics() {
           {lang === 'fr' ? 'Analytique' : 'Analytics'}
         </h1>
         <div className="flex items-center gap-2">
-        <select
-          value={selectedPropertyId ?? ''}
-          onChange={e => setSelectedPropertyId(e.target.value === '' ? null : Number(e.target.value))}
-          className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium rounded-lg focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">{lang === 'fr' ? 'Toutes propriétés' : 'All Properties'}</option>
-          {properties.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {PERIODS.map(p => (
+          <select
+            value={selectedPropertyId ?? ''}
+            onChange={e => setSelectedPropertyId(e.target.value === '' ? null : Number(e.target.value))}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium rounded-lg focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">{lang === 'fr' ? 'Toutes propriétés' : 'All Properties'}</option>
+            {properties.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 flex-wrap">
+            {PERIODS.map(p => (
             <button
-              key={p}
-              onClick={() => setPeriod(p)}
+              key={p.value}
+              onClick={() => setPeriod(p.value)}
               className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                period === p
+                period === p.value
                   ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
-              {p}
+              {p.label}
             </button>
-          ))}
-        </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Top row: chart + distribution */}
+      {/* Top row: histogram + pie */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue area chart */}
+        {/* Revenue histogram */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-            {lang === 'fr' ? 'Revenus totaux' : 'Total Revenue'}
+            {lang === 'fr' ? 'Revenus mensuels' : 'Monthly Revenue'}
           </p>
           <p className="text-3xl font-bold mb-4">€{fmt(totalRevenue)}</p>
-          {chartData.length > 0 ? (
+          {revenueHistogramData.some(row => Number(row.total) > 0) ? (
             <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <BarChart data={revenueHistogramData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(v?: number) => [`€${fmt(v ?? 0)}`, '']} />
-                {sources.map(src => (
-                  <Area
-                    key={src}
-                    type="monotone"
-                    dataKey={src}
-                    stackId="1"
-                    stroke={SOURCE_COLORS[src] || '#6B7280'}
-                    fill={SOURCE_COLORS[src] || '#6B7280'}
-                    fillOpacity={0.6}
-                    name={SOURCE_LABELS[src] || src}
+                <Legend />
+                {(selectedPropertyId !== null ? properties.filter(p => p.id === selectedPropertyId) : properties).map((property: any) => (
+                  <Bar
+                    key={property.id}
+                    dataKey={`prop_${property.id}`}
+                    name={property.name}
+                    fill={property.color || '#6B7280'}
+                    radius={[3, 3, 0, 0]}
                   />
                 ))}
-              </AreaChart>
+                <Bar dataKey="total" name={lang === 'fr' ? 'Total' : 'Total'} fill="#111827" radius={[3, 3, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-[180px] flex items-center justify-center text-gray-400 text-sm">
@@ -297,29 +322,28 @@ export default function Analytics() {
         {/* Property distribution */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">
-            {lang === 'fr' ? 'Distribution' : 'Distribution'}
+            {lang === 'fr' ? 'Distribution des revenus' : 'Revenue Distribution'}
           </p>
-          {propertyStats.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              {propertyStats.map(ps => {
-                const pct = totalRevenue > 0 ? Math.round((ps.revenue / totalRevenue) * 100) : 0;
-                return (
-                  <div
-                    key={ps.id}
-                    className="rounded-lg p-3 flex items-center justify-between"
-                    style={{ backgroundColor: ps.color + '22', borderLeft: `3px solid ${ps.color}` }}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{ps.name}</p>
-                      <p className="text-xs text-gray-500">€{fmt(ps.revenue)}</p>
-                    </div>
-                    <span className="text-xl font-bold ml-2 flex-shrink-0" style={{ color: ps.color }}>
-                      {pct}%
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+          {distributionData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie
+                  data={distributionData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={72}
+                  label={({ percent }) => `${Math.round((percent || 0) * 100)}%`}
+                >
+                  {distributionData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value?: number) => [`€${fmt(Number(value || 0))}`, '']} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
               {lang === 'fr' ? 'Aucune donnée' : 'No data'}
