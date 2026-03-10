@@ -2,6 +2,7 @@ import { apiFetch } from '@/api';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useProperties } from '@/hooks/useProperties';
+import { cleanGuestName, getSourceColor, getSourceLabel, normalizeSource } from '@/components/owner/bookingActivityUtils';
 import EmptyState from '@/components/EmptyState';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { 
@@ -13,9 +14,6 @@ import {
   TrendingUp,
   X,
   Search,
-  Home,
-  LogIn,
-  LogOut,
   BarChart3
 } from 'lucide-react';
 
@@ -31,15 +29,6 @@ interface Booking {
   status?: string;
 }
 
-// Source-based colors (muted pastels)
-function getSourceColor(source: string): string {
-  const norm = normalizeSource(source);
-  if (norm === 'airbnb') return '#E8927C';
-  if (norm === 'booking') return '#7C9FE8';
-  if (norm === 'smoobu' || norm === 'direct') return '#7CC5A8';
-  return '#9CA3AF';
-}
-
 function getSourceInitial(source: string): string {
   const norm = normalizeSource(source);
   if (norm === 'airbnb') return 'A.';
@@ -47,67 +36,6 @@ function getSourceInitial(source: string): string {
   if (norm === 'smoobu') return 'S.';
   if (norm === 'direct') return 'D.';
   return '?';
-}
-
-function getSourceLabel(source: string): string {
-  const norm = normalizeSource(source);
-  if (norm === 'airbnb') return 'Airbnb';
-  if (norm === 'booking') return 'Booking.com';
-  if (norm === 'smoobu') return 'Smoobu';
-  if (norm === 'direct') return 'Direct';
-  return source;
-}
-
-function normalizeSource(source: string): string {
-  const lower = source.toLowerCase().trim();
-  if (lower === 'airbnb') return 'airbnb';
-  if (lower.includes('booking')) return 'booking';
-  if (lower === 'smoobu') return 'smoobu';
-  if (lower.includes('direct')) return 'direct';
-  return lower;
-}
-
-// Clean guest name (remove technical fields and extract real names)
-function cleanGuestName(name: string): string {
-  if (!name) return 'Reservation';
-
-  // Remove language codes
-  if (/^language:\s*[a-z]{2}(-[A-Z]{2})?$/i.test(name.trim())) {
-    return 'Reservation';
-  }
-
-  // Remove "message:" prefix
-  let cleaned = name.replace(/^message:\s*/i, '').trim();
-
-  // If it starts with "Check-in" or "Check-out", extract the name after
-  if (/^(Check-in|Check-out)\s+/i.test(cleaned)) {
-    cleaned = cleaned.replace(/^(Check-in|Check-out)\s+/i, '').trim();
-    const parts = cleaned.split(',');
-    if (parts.length > 1 && parts[1].includes('Maison')) {
-      return parts[0].trim() || 'Reservation';
-    }
-    return cleaned.split(',')[0].trim() || 'Reservation';
-  }
-
-  // If it contains property name suffix, extract just the guest name
-  if (cleaned.includes(', Maison') || cleaned.includes(', Villa') || cleaned.includes(', T2 ') || cleaned.includes(', Appartement')) {
-    return cleaned.split(',')[0].trim() || 'Reservation';
-  }
-
-  // If it's a long message, try to extract a real name
-  if (cleaned.length > 50 || cleaned.includes('RESERVATION') || cleaned.includes('BOOKING NOTE')) {
-    const nameMatch = cleaned.match(/\b([A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\b/);
-    if (nameMatch) return nameMatch[1];
-    return 'Reservation';
-  }
-
-  const firstPart = cleaned.split(/[\n,]/)[0].trim();
-
-  if (firstPart.startsWith('**') || firstPart.toUpperCase() === firstPart) {
-    return 'Reservation';
-  }
-
-  return firstPart || 'Reservation';
 }
 
 function getDaysInMonth(year: number, month: number) {
@@ -524,32 +452,6 @@ export default function Calendar() {
   }, [calendarBookings]);
 
   const calendarNumPropertySlots = calendarPropertySlotMap.size;
-
-  // Today's activity
-  const todayActivity = useMemo(() => {
-    const todayStr = today.toISOString().split('T')[0];
-    const checkinsToday = filteredBookings.filter(b => b.checkin_date === todayStr);
-    const checkoutsToday = filteredBookings.filter(b => b.checkout_date === todayStr);
-    const currentlyStaying = filteredBookings.filter(b => 
-      b.checkin_date <= todayStr && b.checkout_date > todayStr
-    );
-    
-    return { checkinsToday, checkoutsToday, currentlyStaying };
-  }, [filteredBookings, today]);
-
-  const upcomingCheckins = useMemo(() => {
-    return filteredBookings
-      .filter(b => new Date(b.checkin_date) > today)
-      .sort((a, b) => new Date(a.checkin_date).getTime() - new Date(b.checkin_date).getTime())
-      .slice(0, 3);
-  }, [filteredBookings, today]);
-
-  const upcomingCheckouts = useMemo(() => {
-    return filteredBookings
-      .filter(b => new Date(b.checkout_date) > today)
-      .sort((a, b) => new Date(a.checkout_date).getTime() - new Date(b.checkout_date).getTime())
-      .slice(0, 3);
-  }, [filteredBookings, today]);
 
   // Timeline view helpers
   const timelineStartDate = useMemo(() => new Date(year, month, 1), [year, month]);
@@ -1145,162 +1047,6 @@ export default function Calendar() {
           </div>
           </div>
         )}
-
-        {/* TODAY'S ACTIVITY + UPCOMING CHECK-INS + UPCOMING CHECK-OUTS */}
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Today's Activity */}
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
-            <h2 className="text-base font-bold mb-3 text-gray-900 dark:text-white">
-              {lang === 'fr' ? "Aujourd'hui" : 'Today'}
-            </h2>
-
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                  <LogIn size={16} className="text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {lang === 'fr' ? "Arrivées aujourd'hui" : 'Check-ins today'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {todayActivity.checkinsToday.length} {lang === 'fr' ? 'réservations' : 'bookings'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                  <LogOut size={16} className="text-red-600 dark:text-red-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {lang === 'fr' ? "Départs aujourd'hui" : 'Check-outs today'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {todayActivity.checkoutsToday.length} {lang === 'fr' ? 'réservations' : 'bookings'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                  <Home size={16} className="text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {lang === 'fr' ? 'Séjours en cours' : 'Currently staying'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {todayActivity.currentlyStaying.length} {lang === 'fr' ? 'réservations' : 'bookings'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Upcoming Check-ins */}
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <LogIn size={16} className="text-green-600 dark:text-green-400" />
-              <h2 className="text-base font-bold text-gray-900 dark:text-white">
-                {lang === 'fr' ? 'Prochaines arrivées' : 'Upcoming Check-ins'}
-              </h2>
-            </div>
-
-            <div className="space-y-2">
-              {upcomingCheckins.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  {lang === 'fr' ? 'Aucune arrivée prévue' : 'No upcoming check-ins'}
-                </p>
-              ) : (
-                upcomingCheckins.map(booking => {
-                  const checkin = new Date(booking.checkin_date);
-                  const checkout = new Date(booking.checkout_date);
-                  const nights = Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24));
-                  return (
-                    <div
-                      key={booking.id}
-                      className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors"
-                      onClick={() => setSelectedBooking(booking)}
-                    >
-                      <div className="text-center w-9 flex-shrink-0">
-                        <div className="text-xl font-bold text-gray-900 dark:text-white leading-none">
-                          {checkin.getDate()}
-                        </div>
-                        <div className="text-[10px] text-gray-500 uppercase">
-                          {checkin.toLocaleDateString(locale, { month: 'short' })}
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {cleanGuestName(booking.guest_name)}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">{booking.property_name}</p>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getSourceColor(booking.source) }} />
-                          <span>{getSourceLabel(booking.source)}</span>
-                          <span>· {nights}n</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Upcoming Check-outs */}
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <LogOut size={16} className="text-red-500 dark:text-red-400" />
-              <h2 className="text-base font-bold text-gray-900 dark:text-white">
-                {lang === 'fr' ? 'Prochains départs' : 'Upcoming Check-outs'}
-              </h2>
-            </div>
-
-            <div className="space-y-2">
-              {upcomingCheckouts.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  {lang === 'fr' ? 'Aucun départ prévu' : 'No upcoming check-outs'}
-                </p>
-              ) : (
-                upcomingCheckouts.map(booking => {
-                  const checkout = new Date(booking.checkout_date);
-                  const checkin = new Date(booking.checkin_date);
-                  const nights = Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24));
-                  return (
-                    <div
-                      key={booking.id}
-                      className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors"
-                      onClick={() => setSelectedBooking(booking)}
-                    >
-                      <div className="text-center w-9 flex-shrink-0">
-                        <div className="text-xl font-bold text-gray-900 dark:text-white leading-none">
-                          {checkout.getDate()}
-                        </div>
-                        <div className="text-[10px] text-gray-500 uppercase">
-                          {checkout.toLocaleDateString(locale, { month: 'short' })}
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {cleanGuestName(booking.guest_name)}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">{booking.property_name}</p>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getSourceColor(booking.source) }} />
-                          <span>{getSourceLabel(booking.source)}</span>
-                          <span>· {nights}n</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Booking Popover */}

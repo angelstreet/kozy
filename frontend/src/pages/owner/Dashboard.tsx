@@ -4,6 +4,7 @@ import { t } from '@/i18n';
 import { useEffect, useState } from 'react';
 import { useProperties } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
+import BookingActivityPanels from '@/components/owner/BookingActivityPanels';
 import { Building2, CalendarDays, Users, Clock } from 'lucide-react';
 
 export default function Dashboard() {
@@ -81,6 +82,8 @@ export default function Dashboard() {
           <p className="text-[10px] text-gray-400 leading-tight">Today</p>
         </div>
       </div>
+
+      <BookingActivityPanels bookings={bookings} lang={lang} />
 
       {/* Property list */}
       <h2 className="text-base font-bold">Your Properties</h2>
