@@ -325,6 +325,296 @@ If we want the best near-term ROI, I would scope this order:
 
 I would not start with market benchmarking unless we already know the external data source, because that can expand the project a lot.
 
+## Implementation Scope
+
+## V1 Goal
+
+Ship an Airbnb-style analytics experience for owners that is:
+
+- mobile first
+- split into clear modules
+- operationally useful, not just visual
+- buildable from Kozy’s current data model
+
+V1 should answer 4 core questions:
+
+1. How much did I earn and how much is coming next?
+2. How are my properties performing?
+3. Which channels and listings are underperforming?
+4. What action should I take next?
+
+## V1 In Scope
+
+### 1. Analytics information architecture
+
+- replace the single analytics page with 4 top-level tabs:
+  - Earnings
+  - Performance
+  - Quality
+  - Reports
+- preserve the same module structure on desktop and mobile
+- make mobile the reference layout
+
+### 2. Earnings tab
+
+- hero metric: earned this month
+- secondary metric: upcoming booked revenue
+- monthly revenue histogram
+- revenue distribution donut
+- by-property earnings table
+- year / next 3 months / next 6 months filters
+
+### 3. Performance tab
+
+- hero metric: occupancy rate
+- supporting metrics:
+  - cancellation rate
+  - average stay
+  - ADR
+  - lead time
+- by-property performance table
+- channel breakdown cards:
+  - bookings
+  - nights
+  - revenue
+
+### 4. Quality tab
+
+Only include what current Kozy data can support or what can be stubbed cleanly.
+
+- review and ratings section only if real review data exists
+- otherwise:
+  - empty state explaining missing review integrations
+  - placeholder cards marked as future scope
+
+### 5. Reports tab
+
+- month cards
+- year cards
+- CSV export for current filtered view
+- owner summary export placeholder if PDF is not ready
+
+### 6. Shared behaviors
+
+- all analytics filters persist in local storage
+- chart titles always reflect active filter
+- x-axis always matches the selected window
+- revenue allocation across months is split by actual stay overlap, not only check-in month
+
+## V1 Out of Scope
+
+- external market benchmark ingestion
+- Airbnb-style similar listing comparisons
+- pricing automation engine
+- recommendation engine with autonomous suggestions
+- PDF report generation if it adds too much backend complexity
+- inquiry-to-booking conversion unless inquiry/message data exists
+- quality scoring without review source data
+
+## Data Requirements
+
+Must exist or be derivable from current Kozy data:
+
+- booking:
+  - property_id
+  - checkin_date
+  - checkout_date
+  - source
+  - status
+- property:
+  - name
+  - color
+  - rate
+  - monthly_charges
+  - credit_mensuel
+- payment:
+  - amount
+  - property_id or property_name
+  - task_date
+
+Needed for later phases:
+
+- OTA commission data
+- payout data
+- review score data
+- inquiry / conversion funnel data
+- market comparison data
+
+## Deliverables
+
+## Deliverable A: IA and navigation
+
+- analytics tabs implemented
+- mobile-first layout for each tab
+- desktop adaptation without changing content model
+
+## Deliverable B: Earnings
+
+- earnings hero section
+- upcoming revenue card
+- corrected histogram
+- polished donut
+- by-property earnings table
+
+## Deliverable C: Performance
+
+- occupancy / ADR / stay / lead-time cards
+- cancellation KPI
+- channel performance section
+- by-property performance section
+
+## Deliverable D: Reports
+
+- monthly report cards
+- yearly report cards
+- CSV export
+
+## Deliverable E: persistence and polish
+
+- saved filters
+- empty states
+- loading states
+- chart titles and legends cleaned up
+
+## Acceptance Criteria
+
+### UX
+
+- each analytics tab can be understood in under 5 seconds on mobile
+- no tab shows more than one main chart above the fold
+- every chart has explicit time context
+- every top section has one dominant metric
+
+### Data
+
+- histogram values match booking stay overlap by month
+- year filters only show months inside that selected year
+- next 3 months / next 6 months only show those future months
+- property and channel totals reconcile with visible rows and cards
+
+### Technical
+
+- existing build passes
+- no new backend dependency is required for V1 unless explicitly approved
+- local storage persists user analytics preferences
+
+## Suggested Implementation Order
+
+1. Restructure analytics into tabs and shared filter model
+2. Finalize Earnings tab
+3. Build Performance tab
+4. Add Reports tab
+5. Add Quality tab with real data or explicit placeholder state
+6. Polish mobile spacing, typography, and empty states
+
+## Parallel Workstreams
+
+These can be split across sub-agents safely.
+
+### Workstream 1: Analytics shell and navigation
+
+Owns:
+
+- tab navigation
+- shared filter state
+- mobile/desktop layout shell
+- local storage persistence
+
+Files likely:
+
+- `frontend/src/pages/owner/Analytics.tsx`
+- new analytics tab components if extracted
+
+### Workstream 2: Earnings module
+
+Owns:
+
+- hero earnings cards
+- histogram
+- donut
+- by-property revenue table
+- time window consistency
+
+### Workstream 3: Performance module
+
+Owns:
+
+- occupancy and ADR cards
+- channel breakdowns
+- by-property performance table
+- lead-time / cancellation calculations
+
+### Workstream 4: Reports and export
+
+Owns:
+
+- month/year report cards
+- CSV export
+- report UX
+
+### Workstream 5: Data integrity and validation
+
+Owns:
+
+- checking metric formulas
+- validating chart totals
+- creating fixture checks
+- testing edge cases like cross-month and cross-year stays
+
+## Sub-Agent Coordination Rules
+
+- one agent owns layout shell only
+- one agent owns one analytics module at a time
+- do not have two agents edit the same section of `Analytics.tsx` simultaneously
+- if the file becomes too large, extract tab components before parallel work
+- validation agent should review outputs after feature agents finish
+
+## Recommended Refactor Before Parallel Work
+
+Before assigning sub-agents broadly, extract these components:
+
+- `AnalyticsTabs`
+- `EarningsTab`
+- `PerformanceTab`
+- `QualityTab`
+- `ReportsTab`
+- `AnalyticsFilters`
+- `DistributionDonut`
+- `RevenueHistogram`
+
+Reason:
+
+- without extraction, multiple agents will collide in `Analytics.tsx`
+- after extraction, workstreams can move in parallel much faster
+
+## Concrete Build Plan
+
+### Sprint 1
+
+- extract analytics components
+- add tab shell
+- move current earnings content into `EarningsTab`
+- preserve current functionality
+
+### Sprint 2
+
+- improve earnings mobile UX
+- add upcoming revenue
+- add report cards
+- add CSV export
+
+### Sprint 3
+
+- implement performance tab
+- add channel analytics
+- add lead-time and cancellation KPIs
+
+### Sprint 4
+
+- quality tab or quality placeholder
+- final polish
+- consistency QA
+
 ## Suggested Metrics To Add
 
 - Occupancy %
