@@ -21,6 +21,69 @@ function addMonths(date: Date, months: number) {
   return new Date(date.getFullYear(), date.getMonth() + months, 1);
 }
 
+function DistributionDonut({
+  data,
+  total,
+  fmt,
+}: {
+  data: { name: string; value: number; color: string }[];
+  total: number;
+  fmt: (n: number) => string;
+}) {
+  const positiveData = data.filter(d => d.value > 0);
+  if (positiveData.length === 0) return null;
+  const totalPositive = positiveData.reduce((sum, item) => sum + item.value, 0);
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center gap-4">
+      <div className="w-40 h-40 relative flex-shrink-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={positiveData}
+              cx="50%"
+              cy="50%"
+              innerRadius={45}
+              outerRadius={65}
+              dataKey="value"
+              nameKey="name"
+              stroke="none"
+            >
+              {positiveData.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value?: number, name?: string) => [`€${fmt(value ?? 0)}`, name ?? '']}
+              contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8, fontSize: 12 }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-xs font-bold text-gray-900 dark:text-white">€{fmt(total)}</span>
+        </div>
+      </div>
+      <div className="flex-1 space-y-1.5 w-full">
+        {positiveData.map(item => {
+          const pct = totalPositive > 0 ? (item.value / totalPositive) * 100 : 0;
+          return (
+            <div key={item.name} className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                <span className="text-gray-500 dark:text-gray-400 truncate">{item.name}</span>
+              </div>
+              <div className="flex items-center gap-2 ml-2">
+                <span className="text-gray-500 dark:text-gray-400">{pct.toFixed(1)}%</span>
+                <span className="font-medium text-gray-900 dark:text-white">€{fmt(item.value)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Analytics() {
   const { lang } = useApp();
   const { properties, loading: propsLoading } = useProperties();
@@ -196,9 +259,20 @@ export default function Analytics() {
     propertyStats.map(ps => ({ name: ps.name, value: Math.round(ps.revenue), color: ps.color })),
   [propertyStats]);
 
+  const histogramTitle = useMemo(() => {
+    if (period === 'currentMonth') return lang === 'fr' ? 'Revenus du mois en cours' : 'Current Month Revenue';
+    if (period === 'next3m') return lang === 'fr' ? 'Revenus des 3 prochains mois' : 'Next 3 Months Revenue';
+    if (period === 'next6m') return lang === 'fr' ? 'Revenus des 6 prochains mois' : 'Next 6 Months Revenue';
+    return lang === 'fr' ? `Revenus ${range.chartYear}` : `${range.chartYear} Revenue`;
+  }, [lang, period, range.chartYear]);
+
   const revenueHistogramData = useMemo(() => {
-    const months = Array.from({ length: 12 }, (_, idx) => {
-      const date = new Date(range.chartYear, idx, 1);
+    const monthCount = Math.max(
+      1,
+      (range.end.getFullYear() - range.start.getFullYear()) * 12 + (range.end.getMonth() - range.start.getMonth())
+    );
+    const months = Array.from({ length: monthCount }, (_, idx) => {
+      const date = addMonths(range.start, idx);
       return {
         key: date.toISOString().slice(0, 7),
         month: date.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { month: 'short' }),
@@ -226,7 +300,7 @@ export default function Analytics() {
     });
 
     return months;
-  }, [enriched, lang, properties, range.chartYear, selectedPropertyId]);
+  }, [enriched, lang, properties, range.end, range.start, selectedPropertyId]);
 
   const fmt = (n: number) =>
     n.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 0 });
@@ -289,7 +363,7 @@ export default function Analytics() {
         {/* Revenue histogram */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-            {lang === 'fr' ? 'Revenus mensuels' : 'Monthly Revenue'}
+            {histogramTitle}
           </p>
           <p className="text-3xl font-bold mb-4">€{fmt(totalRevenue)}</p>
           {revenueHistogramData.some(row => Number(row.total) > 0) ? (
@@ -325,25 +399,7 @@ export default function Analytics() {
             {lang === 'fr' ? 'Distribution des revenus' : 'Revenue Distribution'}
           </p>
           {distributionData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={distributionData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={72}
-                  label={({ percent }) => `${Math.round((percent || 0) * 100)}%`}
-                >
-                  {distributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value?: number) => [`€${fmt(Number(value || 0))}`, '']} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            <DistributionDonut data={distributionData} total={totalRevenue} fmt={fmt} />
           ) : (
             <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
               {lang === 'fr' ? 'Aucune donnée' : 'No data'}
