@@ -16,6 +16,129 @@ Current Kozy analytics now covers:
 
 Compared with Smoobu, Airbnb host insights, and Booking.com partner analytics messaging, Kozy still lacks several analytics layers that matter for short-term rental operations.
 
+## UX Comparison: Airbnb Mobile vs Kozy
+
+Reviewed reference screenshots:
+
+- `/home/jndoye/.openclaw/media/inbound/file_107---89e95716-0d9f-4a0b-b0fd-d8273cd6894f.jpg`
+- `/home/jndoye/.openclaw/media/inbound/file_108---1b4b4068-2297-4c68-b778-2de0f0b932a3.jpg`
+- `/home/jndoye/.openclaw/media/inbound/file_109---3b47ea55-0070-4dca-80e8-d6abaf44ccab.jpg`
+- `/home/jndoye/.openclaw/media/inbound/file_110---5a56a06a-fe35-4227-a1ba-ff1d49951c67.jpg`
+
+### What Airbnb does better
+
+- separates analytics into clear modules: `Earnings`, `Performance`, `Quality`, `Reports`
+- uses one strong headline number per screen before charts
+- keeps cards very focused: usually 2 to 4 metrics per card
+- uses mobile-first vertical card flows instead of dense dashboards
+- uses explicit time tabs near the relevant content
+- makes “actionable next step” obvious: reports, summaries, opportunities
+- uses fewer competing charts on one screen
+- gives each chart a single purpose
+
+### What Kozy does worse right now
+
+- too many ideas are packed into one analytics page
+- the top section mixes filters, revenue chart, distribution, and KPI cards in one dense block
+- mobile hierarchy is weak: there is no single obvious “hero” insight
+- property table is useful but visually heavy for mobile
+- quality / conversion / channel / forecast concepts are absent, so the page feels incomplete compared to Airbnb
+- chart titles and time windows are improving, but the overall page still feels like a report, not a product flow
+
+### Design Principles Kozy should copy
+
+- one section = one question
+- one chart = one story
+- mobile first, desktop second
+- summary cards before detail tables
+- explicit time context directly above each chart
+- actions or recommendations below insight blocks
+
+## UX Roadmap
+
+## Phase A: Structure analytics into tabs
+
+Create 4 top-level analytics tabs:
+
+- Earnings
+- Performance
+- Quality
+- Reports
+
+Why:
+
+- this matches how hosts think
+- this matches Airbnb’s mobile mental model
+- it reduces the current “everything on one page” problem
+
+## Phase B: Rebuild the mobile analytics flow
+
+For each analytics tab:
+
+- hero headline metric at top
+- one primary chart
+- one or two supporting KPI cards
+- one detail list/table below
+
+Example:
+
+- Earnings:
+  - hero: earned this month
+  - secondary: upcoming booked revenue
+  - chart: monthly revenue bars
+  - supporting: payout list / recent reports
+
+- Performance:
+  - hero: occupancy rate
+  - supporting: cancellation rate, avg stay, ADR
+  - chart: occupancy or pace trend
+  - detail: by-property performance rows
+
+- Quality:
+  - hero: overall rating
+  - supporting: reviews count, issue count
+  - chart: ratings trend
+  - detail: recent issues / review snippets
+
+- Reports:
+  - report cards by month and year
+  - exports
+  - downloadable owner summaries
+
+## Phase C: Add missing Airbnb-style modules
+
+- Earnings:
+  - current month earned
+  - upcoming booked revenue
+  - payout timeline
+  - monthly statements / reports
+
+- Performance:
+  - occupancy
+  - cancellation rate
+  - avg stay
+  - lead time
+  - conversion
+
+- Quality:
+  - average rating
+  - 5-star ratio
+  - issue tracking
+  - review trend
+
+- Opportunities:
+  - low occupancy alert
+  - channel underperformance
+  - pricing suggestion
+  - missing pet-friendly / discount / min-stay opportunities
+
+## Phase D: Simplify desktop by preserving mobile logic
+
+- desktop should not become a different product
+- keep the same module structure as mobile
+- use 2-column or 3-column layouts only inside each module
+- avoid returning to one giant analytics dashboard
+
 ## Gaps
 
 ### 1. Channel performance
