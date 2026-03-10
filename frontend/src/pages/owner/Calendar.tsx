@@ -51,6 +51,21 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+function startOfWeek(date: Date) {
+  const result = new Date(date);
+  const day = result.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  result.setDate(result.getDate() + diff);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function addDays(date: Date, days: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
 // Booking Popover Component - centered modal
 function BookingPopover({
   booking,
@@ -150,7 +165,6 @@ function BookingPopover({
   );
 }
 
-// 3-month calendar sub-component
 function MonthGrid({
   year,
   month,
@@ -353,6 +367,173 @@ function MonthGrid({
   );
 }
 
+function WeekGrid({
+  startDate,
+  filteredBookings,
+  propertySlotMap,
+  today,
+  dayNames,
+  lang,
+  onBookingClick,
+}: {
+  startDate: Date;
+  filteredBookings: Booking[];
+  propertySlotMap: Map<number, number>;
+  today: Date;
+  dayNames: string[];
+  lang: string;
+  onBookingClick: (booking: Booking, event: React.MouseEvent) => void;
+}) {
+  const locale = lang === 'fr' ? 'fr-FR' : 'en-US';
+  const week = useMemo(
+    () => Array.from({ length: 7 }, (_, idx) => ({ date: addDays(startDate, idx), isCurrentMonth: true })),
+    [startDate]
+  );
+
+  const bookingBars = useMemo(() => {
+    const weekStart = week[0]?.date;
+    const weekEnd = week[6]?.date;
+    if (!weekStart || !weekEnd) return [];
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const weekStartStr = `${weekStart.getFullYear()}-${pad(weekStart.getMonth() + 1)}-${pad(weekStart.getDate())}`;
+    const weekEndStr = `${weekEnd.getFullYear()}-${pad(weekEnd.getMonth() + 1)}-${pad(weekEnd.getDate())}`;
+
+    const overlapping = filteredBookings.filter(b => b.checkin_date <= weekEndStr && b.checkout_date > weekStartStr);
+
+    const bars = overlapping.map(booking => {
+      const checkin = new Date(booking.checkin_date);
+      const checkout = new Date(booking.checkout_date);
+      let startDayIdx = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = week[i]?.date;
+        if (d && isSameDay(d, checkin)) {
+          startDayIdx = i;
+          break;
+        }
+      }
+      if (checkin < weekStart) startDayIdx = 0;
+
+      let endPos = 7;
+      let isCheckoutDay = false;
+      for (let i = 0; i < 7; i++) {
+        const d = week[i]?.date;
+        if (d && isSameDay(d, checkout)) {
+          endPos = i;
+          isCheckoutDay = true;
+          break;
+        }
+      }
+      if (!isCheckoutDay && checkout > new Date(weekEnd.getTime() + 86400000)) endPos = 7;
+
+      const checkinStr = booking.checkin_date;
+      const checkoutStr = booking.checkout_date;
+      const hasHandoff = isCheckoutDay && filteredBookings.some(other => other.id !== booking.id && other.checkin_date === checkoutStr);
+      let isCheckinInWeek = false;
+      let checkinDayIdx = startDayIdx;
+      for (let i = 0; i < 7; i++) {
+        const d = week[i]?.date;
+        if (d && isSameDay(d, checkin)) {
+          isCheckinInWeek = true;
+          checkinDayIdx = i;
+          break;
+        }
+      }
+      const hasIncomingHandoff = isCheckinInWeek && filteredBookings.some(other => other.id !== booking.id && other.checkout_date === checkinStr);
+
+      let leftPercent = (startDayIdx / 7) * 100;
+      let rightEdge: number;
+      if (hasHandoff && isCheckoutDay) rightEdge = ((endPos + 0.5) / 7) * 100;
+      else if (isCheckoutDay) rightEdge = (endPos / 7) * 100;
+      else rightEdge = (endPos / 7) * 100;
+      if (hasIncomingHandoff && isCheckinInWeek) leftPercent = ((checkinDayIdx + 0.5) / 7) * 100;
+      const widthPercent = Math.max(0, rightEdge - leftPercent);
+      const slot = propertySlotMap.get(booking.property_id) ?? 0;
+
+      return { booking, leftPercent, widthPercent, slot };
+    }).filter(bar => bar.widthPercent > 0);
+
+    bars.sort((a, b) => a.leftPercent - b.leftPercent);
+    const laneOccupancy: Array<Array<{ leftPercent: number; widthPercent: number }>> = [];
+    return bars.map(bar => {
+      let lane = 0;
+      while (true) {
+        const occupied = laneOccupancy[lane] ?? [];
+        const overlaps = occupied.some(other =>
+          bar.leftPercent < other.leftPercent + other.widthPercent &&
+          bar.leftPercent + bar.widthPercent > other.leftPercent
+        );
+        if (!overlaps) break;
+        lane++;
+      }
+      if (!laneOccupancy[lane]) laneOccupancy[lane] = [];
+      laneOccupancy[lane].push({ leftPercent: bar.leftPercent, widthPercent: bar.widthPercent });
+      return { ...bar, lane };
+    });
+  }, [filteredBookings, propertySlotMap, week]);
+
+  const maxLanes = Math.max(1, ...(bookingBars.map(b => (b.lane ?? 0) + 1) ?? [1]));
+  const rowMinHeight = Math.max(96, 32 + maxLanes * 24 + 10);
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden max-w-full">
+      <div className="px-3 sm:px-4 py-2.5">
+        <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+          {week[0].date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })} - {week[6].date.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}
+        </h2>
+      </div>
+      <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+        {dayNames.map((day, idx) => (
+          <div key={day} className={`text-center text-[10px] font-semibold py-1.5 ${idx >= 5 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            {day}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 relative" style={{ minHeight: `${rowMinHeight}px` }}>
+        {week.map((cell, dayIdx) => {
+          const isToday = cell.date.toDateString() === today.toDateString();
+          const isWeekend = cell.date.getDay() === 0 || cell.date.getDay() === 6;
+          return (
+            <div key={dayIdx} className={`relative p-1 border-r border-gray-50 dark:border-gray-800 ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''}`}>
+              <div className={`text-[11px] font-semibold ${isToday ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px]' : isWeekend ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                {cell.date.getDate()}
+              </div>
+            </div>
+          );
+        })}
+        {bookingBars.map((bar) => {
+          const { booking, leftPercent, widthPercent, slot, lane } = bar;
+          const sourceColor = getSourceColor(booking.source);
+          const guestName = cleanGuestName(booking.guest_name);
+          const propertyColor = booking.property_color || '#9CA3AF';
+          return (
+            <div
+              key={`${booking.id}-${startDate.toISOString()}`}
+              onClick={(e) => onBookingClick(booking, e)}
+              className="absolute px-1.5 py-0.5 rounded cursor-pointer hover:brightness-110 transition-all overflow-hidden flex items-center gap-1 text-white text-[10px] font-medium shadow-sm"
+              style={{
+                backgroundColor: sourceColor,
+                left: `${leftPercent}%`,
+                width: `${widthPercent}%`,
+                top: `${28 + (lane ?? slot) * 24}px`,
+                height: '22px',
+                zIndex: 10
+              }}
+              title={`${guestName} • ${booking.property_name}`}
+            >
+              <div className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50" style={{ backgroundColor: propertyColor }} />
+              <div className="w-3.5 h-3.5 rounded-full bg-white/90 flex items-center justify-center text-[8px] font-bold flex-shrink-0" style={{ color: sourceColor }}>
+                {getSourceInitial(booking.source).charAt(0)}
+              </div>
+              <span className="flex-1 min-w-0 truncate">{guestName}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Calendar() {
   const { lang } = useApp();
   const { properties, loading, isEmpty } = useProperties();
@@ -362,7 +543,9 @@ export default function Calendar() {
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
+  const [calendarSpan, setCalendarSpan] = useState<'threeMonths' | 'oneMonth' | 'threeWeeks' | 'oneWeek'>('threeMonths');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   // Calendar mode: one property at a time via tabs
   const [activeCalendarPropertyId, setActiveCalendarPropertyId] = useState<number | null>(null);
 
@@ -383,6 +566,19 @@ export default function Calendar() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const today = new Date();
+  const weekStart = useMemo(() => startOfWeek(currentDate), [currentDate]);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile && (calendarSpan === 'threeMonths' || calendarSpan === 'oneMonth')) {
+      setCalendarSpan('threeWeeks');
+    }
+  }, [calendarSpan, isMobile]);
 
   // Initialize active calendar property when properties load; show ALL by default
   useEffect(() => {
@@ -520,8 +716,23 @@ export default function Calendar() {
     setSelectedBooking(booking);
   };
 
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const goPrev = () => {
+    if (viewMode === 'calendar' && (calendarSpan === 'threeWeeks' || calendarSpan === 'oneWeek')) {
+      const step = calendarSpan === 'threeWeeks' ? 21 : 7;
+      setCurrentDate(prev => addDays(prev, -step));
+      return;
+    }
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const goNext = () => {
+    if (viewMode === 'calendar' && (calendarSpan === 'threeWeeks' || calendarSpan === 'oneWeek')) {
+      const step = calendarSpan === 'threeWeeks' ? 21 : 7;
+      setCurrentDate(prev => addDays(prev, step));
+      return;
+    }
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
 
   const dayNames = lang === 'fr' 
     ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] 
@@ -546,178 +757,40 @@ export default function Calendar() {
     );
   }, []);
 
-  // Calculate calendar grid for current month
-  const calendarDays = useMemo(() => {
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfWeek(year, month);
-    const totalCells = 42; // 6 weeks
-    const days: Array<{ date: Date | null; isCurrentMonth: boolean }> = [];
-
-    // Previous month trailing days
-    const prevMo = month === 0 ? 11 : month - 1;
-    const prevYr = month === 0 ? year - 1 : year;
-    const prevMoDays = getDaysInMonth(prevYr, prevMo);
-
-    for (let i = firstDay - 1; i >= 0; i--) {
-      days.push({ date: new Date(prevYr, prevMo, prevMoDays - i), isCurrentMonth: false });
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push({ date: new Date(year, month, day), isCurrentMonth: true });
-    }
-
-    const nextMo = month === 11 ? 0 : month + 1;
-    const nextYr = month === 11 ? year + 1 : year;
-    const remaining = totalCells - days.length;
-
-    for (let day = 1; day <= remaining; day++) {
-      days.push({ date: new Date(nextYr, nextMo, day), isCurrentMonth: false });
-    }
-
-    return days;
-  }, [year, month]);
-
-  // Group days into weeks for row-based rendering
-  const weeks = useMemo(() => {
-    const result: Array<typeof calendarDays> = [];
-    for (let i = 0; i < calendarDays.length; i += 7) {
-      result.push(calendarDays.slice(i, i + 7));
-    }
-    return result;
-  }, [calendarDays]);
-
-  // Build propertySlotMap: consistent vertical slot per property across the month
-  const propertySlotMap = useMemo(() => {
-    const map = new Map<number, number>();
-    const propertyIds = [...new Set(filteredBookings.map(b => b.property_id))];
-    propertyIds.forEach((id, idx) => map.set(id, idx));
-    return map;
-  }, [filteredBookings]);
-
-  const numPropertySlots = propertySlotMap.size;
-
-  // Compute booking bars for each week (includes continuations and check-in/out overlap)
-  const weekBookingBars = useMemo(() => {
-    return weeks.map((week) => {
-      const weekStart = week[0]?.date;
-      const weekEnd = week[6]?.date;
-      if (!weekStart || !weekEnd) return [];
-
-      const weekStartStr = weekStart.toISOString().split('T')[0];
-      const weekEndStr = weekEnd.toISOString().split('T')[0];
-
-      // Find all bookings that overlap with this week
-      const overlapping = filteredBookings.filter(b => {
-        return b.checkin_date <= weekEndStr && b.checkout_date > weekStartStr;
-      });
-
-      return overlapping.map(booking => {
-        const checkin = new Date(booking.checkin_date);
-        const checkout = new Date(booking.checkout_date);
-
-        // Determine start day index within the week
-        let startDayIdx = 0;
-        for (let i = 0; i < 7; i++) {
-          const d = week[i]?.date;
-          if (d && d.toISOString().split('T')[0] === booking.checkin_date) {
-            startDayIdx = i;
-            break;
-          } else if (d && d < checkin) {
-            startDayIdx = 0; // booking started before this week
-          }
-        }
-        // If booking started before the week, pin to day 0
-        if (checkin < weekStart) startDayIdx = 0;
-
-        // Determine end day index within the week
-        let endDayIdx = 6;
-        for (let i = 6; i >= 0; i--) {
-          const d = week[i]?.date;
-          if (d && d.toISOString().split('T')[0] === booking.checkout_date) {
-            endDayIdx = i;
-            break;
-          } else if (d && d >= checkout) {
-            // checkout is exclusive, keep searching
-          }
-        }
-        // If checkout is beyond the week, extend to end
-        if (checkout > new Date(weekEnd.getTime() + 86400000)) endDayIdx = 7;
-
-        // Checkout date is exclusive — the bar ends at the checkout day cell midpoint
-        // Find exact end position
-        let endPos = endDayIdx;
-        const checkoutStr = booking.checkout_date;
-        let isCheckoutDay = false;
-        for (let i = 0; i < 7; i++) {
-          const d = week[i]?.date;
-          if (d && d.toISOString().split('T')[0] === checkoutStr) {
-            endPos = i;
-            isCheckoutDay = true;
-            break;
-          }
-        }
-        if (!isCheckoutDay && checkout > new Date(weekEnd.getTime() + 86400000)) {
-          endPos = 7;
-        }
-
-        // Check if another booking starts on the same day this one ends (handoff)
-        const hasHandoff = isCheckoutDay && filteredBookings.some(
-          other => other.id !== booking.id && other.checkin_date === checkoutStr
-        );
-
-        // Check if this booking starts on a day where another ends (incoming handoff)
-        const checkinStr = booking.checkin_date;
-        let isCheckinInWeek = false;
-        let checkinDayIdx = startDayIdx;
-        for (let i = 0; i < 7; i++) {
-          const d = week[i]?.date;
-          if (d && d.toISOString().split('T')[0] === checkinStr) {
-            isCheckinInWeek = true;
-            checkinDayIdx = i;
-            break;
-          }
-        }
-        const hasIncomingHandoff = isCheckinInWeek && filteredBookings.some(
-          other => other.id !== booking.id && other.checkout_date === checkinStr
-        );
-
-        // Calculate left% and width%
-        let leftPercent = (startDayIdx / 7) * 100;
-        let rightEdge: number;
-
-        if (hasHandoff && isCheckoutDay) {
-          // End at midpoint of checkout day
-          rightEdge = ((endPos + 0.5) / 7) * 100;
-        } else if (isCheckoutDay) {
-          // End at the start of checkout day (checkout is exclusive)
-          rightEdge = (endPos / 7) * 100;
-        } else {
-          rightEdge = (endPos / 7) * 100;
-        }
-
-        if (hasIncomingHandoff && isCheckinInWeek) {
-          // Start at midpoint of checkin day
-          leftPercent = ((checkinDayIdx + 0.5) / 7) * 100;
-        }
-
-        let widthPercent = rightEdge - leftPercent;
-        if (widthPercent < 0) widthPercent = 0;
-
-        const slot = propertySlotMap.get(booking.property_id) ?? 0;
-
+  const calendarGridItems = useMemo(() => {
+    if (calendarSpan === 'threeMonths') {
+      return [0, 1, 2].map(offset => {
+        const m = month + offset;
         return {
-          booking,
-          leftPercent,
-          widthPercent,
-          slot,
-          startDayIdx,
-          isCheckoutDay,
-          hasHandoff,
-          hasIncomingHandoff,
+          type: 'month' as const,
+          date: new Date(year + Math.floor(m / 12), ((m % 12) + 12) % 12, 1)
         };
-      }).filter(bar => bar.widthPercent > 0);
-    });
-  }, [weeks, filteredBookings, propertySlotMap]);
+      });
+    }
+    if (calendarSpan === 'oneMonth') {
+      return [{ type: 'month' as const, date: new Date(year, month, 1) }];
+    }
+    const weekCount = calendarSpan === 'threeWeeks' ? 3 : 1;
+    return Array.from({ length: weekCount }, (_, idx) => ({
+      type: 'week' as const,
+      date: addDays(weekStart, idx * 7)
+    }));
+  }, [calendarSpan, month, weekStart, year]);
+
+  const headerLabel = useMemo(() => {
+    if (viewMode === 'timeline') {
+      return new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+    }
+    if (calendarSpan === 'threeMonths') {
+      const endDate = new Date(year, month + 2, 1);
+      return `${new Date(year, month, 1).toLocaleDateString(locale, { month: 'short', year: 'numeric' })} - ${endDate.toLocaleDateString(locale, { month: 'short', year: 'numeric' })}`;
+    }
+    if (calendarSpan === 'oneMonth') {
+      return new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+    }
+    const endDate = addDays(weekStart, calendarSpan === 'threeWeeks' ? 20 : 6);
+    return `${weekStart.toLocaleDateString(locale, { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  }, [calendarSpan, locale, month, viewMode, weekStart, year]);
 
   if (loading) {
     return (
@@ -750,7 +823,7 @@ export default function Calendar() {
           {/* Left: Navigation + Month */}
           <div className="flex items-center gap-3">
             <button
-              onClick={prevMonth}
+              onClick={goPrev}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               <ChevronLeft size={20} />
@@ -764,10 +837,10 @@ export default function Calendar() {
               </button>
             )}
             <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white whitespace-nowrap">
-              {new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
+              {headerLabel}
             </h1>
             <button
-              onClick={nextMonth}
+              onClick={goNext}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               <ChevronRight size={20} />
@@ -854,6 +927,35 @@ export default function Calendar() {
                 <BarChart3 size={20} />
               </button>
             </div>
+
+            {viewMode === 'calendar' && (
+              <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden flex-shrink-0">
+                {(isMobile
+                  ? [
+                      { key: 'threeWeeks', label: lang === 'fr' ? '3 sem.' : '3 weeks' },
+                      { key: 'oneWeek', label: lang === 'fr' ? '1 sem.' : '1 week' },
+                    ]
+                  : [
+                      { key: 'threeMonths', label: lang === 'fr' ? '3 mois' : '3 months' },
+                      { key: 'oneMonth', label: lang === 'fr' ? '1 mois' : '1 month' },
+                      { key: 'threeWeeks', label: lang === 'fr' ? '3 sem.' : '3 weeks' },
+                      { key: 'oneWeek', label: lang === 'fr' ? '1 sem.' : '1 week' },
+                    ]
+                ).map(option => (
+                  <button
+                    key={option.key}
+                    onClick={() => setCalendarSpan(option.key as typeof calendarSpan)}
+                    className={`px-2.5 py-2 text-[11px] sm:text-xs font-semibold transition-colors whitespace-nowrap ${
+                      calendarSpan === option.key
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -926,17 +1028,13 @@ export default function Calendar() {
       {/* MAIN CONTENT */}
       <div className="p-2 sm:p-4 overflow-hidden">
         {viewMode === 'calendar' ? (
-          /* 3-MONTH CALENDAR VIEW */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4">
-            {[0, 1, 2].map(offset => {
-              const m = month + offset;
-              const y = year + Math.floor(m / 12);
-              const mo = ((m % 12) + 12) % 12;
-              return (
+          <div className={`grid grid-cols-1 ${calendarSpan === 'threeMonths' || calendarSpan === 'threeWeeks' ? 'lg:grid-cols-3' : ''} gap-2 sm:gap-4`}>
+            {calendarGridItems.map((item) => (
+              item.type === 'month' ? (
                 <MonthGrid
-                  key={`${y}-${mo}`}
-                  year={y}
-                  month={mo}
+                  key={`${item.type}-${item.date.getFullYear()}-${item.date.getMonth()}`}
+                  year={item.date.getFullYear()}
+                  month={item.date.getMonth()}
                   filteredBookings={calendarBookings}
                   propertySlotMap={calendarPropertySlotMap}
                   numPropertySlots={calendarNumPropertySlots}
@@ -945,8 +1043,19 @@ export default function Calendar() {
                   lang={lang}
                   onBookingClick={handleBookingClick}
                 />
-              );
-            })}
+              ) : (
+                <WeekGrid
+                  key={`${item.type}-${item.date.toISOString()}`}
+                  startDate={item.date}
+                  filteredBookings={calendarBookings}
+                  propertySlotMap={calendarPropertySlotMap}
+                  today={today}
+                  dayNames={shortDayNames}
+                  lang={lang}
+                  onBookingClick={handleBookingClick}
+                />
+              )
+            ))}
           </div>
         ) : (
           /* TIMELINE VIEW - Multi-property Gantt */
