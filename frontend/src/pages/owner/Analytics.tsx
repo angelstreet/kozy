@@ -157,6 +157,8 @@ export default function Analytics() {
         const nights = Math.max(0, (checkoutMs - checkinMs) / 86400000);
         return {
           ...b,
+          visibleCheckinMs: checkinMs,
+          visibleCheckoutMs: checkoutMs,
           nights,
           revenue: nights * (rateMap[b.property_id] || 0),
         };
@@ -291,12 +293,18 @@ export default function Analytics() {
     });
 
     enriched.forEach((booking) => {
-      const monthKey = booking.checkin_date.slice(0, 7);
-      const monthEntry = months.find(entry => entry.key === monthKey);
-      if (!monthEntry) return;
-      const propKey = `prop_${booking.property_id}`;
-      monthEntry[propKey] = Number(monthEntry[propKey] || 0) + booking.revenue;
-      monthEntry.total = Number(monthEntry.total || 0) + booking.revenue;
+      months.forEach((monthEntry, idx) => {
+        const monthStart = addMonths(range.start, idx);
+        const monthEnd = addMonths(monthStart, 1);
+        const overlapStart = Math.max(booking.visibleCheckinMs, monthStart.getTime());
+        const overlapEnd = Math.min(booking.visibleCheckoutMs, monthEnd.getTime());
+        const overlapNights = Math.max(0, (overlapEnd - overlapStart) / 86400000);
+        if (overlapNights <= 0) return;
+        const revenueShare = overlapNights * (rateMap[booking.property_id] || 0);
+        const propKey = `prop_${booking.property_id}`;
+        monthEntry[propKey] = Number(monthEntry[propKey] || 0) + revenueShare;
+        monthEntry.total = Number(monthEntry.total || 0) + revenueShare;
+      });
     });
 
     return months;
