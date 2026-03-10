@@ -320,9 +320,9 @@ function MonthGrid({
                 return (
                   <div
                     key={dayIdx}
-                    className={`relative p-1 border-r border-gray-50 dark:border-gray-800 ${!cell.isCurrentMonth ? 'opacity-30' : ''} ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''} ${isToday ? 'ring-2 ring-inset ring-blue-500 dark:ring-blue-400' : ''}`}
+                    className={`relative p-1 border-r border-gray-50 dark:border-gray-800 flex justify-center ${!cell.isCurrentMonth ? 'opacity-30' : ''} ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''} ${isToday ? 'ring-2 ring-inset ring-blue-500 dark:ring-blue-400' : ''}`}
                   >
-                    <div className={`text-[11px] font-semibold ${isToday ? 'bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]' : isWeekend ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <div className={`text-[11px] font-semibold text-center ${isToday ? 'bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]' : 'w-full'} ${isWeekend ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
                       {cell.date.getDate()}
                     </div>
                   </div>
@@ -499,9 +499,9 @@ function WeekGrid({
           return (
             <div
               key={dayIdx}
-              className={`relative p-1 border-r border-gray-50 dark:border-gray-800 ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''} ${isToday ? 'ring-2 ring-inset ring-blue-500 dark:ring-blue-400' : ''}`}
+              className={`relative p-1 border-r border-gray-50 dark:border-gray-800 flex justify-center ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''} ${isToday ? 'ring-2 ring-inset ring-blue-500 dark:ring-blue-400' : ''}`}
             >
-              <div className={`text-[11px] font-semibold ${isToday ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px]' : isWeekend ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+              <div className={`text-[11px] font-semibold text-center ${isToday ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px]' : 'w-full'} ${isWeekend ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
                 {cell.date.getDate()}
               </div>
             </div>
