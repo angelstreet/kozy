@@ -10,7 +10,7 @@ const ownerNav = [
   { to: '/dashboard', icon: Home, label: 'dashboard' },
   { to: '/calendar', icon: CalendarDays, label: 'calendar' },
   { to: '/properties', icon: Building2, label: 'properties' },
-  { to: '/analytics', icon: TrendingUp, label: 'analytics' },
+  { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { to: '/more', icon: Menu, label: 'more' },
 ];
 
