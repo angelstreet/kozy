@@ -9,6 +9,7 @@ import { fetchAndParseIcal, syncPropertyIcal } from './ical-sync.js';
 import { syncSmoobuData, syncSmoobuBookings } from './smoobu-sync.js';
 import { syncProperty } from './unified-sync.js';
 import { clerkAuth } from './clerk-middleware.js';
+import integrationRoutes from './routes/integration.js';
 
 type Variables = {
   userId: string;
@@ -40,6 +41,8 @@ app.use('/*', async (c, next) => {
   }
   await next();
 });
+
+app.route('', integrationRoutes);
 
 // Local auth login (bypasses Clerk)
 app.post('/api/auth/login', async (c) => {
