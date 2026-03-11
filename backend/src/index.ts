@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import db, { initDB, seed, migrate, seedTestData, clearAll } from './db.js';
 import { fetchAndParseIcal, syncPropertyIcal } from './ical-sync.js';
 import { clerkAuth } from './clerk-middleware.js';
+import integrationRoutes from './routes/integration.js';
 
 type Variables = {
   userId: string;
@@ -35,6 +36,17 @@ app.use('/*', async (c, next) => {
   await next();
 });
 
+app.route('', integrationRoutes);
+
+// Local auth login (bypasses Clerk)
+app.post('/api/auth/login', async (c) => {
+  const { email, password } = await c.req.json();
+  const user = await db.execute({ sql: 'SELECT * FROM user WHERE email = ? AND password = ?', args: [email, password] });
+  if (user.rows.length > 0) {
+    return c.json({ userId: user.rows[0].id, email: user.rows[0].email, name: user.rows[0].name });
+  }
+  return c.json({ error: 'Invalid credentials' }, 401);
+});
 // Properties (filtered by userId)
 app.get('/api/properties', async (c) => {
   const userId = c.get('userId');
