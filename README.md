@@ -69,6 +69,10 @@ kozy/
 └── README.md
 ```
 
+## Integration
+
+Kozy integrates with ClawBox/OpenClaw for AI-powered property management. See [docs/CLAWBOX-INTEGRATION.md](docs/CLAWBOX-INTEGRATION.md) and [docs/api.md](docs/api.md).
+
 ## Contributing
 
 This is an open-source project. PRs welcome!
