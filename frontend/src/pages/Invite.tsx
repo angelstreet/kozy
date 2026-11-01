@@ -1,3 +1,4 @@
+import { API_BASE } from '@/apiBase';
 import { AlertCircle, Home } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
@@ -21,7 +22,7 @@ export default function Invite() {
   const [email, setEmail] = useState('');
 
   useEffect(() => {
-    fetch(`/kozy/api/invite/${token}`)
+    fetch(`${API_BASE}/invite/${token}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error);
@@ -37,7 +38,7 @@ export default function Invite() {
   const accept = async () => {
     setAccepting(true);
     try {
-      const res = await fetch(`/kozy/api/invite/${token}/accept`, {
+      const res = await fetch(`${API_BASE}/invite/${token}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phone || undefined, email: email || undefined })
