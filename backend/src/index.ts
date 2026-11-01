@@ -11,6 +11,7 @@ import { syncProperty } from './unified-sync.js';
 import { clerkAuth } from './clerk-middleware.js';
 import integrationRoutes from './routes/integration.js';
 import messagingRoutes from './routes/messaging.js';
+import cleaningRoutes from './routes/cleaning.js';
 
 type Variables = {
   userId: string;
@@ -30,7 +31,8 @@ app.use('/api/*', async (c, next) => {
   if (path.startsWith('/api/external/') || path.startsWith('/api/invite/') ||
       path.startsWith('/api/notifications') || path.startsWith('/api/dev/') ||
       path === '/api/seed' || path === '/api/reset' || path === '/api/dev/seed' ||
-      path === '/api/messaging/run' || path === '/api/messaging/webhook') {
+      path === '/api/messaging/run' || path === '/api/messaging/webhook' ||
+      path.startsWith('/api/cleaning/cron/') || path.startsWith('/api/s/')) {
     return next();
   }
   return clerkAuth(c, next);
@@ -50,6 +52,7 @@ app.use('/*', async (c, next) => {
 
 app.route('', integrationRoutes);
 app.route('', messagingRoutes);
+app.route('', cleaningRoutes);
 
 // Local auth login (bypasses Clerk)
 app.post('/api/auth/login', async (c) => {

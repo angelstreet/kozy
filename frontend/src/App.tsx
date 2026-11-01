@@ -17,6 +17,7 @@ import Shopping from '@/pages/cleaner/Shopping';
 import CleanerMore from '@/pages/cleaner/CleanerMore';
 import CleanerNotifications from '@/pages/cleaner/CleanerNotifications';
 import Invite from '@/pages/Invite';
+import CleanerLink from '@/pages/CleanerLink';
 
 function AppRoutes() {
   const { role, isLoaded } = useAuth();
@@ -69,6 +70,7 @@ export default function App() {
         <BrowserRouter basename={window.location.pathname.startsWith('/kozy') ? (import.meta.env.VITE_BASE_PATH?.replace(/\/$/, '') || '') : ''}>
           <Routes>
             <Route path="/invite/:token" element={<Invite />} />
+            <Route path="/s/:token" element={<CleanerLink />} />
             <Route path="/*" element={<AppRoutes />} />
           </Routes>
         </BrowserRouter>

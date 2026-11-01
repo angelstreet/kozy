@@ -207,8 +207,7 @@ export async function syncSmoobuBookings(propertyId: number, creds: SmoobuCreden
   let updated = 0;
 
   if (isFullSync) {
-    // Full sync: clean slate
-    await db.execute({ sql: 'DELETE FROM cleaning_task WHERE property_id = ?', args: [propertyId] });
+    // Full sync: clean slate for bookings. Cleaning tasks stay: they are keyed on the Smoobu id (booking_ref).
     const deleteResult = await db.execute({ sql: 'DELETE FROM booking WHERE property_id = ?', args: [propertyId] });
     deleted = Number(deleteResult.rowsAffected) || 0;
   }

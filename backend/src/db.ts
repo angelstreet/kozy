@@ -176,6 +176,9 @@ export async function migrate() {
   const { migrateMessaging } = await import('./migrations/add_messaging.js');
   await migrateMessaging();
 
+  const { migrateCleaning } = await import('./migrations/add_cleaning.js');
+  await migrateCleaning();
+
   // Add status column to booking table
   const bookingCols = await db.execute("PRAGMA table_info(booking)");
   const bookingColNames = bookingCols.rows.map((c: any) => c[1] || c.name);

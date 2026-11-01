@@ -157,17 +157,21 @@ Mockup first, then build, in light and dark, mobile first (owner rules: `web-ui-
 
 ## Phase 7 — cleaning (2026-11-01)
 
-Today: `cleaning_task` (date, status, assigned cleaner, rate), `shopping_request` (free text), in-app notifications
+Before (2026-11-01): `cleaning_task` (date, status, assigned cleaner, rate), `shopping_request` (free text), in-app notifications
 only, a daily reminder endpoint nothing calls. Prod has 0 tasks and only seed cleaners. A full Smoobu sync deletes
 every task of the property, so anything attached to a task would be lost.
 
-- [ ] Tasks follow bookings: one task per check-out (window = check-out → next check-in), primary cleaner assigned,
-      upsert keyed on the booking instead of delete + recreate; moved or cancelled booking moves or cancels the task.
-- [ ] Real cleaners per property (name, phone, email, language, preferred channel).
-- [ ] Messages to the cleaner, each with a no-login link to the task page:
-      new task, J-1 reminder (18:00) with time window + guests count, change (moved / cancelled / new) with the full
-      upcoming schedule, weekly schedule on Sunday. Email via Resend (free tier); SMS via Brevo or Twilio (paid,
-      about 0.07 € per SMS) or WhatsApp. Owner picks.
+- [x] Tasks follow bookings (`backend/src/cleaning/`, 2026-11-01): one task per guest check-out for 60 days, window =
+      check-out time → next guest check-in, primary cleaner assigned, keyed on the Smoobu id (`booking_ref`) so syncs
+      no longer wipe tasks; moved / cancelled / new-next-arrival detected. Rebuilt every 10 min by openclaw.
+- [ ] Real cleaners per property (name, phone, language). Today only two seed cleaners, no assignments.
+- [x] WhatsApp messages to the cleaner (owner chose WhatsApp first), each with a no-login schedule link `/s/<token>`:
+      schedule changed (only changes within 14 days, with the next two weeks), reminder the day before at 18:00,
+      week plan on Sunday 18:00. Mode off / test / live on the Cleaners screen (default test). Outbox
+      `cleaner_message`; openclaw `scripts/openclaw/kozy-cleaning-run.py` sends through its WhatsApp channel.
+- [ ] Relink WhatsApp on openclaw (logged out since 2026-10-24): `openclaw channels login --channel whatsapp`, owner
+      scans the QR. Until then live messages stay queued.
+- [ ] Email / SMS as a second channel if a cleaner has no WhatsApp.
 - [ ] Cleaning guide per property: rooms → steps (beds, bathroom, kitchen, bins, linen, restock, keys), reference
       photo per step ("how it should look"), editable by the owner, FR/EN.
 - [ ] Cleaner flow on the phone: start → tick steps → photo for required steps (camera upload, Vercel Blob) →
