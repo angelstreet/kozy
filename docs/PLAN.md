@@ -27,9 +27,9 @@ New keys (`usr_live_…` + secret) sign every request: base64 HMAC-SHA256 over
       It stays in git history; it dies on 3 Nov anyway.
 - [x] Production build fixed (invalid `vercel.json`, broken pre-push hook, API function built as
       CommonJS, default-export handler). Live at kozy-steel.vercel.app since 2026-11-01.
-- [ ] Add `ENCRYPTION_KEY` to Vercel (missing, so the deployed backend can't decrypt stored keys),
-      then save key + secret in Settings (or `backend/store-smoobu-key.js`) for the owner's user.
-- [ ] Konto (separate repo) Property ROI calls Smoobu with the legacy key → move to HMAC before 3 Nov.
+- [x] `ENCRYPTION_KEY` added to Vercel; new key + secret stored (encrypted) for the owner's Clerk user;
+      live `/api/smoobu/apartments` returns the three apartments.
+- [x] Konto (separate repo) Property ROI moved to signed requests (angelstreet/konto 26a53d4), new key stored, live ROI verified.
 - [ ] After 3 Nov: delete legacy `SMOOBU_API_KEY` everywhere.
 
 ## Phase 1 — one source of truth for the three properties
