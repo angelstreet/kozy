@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Hono } from 'hono';
 import db from '../db.js';
 import {
-  getSettings, loadPlaceholders, loadTemplates, previewMessages, runMessaging, runMessagingForAll,
+  getSettings, loadPlaceholders, loadTemplates, previewMessages, replyToBooking, runMessaging, runMessagingForAll,
   savePlaceholder, saveSettings, type MessagingMode,
 } from '../messaging/engine.js';
 
@@ -53,8 +53,8 @@ router.get('/api/messaging/templates', async (c) => c.json({ templates: await lo
 router.put('/api/messaging/templates/:key', async (c) => {
   const userId = c.get('userId');
   const t = await c.req.json();
-  if (!['booking', 'arrival', 'departure'].includes(t.anchor) || !t.body_fr || !t.body_en || !t.name) {
-    return c.json({ error: 'name, anchor (booking|arrival|departure), body_fr and body_en are required' }, 400);
+  if (!['booking', 'arrival', 'departure', 'manual'].includes(t.anchor) || !t.body_fr || !t.body_en || !t.name) {
+    return c.json({ error: 'name, anchor (booking|arrival|departure|manual), body_fr and body_en are required' }, 400);
   }
   await db.execute({
     sql: `INSERT INTO message_template (user_id, key, name, anchor, offset_days, send_time, subject_fr, subject_en, body_fr, body_en, active, updated_at)
@@ -90,6 +90,17 @@ router.put('/api/messaging/placeholders', async (c) => {
 router.get('/api/messaging/preview', async (c) => {
   const days = Math.min(Number(c.req.query('days')) || 7, 60);
   return c.json(await previewMessages(c.get('userId'), days));
+});
+
+// Quick reply for one booking. Body: { key, send?: boolean } — without send: true it only renders.
+router.post('/api/messaging/reply/:bookingId', async (c) => {
+  const { key, send } = await c.req.json();
+  if (!key) return c.json({ error: 'key required' }, 400);
+  try {
+    return c.json(await replyToBooking(c.get('userId'), Number(c.req.param('bookingId')), String(key), send === true));
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
 });
 
 // Run now for the signed-in owner (same rules as the scheduler).

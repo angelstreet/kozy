@@ -118,7 +118,7 @@ export function planMessages(
   for (const b of bookings) {
     if (skipReason(b)) continue;
     for (const t of templates) {
-      if (!t.active) continue;
+      if (!t.active || t.anchor === 'manual') continue;
       const at = sendAtFor(t, b);
       const due = isDue(t, b, now);
       if (!due && (at < from || at > to)) continue;
@@ -135,6 +135,40 @@ export function planMessages(
     }
   }
   return out.sort((a, b) => a.sendAt.localeCompare(b.sendAt));
+}
+
+/**
+ * Quick reply: render template `key` for one booking (guest language, apartment placeholders).
+ * Sends it through Smoobu only when `send` is true; logged like automatic messages.
+ */
+export async function replyToBooking(userId: string, bookingId: number, key: string, send: boolean) {
+  const creds = await loadCredentials(userId);
+  if (!creds) throw new Error('Smoobu API key not configured');
+  const template = (await loadTemplates(userId)).find((t) => t.key === key);
+  if (!template) throw new Error(`No template ${key}`);
+  const res = await smoobuFetch(creds, `/api/reservations/${bookingId}`);
+  if (!res.ok) throw new Error(`Smoobu booking ${bookingId}: ${res.status}`);
+  const b = toMessagingBooking(await res.json());
+  const lang = langFor(b);
+  const ph = (await loadPlaceholders(userId)).get(`${b.apartmentId}:${lang}`) || {};
+  const body = render(template.body[lang], b, lang, ph, DEFAULT_TIMES);
+  const subject = template.subject[lang] ? render(template.subject[lang]!, b, lang, ph, DEFAULT_TIMES) : null;
+  if (!send) return { bookingId, key, lang, channel: b.channel, guestName: b.guestName, sent: false, body };
+
+  const out = await smoobuFetch(creds, `/api/reservations/${bookingId}/messages/send-message-to-guest`, {
+    method: 'POST',
+    body: { subject: subject || undefined, messageBody: body },
+  });
+  const error = out.ok ? null : `${out.status} ${(await out.text()).slice(0, 300)}`;
+  await db.execute({
+    sql: `INSERT INTO message_log (user_id, smoobu_booking_id, template_key, mode, status, channel, apartment_id, guest_name, lang, send_at, body, error)
+          VALUES (?, ?, ?, 'reply', ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(user_id, smoobu_booking_id, template_key, mode) DO UPDATE SET
+            status = excluded.status, body = excluded.body, error = excluded.error, created_at = datetime('now')`,
+    args: [userId, bookingId, key, out.ok ? 'sent' : 'failed', b.channel, b.apartmentId, b.guestName, lang,
+      new Date().toISOString(), body, error],
+  });
+  return { bookingId, key, lang, channel: b.channel, guestName: b.guestName, sent: out.ok, error, body };
 }
 
 async function currentBookings(creds: SmoobuCredentials): Promise<BookingForMessaging[]> {

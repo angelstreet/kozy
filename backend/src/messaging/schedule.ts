@@ -3,7 +3,8 @@
  * schedule.test.ts. All local times are Europe/Paris (where the properties are).
  */
 
-export type Anchor = 'booking' | 'arrival' | 'departure';
+/** 'manual' = quick reply: never sent automatically, only on request for a booking. */
+export type Anchor = 'booking' | 'arrival' | 'departure' | 'manual';
 export type Lang = 'fr' | 'en';
 
 export interface MessageTemplate {
@@ -89,7 +90,7 @@ export const GRACE_MS = 6 * 3600 * 1000;
  * the grace window (so a first run doesn't flood old bookings).
  */
 export function isDue(t: MessageTemplate, b: BookingForMessaging, now: Date): boolean {
-  if (!t.active || skipReason(b)) return false;
+  if (!t.active || t.anchor === 'manual' || skipReason(b)) return false;
   const at = sendAtFor(t, b);
   if (now < at || now.getTime() > at.getTime() + GRACE_MS) return false;
   if (t.anchor !== 'booking') {

@@ -60,3 +60,8 @@ test('guests, nights and French times', () => {
   assert.equal(render('{guests}, {nights}', booking({ adults: 1, children: 0, departure: '2026-11-11' }), 'en', {}, d), '1 adult, 1 night');
   assert.equal(render('{checkin}', booking({ checkIn: '15:30' }), 'fr', {}, d), '15h30');
 });
+
+test('quick replies (manual) are never due', () => {
+  const t = tpl({ key: 'reply_parking', anchor: 'manual', sendTime: null });
+  assert.equal(isDue(t, booking(), new Date('2026-11-10T07:05:00Z')), false);
+});
