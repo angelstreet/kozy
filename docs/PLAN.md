@@ -41,11 +41,11 @@ Gaps: no confirmation for Gignac and Jardin, single-language messages, no review
 nothing at all on Airbnb (guests ask for the address on arrival day), nothing for direct bookings.
 
 - [x] Inventory of current templates (via API).
-- [ ] Kozy message engine: templates per property × trigger × language (FR/EN, guest `language`
-      picks), placeholders (guest name, dates, check-in time), stored in Kozy.
-- [ ] Triggers from Smoobu data: new booking (webhook, or poll every 10 min), J-3, arrival day
-      08:00, day before check-out 09:00, after check-out (review request). Sent-log per booking
-      so nothing is sent twice; skip cancelled bookings.
+- [x] Kozy message engine (`backend/src/messaging/`): 5 templates × FR/EN, per-apartment
+      placeholders (encrypted), send log, modes off / dry_run / live per channel.
+- [x] Triggers: scheduler every 10 min (openclaw cron → `/api/messaging/run`) and Smoobu webhook
+      (`/api/messaging/webhook`), both behind `MESSAGING_CRON_SECRET`. Skips cancelled, blocked and
+      owner-block bookings; J-3 not sent for later bookings; 6 h grace window.
 - [ ] Dry-run week: Kozy shows what it would send; owner approves the texts.
 - [ ] Go live on Airbnb first (nothing runs there today), then Booking.com + switch off its
       scheduled messages (manual, once).
