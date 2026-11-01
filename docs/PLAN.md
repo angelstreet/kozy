@@ -140,7 +140,11 @@ Mockup first, then build, in light and dark, mobile first (owner rules: `web-ui-
       emoji replaced by icons. Fixed: the deployed app called `/kozy/api` (HTML) instead of `/api`.
 - [x] Owner's 3 properties created in prod Kozy and Smoobu history imported (804 bookings).
 - [ ] Calendar and Results: real redesign (today only re-coloured); booking bars still use old channel hexes.
-- [ ] Imported bookings include Smoobu cancellations? `status` is null on all 804: check the sync.
+- [ ] Imported bookings include Smoobu cancellations? `status` is null on all 804. The full sync already drops
+      `type: cancellation` (`smoobu-sync.ts`), so probably fine: confirm against one known cancellation.
+- [ ] Logo: today the favicon is a house emoji, the PWA icons are 1×1 placeholder pixels (phone home screen shows a
+      blank tile) and `index.html` still points icons at `/kozy/`. Mockup 3 marks (light/dark, 16 px to 512 px), then
+      favicon.svg, PWA 192/512 + maskable, apple-touch-icon, `Logo.tsx`.
 - [ ] Audit every owner screen (dashboard, calendar, properties, analytics, cleaners, payments, settings) and the cleaner screens.
 - [ ] Design tokens + one component set (shadcn/ui is already in the stack); icons with labels, one primary action per screen.
 - [ ] New screens: Inbox (Phase 2), Pricing (Phase 4), ROI (Phase 5).
@@ -151,7 +155,31 @@ Mockup first, then build, in light and dark, mobile first (owner rules: `web-ui-
 - [x] `POST /api/seed`, `/api/reset` and `/api/dev/*` were public and wipe the DB: now 403 on Vercel/production (2026-11-01).
 - [ ] `/api/notifications*` skips auth (any cleaner_id readable): put it behind Clerk or a cleaner token.
 
-## Phase 7 — assistant / automation
+## Phase 7 — cleaning (2026-11-01)
+
+Today: `cleaning_task` (date, status, assigned cleaner, rate), `shopping_request` (free text), in-app notifications
+only, a daily reminder endpoint nothing calls. Prod has 0 tasks and only seed cleaners. A full Smoobu sync deletes
+every task of the property, so anything attached to a task would be lost.
+
+- [ ] Tasks follow bookings: one task per check-out (window = check-out → next check-in), primary cleaner assigned,
+      upsert keyed on the booking instead of delete + recreate; moved or cancelled booking moves or cancels the task.
+- [ ] Real cleaners per property (name, phone, email, language, preferred channel).
+- [ ] Messages to the cleaner, each with a no-login link to the task page:
+      new task, J-1 reminder (18:00) with time window + guests count, change (moved / cancelled / new) with the full
+      upcoming schedule, weekly schedule on Sunday. Email via Resend (free tier); SMS via Brevo or Twilio (paid,
+      about 0.07 € per SMS) or WhatsApp. Owner picks.
+- [ ] Cleaning guide per property: rooms → steps (beds, bathroom, kitchen, bins, linen, restock, keys), reference
+      photo per step ("how it should look"), editable by the owner, FR/EN.
+- [ ] Cleaner flow on the phone: start → tick steps → photo for required steps (camera upload, Vercel Blob) →
+      done. Done is blocked until required steps and photos are in.
+- [ ] Reports from any step: missing item, broken item, product needed, damage by guest — type, note, photo.
+      Owner is notified at once; damage within 14 days of check-out is flagged for an Airbnb / Booking claim.
+- [ ] Stock per property (toilet paper, soap, coffee, cleaning products, linen sets): cleaner sets low / out,
+      replaces the free-text shopping list; owner gets one restock list.
+- [ ] Owner view: task timeline, photos, reports, approve → payment created.
+- [ ] Before any of this: put `/api/tasks`, `/api/shopping`, `/api/notifications*` behind auth (Security).
+
+## Phase 8 — assistant / automation
 
 - [ ] Extend `backend/src/integration/` actions (today read-only) with draft-reply, create-booking,
       price-preview, so OpenClaw / Claude can run the same flows from chat.
