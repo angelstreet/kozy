@@ -6,7 +6,7 @@ const booking = (over: Partial<BookingForMessaging> = {}): BookingForMessaging =
   id: 1, type: 'reservation', isBlocked: false, channel: 'Airbnb', apartmentId: 10,
   createdAt: '2026-11-01 14:30', arrival: '2026-11-10', departure: '2026-11-13',
   firstName: 'ana', guestName: 'Ana Silva', language: 'pt', checkIn: null, checkOut: null,
-  price: 300, email: null, ...over,
+  price: 300, email: null, adults: 2, children: 1, ...over,
 });
 const tpl = (over: Partial<MessageTemplate> = {}): MessageTemplate => ({
   key: 'checkin', anchor: 'arrival', offsetDays: 0, sendTime: '08:00',
@@ -52,4 +52,11 @@ test('render fills tokens, picks dates in the guest language and drops empty pla
   const out = render(text, booking(), 'en', { k_wifi: 'NET / pass' }, { checkIn: '16:00', checkOut: '12:00' });
   assert.equal(out, 'Hello Ana, see you Tuesday 10 November from 16:00.\nWifi: NET / pass');
   assert.match(render('{arrival}', booking(), 'fr', {}, { checkIn: '16:00', checkOut: '12:00' }), /mardi 10 novembre/);
+});
+
+test('guests, nights and French times', () => {
+  const d = { checkIn: '16:00', checkOut: '12:00' };
+  assert.equal(render('{guests}, {nights}, {checkin}-{checkout}', booking(), 'fr', {}, d), '2 adultes et 1 enfant, 3 nuits, 16h-12h');
+  assert.equal(render('{guests}, {nights}', booking({ adults: 1, children: 0, departure: '2026-11-11' }), 'en', {}, d), '1 adult, 1 night');
+  assert.equal(render('{checkin}', booking({ checkIn: '15:30' }), 'fr', {}, d), '15h30');
 });

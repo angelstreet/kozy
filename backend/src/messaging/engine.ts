@@ -28,6 +28,8 @@ export function toMessagingBooking(r: SmoobuReservation): BookingForMessaging {
     checkOut: r['check-out'] || null,
     price: Number(r.price) || 0,
     email: r.email || null,
+    adults: Number(r.adults) || 0,
+    children: Number(r.children) || 0,
   };
 }
 

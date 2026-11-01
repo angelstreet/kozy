@@ -32,6 +32,8 @@ export interface BookingForMessaging {
   checkOut: string | null;
   price: number;
   email: string | null;
+  adults: number;
+  children: number;
 }
 
 const TZ = 'Europe/Paris';
@@ -97,6 +99,10 @@ export function isDue(t: MessageTemplate, b: BookingForMessaging, now: Date): bo
   return true;
 }
 
+export function nightsBetween(arrival: string, departure: string): number {
+  return Math.round((Date.parse(`${departure}T12:00:00Z`) - Date.parse(`${arrival}T12:00:00Z`)) / 86400000);
+}
+
 export function langFor(b: BookingForMessaging): Lang {
   return (b.language || '').toLowerCase().startsWith('fr') ? 'fr' : 'en';
 }
@@ -107,8 +113,28 @@ export function formatDate(date: string, lang: Lang): string {
   }).format(new Date(`${date}T12:00:00Z`));
 }
 
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/** "2 adultes et 1 enfant" / "2 adults and 1 child"; children left out when 0. */
+export function formatGuests(adults: number, children: number, lang: Lang): string {
+  const a = lang === 'fr' ? plural(adults, 'adulte', 'adultes') : plural(adults, 'adult', 'adults');
+  if (!children) return a;
+  const c = lang === 'fr' ? plural(children, 'enfant', 'enfants') : plural(children, 'child', 'children');
+  return `${a} ${lang === 'fr' ? 'et' : 'and'} ${c}`;
+}
+
+/** 'HH:MM' as "16h" / "16h30" in French, unchanged in English. */
+export function formatTime(time: string, lang: Lang): string {
+  if (lang !== 'fr') return time;
+  const [h, m] = time.split(':');
+  return `${Number(h)}h${m && m !== '00' ? m : ''}`;
+}
+
 /**
- * Fill {first_name} {guest_name} {arrival} {departure} {checkin} {checkout} and the
+ * Fill {first_name} {guest_name} {arrival} {departure} {checkin} {checkout} {guests}
+ * {adults} {children} {nights} and the
  * apartment's [k_*] placeholders. A line whose [k_*] placeholders are all empty is dropped
  * (so "Parking: [k_parking]" disappears for a property without parking).
  */
@@ -125,8 +151,13 @@ export function render(
     guest_name: b.guestName,
     arrival: formatDate(b.arrival, lang),
     departure: formatDate(b.departure, lang),
-    checkin: b.checkIn || placeholders.k_checkin || defaults.checkIn,
-    checkout: b.checkOut || placeholders.k_checkout || defaults.checkOut,
+    checkin: formatTime(b.checkIn || placeholders.k_checkin || defaults.checkIn, lang),
+    checkout: formatTime(b.checkOut || placeholders.k_checkout || defaults.checkOut, lang),
+    guests: formatGuests(b.adults, b.children, lang),
+    adults: String(b.adults),
+    children: String(b.children),
+    nights: lang === 'fr' ? plural(nightsBetween(b.arrival, b.departure), 'nuit', 'nuits')
+      : plural(nightsBetween(b.arrival, b.departure), 'night', 'nights'),
   };
   return text
     .split('\n')
