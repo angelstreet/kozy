@@ -17,7 +17,8 @@ export async function syncProperty(propertyId: number, userId: string): Promise<
   if (encryptedKey) {
     // PRIMARY: Smoobu API (DELETE + INSERT strategy)
     const { decryptApiKey } = await import('./encryption.js');
-    const apiKey = decryptApiKey(encryptedKey);
+    const { parseSmoobuCredentials } = await import('./smoobu-client.js');
+    const smoobuCreds = parseSmoobuCredentials(decryptApiKey(encryptedKey));
 
     // Get property's Smoobu apartment ID if configured
     const propResult = await db.execute({ 
@@ -27,7 +28,7 @@ export async function syncProperty(propertyId: number, userId: string): Promise<
     const property = propResult.rows[0] as any;
     const apartmentId = property?.smoobu_apartment_id || undefined;
 
-    return await syncSmoobuBookings(propertyId, apiKey, apartmentId);
+    return await syncSmoobuBookings(propertyId, smoobuCreds, apartmentId);
   } else {
     // FALLBACK: iCal
     return await syncPropertyIcal(propertyId);

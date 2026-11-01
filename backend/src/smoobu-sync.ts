@@ -1,4 +1,5 @@
 import db from './db.js';
+import { smoobuFetch, type SmoobuCredentials } from './smoobu-client.js';
 
 export interface SmoobuReservation {
   id: number;
@@ -56,16 +57,8 @@ export interface SmoobuApartmentsResponse {
  * Fetch all apartments from Smoobu API
  * Docs: https://docs.smoobu.com/#get-apartments
  */
-export async function fetchSmoobuApartments(apiKey: string): Promise<SmoobuApartment[]> {
-  const url = 'https://login.smoobu.com/api/apartments';
-  
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Api-Key': apiKey,
-      'Content-Type': 'application/json',
-    },
-  });
+export async function fetchSmoobuApartments(creds: SmoobuCredentials): Promise<SmoobuApartment[]> {
+  const response = await smoobuFetch(creds, '/api/apartments');
 
   if (!response.ok) {
     throw new Error(`Smoobu API error: ${response.status} ${response.statusText}`);
@@ -79,7 +72,7 @@ export async function fetchSmoobuApartments(apiKey: string): Promise<SmoobuApart
  * Fetch all reservations from Smoobu API
  * Docs: https://docs.smoobu.com/#get-bookings-api
  */
-export async function fetchSmoobuBookings(apiKey: string, fullSync = false): Promise<SmoobuReservation[]> {
+export async function fetchSmoobuBookings(creds: SmoobuCredentials, fullSync = false): Promise<SmoobuReservation[]> {
   let fromDate: string;
   let toDate: string;
   
@@ -100,14 +93,10 @@ export async function fetchSmoobuBookings(apiKey: string, fullSync = false): Pro
   let pageCount = 1;
 
   while (page <= pageCount) {
-    const url = `https://login.smoobu.com/api/reservations?from=${fromDate}&to=${toDate}&page_size=100&page=${page}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Api-Key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await smoobuFetch(
+      creds,
+      `/api/reservations?from=${fromDate}&to=${toDate}&page_size=100&page=${page}`,
+    );
 
     if (!response.ok) {
       throw new Error(`Smoobu API error: ${response.status} ${response.statusText}`);
@@ -179,7 +168,7 @@ export function enrichBookingFromSmoobu(
  *   - fullSync=true (first time): DELETE all + INSERT all history
  *   - fullSync=false (regular): UPSERT by reference_id — keeps historical data untouched
  */
-export async function syncSmoobuBookings(propertyId: number, apiKey: string, apartmentId?: number, fullSync = false) {
+export async function syncSmoobuBookings(propertyId: number, creds: SmoobuCredentials, apartmentId?: number, fullSync = false) {
   // Check if this property has ever been synced
   const existingCount = await db.execute({
     sql: 'SELECT COUNT(*) as c FROM booking WHERE property_id = ?',
@@ -190,7 +179,7 @@ export async function syncSmoobuBookings(propertyId: number, apiKey: string, apa
   // Auto-detect: first sync = full, subsequent = incremental
   const isFullSync = fullSync || !hasData;
 
-  let smoobuReservations = await fetchSmoobuBookings(apiKey, isFullSync);
+  let smoobuReservations = await fetchSmoobuBookings(creds, isFullSync);
 
   // Mark cancelled bookings in DB before filtering them out
   const cancellations = smoobuReservations.filter(r => r.type === 'cancellation');
@@ -314,12 +303,12 @@ export async function syncSmoobuBookings(propertyId: number, apiKey: string, apa
 /**
  * Sync all bookings for a property with Smoobu data (ENRICHMENT mode - legacy)
  * @param propertyId - Property ID in local DB
- * @param apiKey - Smoobu API key
+ * @param creds - Smoobu credentials
  * @param apartmentId - Optional Smoobu apartment ID to filter reservations
  */
-export async function syncSmoobuData(propertyId: number, apiKey: string, apartmentId?: number) {
+export async function syncSmoobuData(propertyId: number, creds: SmoobuCredentials, apartmentId?: number) {
   // Fetch all Smoobu reservations
-  let smoobuReservations = await fetchSmoobuBookings(apiKey);
+  let smoobuReservations = await fetchSmoobuBookings(creds);
 
   // Filter out cancellations
   smoobuReservations = smoobuReservations.filter(r => r.type !== 'cancellation');

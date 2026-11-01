@@ -1,34 +1,22 @@
 #!/usr/bin/env node
+// Store Smoobu credentials (encrypted) for a user. Run after `npm run build`:
+//   SMOOBU_API_KEY_ID=usr_live_... SMOOBU_API_SECRET=... node store-smoobu-key.js [userId]
 import db from './dist/db.js';
 import { encryptApiKey } from './dist/encryption.js';
+import { serializeSmoobuCredentials } from './dist/smoobu-client.js';
 
-const SMOOBU_API_KEY = 'g29HxSrjy9Kmq2xHp7iJOVCnaRASJAJidI03OYTyzY';
-const USER_ID = 'dev-user';
+const keyId = process.env.SMOOBU_API_KEY_ID;
+const secret = process.env.SMOOBU_API_SECRET;
+const USER_ID = process.argv[2] || 'dev-user';
 
 async function storeKey() {
-  console.log('🔐 Encrypting and storing Smoobu API key for dev-user...\n');
-
-  // Encrypt the key
-  const encryptedKey = encryptApiKey(SMOOBU_API_KEY);
-  console.log(`✅ Key encrypted: ${encryptedKey.substring(0, 40)}...`);
-
-  // Store in database
+  if (!keyId || !secret) throw new Error('Set SMOOBU_API_KEY_ID and SMOOBU_API_SECRET');
+  const encryptedKey = encryptApiKey(serializeSmoobuCredentials({ keyId, secret }));
   await db.execute({
     sql: 'INSERT INTO user (id, smoobu_api_key_encrypted, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET smoobu_api_key_encrypted = ?, updated_at = ?',
     args: [USER_ID, encryptedKey, new Date().toISOString(), encryptedKey, new Date().toISOString()]
   });
-
-  console.log('✅ Key stored in database');
-
-  // Verify
-  const result = await db.execute({
-    sql: 'SELECT id, smoobu_api_key_encrypted FROM user WHERE id = ?',
-    args: [USER_ID]
-  });
-
-  if (result.rows[0]) {
-    console.log(`✅ Verified: User ${result.rows[0].id} has encrypted Smoobu key stored`);
-  }
+  console.log(`✅ Smoobu credentials stored for ${USER_ID}`);
 }
 
-storeKey().catch(console.error);
+storeKey().catch((e) => { console.error(e.message); process.exit(1); });

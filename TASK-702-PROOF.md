@@ -18,7 +18,7 @@
 
 ### 2. ✅ API Key Stored for Dev User
 - **User**: `dev-user` (default local development user)
-- **API Key**: `g29HxSrjy9Kmq2xHp7iJOVCnaRASJAJidI03OYTyzY`
+- **API Key**: `<legacy key removed>`
 - **Status**: Encrypted and stored successfully in database
 - **Verification**: Key can be retrieved and decrypted programmatically
 

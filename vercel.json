@@ -3,14 +3,8 @@
   "installCommand": "npm install && cd frontend && npm install",
   "buildCommand": "cd frontend && VITE_BASE_PATH=/ npm run build",
   "outputDirectory": "frontend/dist",
-  "functions": {
-    "api/index.ts": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api" },
-    { "source": "/kozy/manifest.webmanifest",
     {
       "source": "/kozy/manifest.webmanifest",
       "destination": "/manifest.webmanifest"

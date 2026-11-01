@@ -3,3 +3,5 @@ dist/
 *.db
 .env
 backend/db/*.db*
+.env.*
+!.env.example

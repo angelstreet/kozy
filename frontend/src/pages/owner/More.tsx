@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 export default function More() {
   const { lang } = useApp();
   const [smoobuKey, setSmoobuKey] = useState('');
+  const [smoobuSecret, setSmoobuSecret] = useState('');
   const [smoobuKeyExists, setSmoobuKeyExists] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,7 +54,7 @@ export default function More() {
       const res = await apiFetch('/settings/smoobu-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: smoobuKey })
+        body: JSON.stringify({ key: smoobuKey, secret: smoobuSecret || undefined })
       });
 
       if (!res.ok) {
@@ -136,11 +137,21 @@ export default function More() {
               type="password"
               value={smoobuKey}
               onChange={(e) => setSmoobuKey(e.target.value)}
-              placeholder="Enter your Smoobu API key"
+              placeholder="usr_live_..."
+              className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Smoobu API Secret</label>
+            <input
+              type="password"
+              value={smoobuSecret}
+              onChange={(e) => setSmoobuSecret(e.target.value)}
+              placeholder="Shown once when the key is created"
               className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Find your API key in Smoobu Settings → API → API Key
+              Smoobu Settings → Developers → API keys. Requests are signed with the secret (HMAC).
             </p>
           </div>
 

@@ -522,11 +522,12 @@ app.get('/api/smoobu/apartments', async (c) => {
 
   // Decrypt the API key
   const { decryptApiKey } = await import('./encryption.js');
-  const apiKey = decryptApiKey(encryptedKey);
+  const { parseSmoobuCredentials } = await import('./smoobu-client.js');
+  const smoobuCreds = parseSmoobuCredentials(decryptApiKey(encryptedKey));
 
   try {
     const { fetchSmoobuApartments } = await import('./smoobu-sync.js');
-    const apartments = await fetchSmoobuApartments(apiKey);
+    const apartments = await fetchSmoobuApartments(smoobuCreds);
     return c.json({ apartments });
   } catch (e: any) {
     return c.json({ error: e.message }, 400);
@@ -551,16 +552,17 @@ app.post('/api/smoobu/sync-all', async (c) => {
 
   // Decrypt the API key
   const { decryptApiKey } = await import('./encryption.js');
-  const apiKey = decryptApiKey(encryptedKey);
+  const { parseSmoobuCredentials } = await import('./smoobu-client.js');
+  const smoobuCreds = parseSmoobuCredentials(decryptApiKey(encryptedKey));
 
   try {
     const { fetchSmoobuApartments, fetchSmoobuBookings, syncSmoobuBookings } = await import('./smoobu-sync.js');
     
     // Step 1: Fetch all apartments from Smoobu
-    const apartments = await fetchSmoobuApartments(apiKey);
+    const apartments = await fetchSmoobuApartments(smoobuCreds);
     
     // Step 2: Fetch all reservations from Smoobu
-    const reservations = await fetchSmoobuBookings(apiKey);
+    const reservations = await fetchSmoobuBookings(smoobuCreds);
     
     // Step 3: Get all existing properties from DB
     const propertiesResult = userId && userId !== 'dev-user'
@@ -594,7 +596,7 @@ app.post('/api/smoobu/sync-all', async (c) => {
       
       if (property) {
         // Sync bookings for this property
-        const syncResult = await syncSmoobuBookings(property.id, apiKey, apartment.id);
+        const syncResult = await syncSmoobuBookings(property.id, smoobuCreds, apartment.id);
         results.push({
           propertyName: property.name,
           apartmentName: apartment.name,
@@ -641,7 +643,8 @@ app.post('/api/properties/:id/smoobu-sync', async (c) => {
 
   // Decrypt the API key
   const { decryptApiKey } = await import('./encryption.js');
-  const apiKey = decryptApiKey(encryptedKey);
+  const { parseSmoobuCredentials } = await import('./smoobu-client.js');
+  const smoobuCreds = parseSmoobuCredentials(decryptApiKey(encryptedKey));
 
   // Get property's Smoobu apartment ID if configured
   const propResult = await db.execute({ sql: 'SELECT smoobu_apartment_id FROM property WHERE id = ?', args: [id] });
@@ -649,7 +652,7 @@ app.post('/api/properties/:id/smoobu-sync', async (c) => {
   const apartmentId = property?.smoobu_apartment_id || undefined;
 
   try {
-    const result = await syncSmoobuData(id, apiKey, apartmentId);
+    const result = await syncSmoobuData(id, smoobuCreds, apartmentId);
     return c.json(result);
   } catch (e: any) {
     return c.json({ error: e.message }, 400);
@@ -704,21 +707,18 @@ app.get('/api/settings/smoobu-key', async (c) => {
 app.post('/api/settings/smoobu-key', async (c) => {
   const userId = c.get('userId');
   const body = await c.req.json();
-  const { key } = body;
+  const { key, secret } = body;
 
   if (!key) {
     return c.json({ error: 'key is required' }, 400);
   }
 
+  const { smoobuFetch, serializeSmoobuCredentials } = await import('./smoobu-client.js');
+  const smoobuCreds = { keyId: String(key).trim(), secret: secret ? String(secret).trim() : undefined };
+
   // Test the API key first
   try {
-    const testResponse = await fetch('https://login.smoobu.com/api/reservations', {
-      method: 'GET',
-      headers: {
-        'Api-Key': key,
-        'Content-Type': 'application/json',
-      },
-    });
+    const testResponse = await smoobuFetch(smoobuCreds, '/api/me');
 
     if (!testResponse.ok) {
       return c.json({ error: 'Invalid Smoobu API key' }, 400);
@@ -729,7 +729,7 @@ app.post('/api/settings/smoobu-key', async (c) => {
 
   // Encrypt and save the key
   const { encryptApiKey } = await import('./encryption.js');
-  const encryptedKey = encryptApiKey(key);
+  const encryptedKey = encryptApiKey(serializeSmoobuCredentials(smoobuCreds));
 
   await db.execute({
     sql: 'INSERT INTO user (id, smoobu_api_key_encrypted, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET smoobu_api_key_encrypted = ?, updated_at = ?',
