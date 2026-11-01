@@ -2,7 +2,7 @@ import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useState, useEffect } from 'react';
 import { apiFetch } from '@/api';
-import { Loader2, Key, Check, X, Users } from 'lucide-react';
+import { Loader2, Key, Check, X, Users, Building2, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function More() {
@@ -97,36 +97,47 @@ export default function More() {
   if (loading) {
     return (
       <div className="p-4 flex items-center justify-center h-64">
-        <Loader2 className="animate-spin text-gray-400" size={32} />
+        <Loader2 className="animate-spin text-muted" size={32} />
       </div>
     );
   }
 
   return (
     <div className="p-4 space-y-6">
-      <h1 className="text-2xl font-bold">{t('settings', lang)}</h1>
+      <h1 className="page-title">{t('settings', lang)}</h1>
+
+      <Link to="/properties" className="bg-surface rounded-xl border p-5 flex items-center gap-4 hover:bg-page transition-colors lg:hidden">
+        <div className="w-10 h-10 rounded-lg bg-tint flex items-center justify-center">
+          <Building2 className="text-accent" size={20} />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-base font-semibold">{t('properties', lang)}</h2>
+          <p className="text-sm text-muted">{lang === 'fr' ? 'Vos logements et leurs réglages' : 'Your homes and their settings'}</p>
+        </div>
+        <ChevronRight className="text-muted" size={20} aria-hidden />
+      </Link>
 
       {/* Cleaners Section */}
-      <Link to="/cleaners" className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-        <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-          <Users className="text-purple-600 dark:text-purple-400" size={20} />
+      <Link to="/cleaners" className="bg-surface rounded-xl border p-5 flex items-center gap-4 hover:bg-page transition-colors">
+        <div className="w-10 h-10 rounded-lg bg-info-tint flex items-center justify-center">
+          <Users className="text-info" size={20} />
         </div>
         <div className="flex-1">
           <h2 className="text-base font-semibold">Cleaners</h2>
-          <p className="text-sm text-gray-500">Manage your cleaning team</p>
+          <p className="text-sm text-muted">Manage your cleaning team</p>
         </div>
-        <span className="text-gray-400">›</span>
+        <ChevronRight className="text-muted" size={20} aria-hidden />
       </Link>
 
       {/* Smoobu Integration Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 space-y-4">
+      <div className="bg-surface rounded-xl border p-5 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-            <Key className="text-blue-600 dark:text-blue-400" size={20} />
+          <div className="w-10 h-10 rounded-lg bg-tint flex items-center justify-center">
+            <Key className="text-accent" size={20} />
           </div>
           <div>
             <h2 className="text-lg font-semibold">Smoobu Integration</h2>
-            <p className="text-sm text-gray-500">Automatically sync bookings with full guest details</p>
+            <p className="text-sm text-muted">Automatically sync bookings with full guest details</p>
           </div>
         </div>
 
@@ -138,7 +149,7 @@ export default function More() {
               value={smoobuKey}
               onChange={(e) => setSmoobuKey(e.target.value)}
               placeholder="usr_live_..."
-              className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2.5 rounded-xl border bg-surface focus:ring-2 focus:ring-accent outline-none"
             />
           </div>
           <div>
@@ -148,9 +159,9 @@ export default function More() {
               value={smoobuSecret}
               onChange={(e) => setSmoobuSecret(e.target.value)}
               placeholder="Shown once when the key is created"
-              className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2.5 rounded-xl border bg-surface focus:ring-2 focus:ring-accent outline-none"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted mt-1">
               Smoobu Settings → Developers → API keys. Requests are signed with the secret (HMAC).
             </p>
           </div>
@@ -158,7 +169,7 @@ export default function More() {
           <button
             onClick={saveSmoobuKey}
             disabled={saving || !smoobuKey.trim()}
-            className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors"
+            className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-300 disabled:cursor-not-allowed text-accent-ink font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors"
           >
             {saving ? (
               <>
@@ -176,14 +187,14 @@ export default function More() {
           </button>
 
           {saveStatus === 'error' && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center gap-2 text-red-700 dark:text-red-400">
+            <div className="bg-danger-tint border border-red-200 rounded-lg p-3 flex items-center gap-2 text-danger">
               <X size={18} />
               <span className="text-sm">{errorMessage}</span>
             </div>
           )}
 
           {saveStatus === 'success' && (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 flex items-center gap-2 text-green-700 dark:text-green-400">
+            <div className="bg-tint border border-green-200 rounded-lg p-3 flex items-center gap-2 text-accent">
               <Check size={18} />
               <span className="text-sm">API key saved successfully</span>
             </div>
@@ -192,11 +203,11 @@ export default function More() {
 
         {/* Sync Button */}
         {smoobuKeyExists && (
-          <div className="pt-4 border-t dark:border-gray-700">
+          <div className="pt-4 border-t">
             <button
               onClick={syncBookings}
               disabled={syncing}
-              className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-300 disabled:cursor-not-allowed text-accent-ink font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors"
             >
               {syncing ? (
                 <>
@@ -209,7 +220,7 @@ export default function More() {
             </button>
 
             {syncResult && (
-              <div className={`mt-3 p-3 rounded-lg ${syncResult.error ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'}`}>
+              <div className={`mt-3 p-3 rounded-lg ${syncResult.error ? 'bg-danger-tint text-danger' : 'bg-tint text-accent'}`}>
                 {syncResult.error ? (
                   <p className="text-sm">{syncResult.error}</p>
                 ) : (
@@ -224,8 +235,8 @@ export default function More() {
           </div>
         )}
 
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm text-blue-700 dark:text-blue-300">
-          <p className="font-medium mb-1">ℹ️ How it works</p>
+        <div className="bg-tint rounded-lg p-3 text-sm text-accent">
+          <p className="font-medium mb-1">How it works</p>
           <ul className="text-xs space-y-1 list-disc list-inside">
             <li>When you add a Smoobu API key, iCal fields will be hidden</li>
             <li>Bookings will be synced automatically with full guest details</li>

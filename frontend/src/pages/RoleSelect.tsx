@@ -1,3 +1,4 @@
+import Logo from '@/components/Logo';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { useApp } from '@/contexts/AppContext';
@@ -8,25 +9,25 @@ export default function RoleSelect() {
   const { lang } = useApp();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-page p-4">
       <div className="w-full max-w-sm text-center">
         <div className="absolute top-4 right-4">
           
         </div>
-        <img src="/kozy/logo.png" alt="Kozy" className="h-16 mx-auto mb-4" />
-        <p className="text-gray-500 dark:text-gray-400 mb-8">{t('selectRole', lang) || 'How will you use Kozy?'}</p>
+        <div className="flex justify-center mb-4 scale-150"><Logo /></div>
+        <p className="text-muted mb-8">{t('selectRole', lang) || 'How will you use Kozy?'}</p>
         <div className="space-y-3">
           <button
             onClick={() => setRole('owner')}
-            className="w-full bg-blue-500 text-white rounded-xl py-4 text-lg font-medium hover:bg-blue-600 transition"
+            className="w-full bg-accent text-accent-ink rounded-xl py-4 text-lg font-medium hover:bg-accent-hover transition"
           >
-            🏡 {t('owner', lang) || 'Property Owner'}
+            {t('owner', lang) || 'Property Owner'}
           </button>
           <button
             onClick={() => setRole('cleaner')}
-            className="w-full bg-green-500 text-white rounded-xl py-4 text-lg font-medium hover:bg-green-600 transition"
+            className="w-full bg-accent text-accent-ink rounded-xl py-4 text-lg font-medium hover:bg-accent-hover transition"
           >
-            🧹 {t('cleaner', lang) || 'Cleaner'}
+            {t('cleaner', lang) || 'Cleaner'}
           </button>
         </div>
       </div>

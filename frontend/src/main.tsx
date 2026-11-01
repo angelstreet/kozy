@@ -11,7 +11,7 @@ async function render() {
     const { default: ClerkTokenProvider } = await import('./components/ClerkTokenProvider');
     ReactDOM.createRoot(document.getElementById('root')!).render(
       <React.StrictMode>
-        <ClerkProvider publishableKey={clerkPubKey} afterSignOutUrl="/kozy/">
+        <ClerkProvider publishableKey={clerkPubKey} afterSignOutUrl={import.meta.env.BASE_URL}>
           <ClerkTokenProvider>
             <App />
           </ClerkTokenProvider>

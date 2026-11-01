@@ -1,3 +1,4 @@
+import { Moon, Sun } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,30 +18,30 @@ export default function CleanerMore() {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">{t('more', lang)}</h1>
+      <h1 className="page-title mb-4">{t('more', lang)}</h1>
       <div className="space-y-2">
         {items.map(({ icon: Icon, label, desc, onClick }) => (
           <button key={label} onClick={onClick}
-            className="w-full bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm flex items-center gap-3 text-left">
-            <Icon size={20} className="text-gray-400" />
+            className="w-full bg-surface rounded-xl p-4 flex items-center gap-3 text-left border border-line">
+            <Icon size={20} className="text-muted" />
             <div>
               <p className="font-medium">{label}</p>
-              <p className="text-sm text-gray-500">{desc}</p>
+              <p className="text-sm text-muted">{desc}</p>
             </div>
           </button>
         ))}
 
         <div className="mt-6 space-y-2">
-          <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between bg-surface rounded-xl p-4 border border-line">
             <span className="font-medium">Theme</span>
-            <button onClick={toggleDark} className="text-xl">{dark ? '☀️' : '🌙'}</button>
+            <button onClick={toggleDark} className="icon-btn" aria-label="Theme">{dark ? <Sun size={20} strokeWidth={1.75} /> : <Moon size={20} strokeWidth={1.75} />}</button>
           </div>
-          <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between bg-surface rounded-xl p-4 border border-line">
             <span className="font-medium">Language</span>
-            <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')} className="text-blue-500 font-medium">{lang.toUpperCase()}</button>
+            <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')} className="text-accent font-medium">{lang.toUpperCase()}</button>
           </div>
           <button onClick={logout}
-            className="w-full bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm flex items-center gap-3 text-red-500">
+            className="w-full bg-surface rounded-xl p-4 flex items-center gap-3 text-danger border border-line">
             <LogOut size={20} />
             <span className="font-medium">Logout</span>
           </button>

@@ -19,9 +19,13 @@ type Variables = {
 const app = new Hono<{ Variables: Variables }>();
 app.use('/*', cors());
 
-// Protect all /api/* routes except /api/external/*, /api/invite/*, /api/seed, /api/reset
+// Seed/reset wipe tables: local development only, never on Vercel or in production.
+const isProd = Boolean(process.env.VERCEL) || process.env.NODE_ENV === 'production';
 app.use('/api/*', async (c, next) => {
   const path = c.req.path;
+  if (isProd && (path.startsWith('/api/dev/') || path === '/api/seed' || path === '/api/reset')) {
+    return c.json({ error: 'Not available in production' }, 403);
+  }
   // Skip auth for external API (has own token), invite routes, seed/reset, and health
   if (path.startsWith('/api/external/') || path.startsWith('/api/invite/') ||
       path.startsWith('/api/notifications') || path.startsWith('/api/dev/') ||

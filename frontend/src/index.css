@@ -1,3 +1,71 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Design tokens (docs/mockup: Kozy glow-up). RGB triplets so Tailwind can add alpha. */
+:root {
+  color-scheme: light;
+  --page: 246 245 242;
+  --surface: 255 255 255;
+  --line: 230 227 221;
+  --ink: 27 30 35;
+  --muted: 94 101 112;
+  --accent: 13 122 104;
+  --accent-hover: 10 102 87;
+  --accent-ink: 255 255 255;
+  --tint: 227 242 238;
+  --warn: 154 91 0;
+  --warn-tint: 251 240 221;
+  --info: 47 93 168;
+  --info-tint: 230 238 250;
+  --danger: 180 35 24;
+  --danger-tint: 252 232 230;
+  --air: 184 67 15;
+  --air-tint: 251 230 220;
+}
+.dark {
+  color-scheme: dark;
+  --page: 24 26 31;
+  --surface: 35 39 47;
+  --line: 52 57 68;
+  --ink: 232 235 240;
+  --muted: 160 168 181;
+  --accent: 79 191 168;
+  --accent-hover: 106 205 185;
+  --accent-ink: 15 26 23;
+  --tint: 31 56 51;
+  --warn: 232 181 101;
+  --warn-tint: 58 48 32;
+  --info: 143 178 238;
+  --info-tint: 35 47 69;
+  --danger: 242 139 130;
+  --danger-tint: 64 34 32;
+  --air: 242 162 126;
+  --air-tint: 61 42 34;
+}
+
+@layer base {
+  *, ::before, ::after { border-color: rgb(var(--line)); }
+  html { font-family: Inter, system-ui, -apple-system, sans-serif; }
+  body { @apply bg-page text-ink antialiased; }
+  h1, h2, h3 { text-wrap: balance; }
+  :focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
+}
+
+@layer components {
+  .card { @apply bg-surface border border-line rounded-xl; }
+  .tile { @apply w-10 h-10 rounded-[10px] flex items-center justify-center bg-tint text-accent flex-none; }
+  .pill { @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap; }
+  .icon-btn { @apply w-11 h-11 rounded-xl flex items-center justify-center text-ink hover:bg-page; }
+  .btn { @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl text-[15px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply btn bg-accent text-accent-ink hover:bg-accent-hover; }
+  .btn-secondary { @apply btn border border-line text-ink hover:bg-page; }
+  .chip { @apply inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-full border border-line bg-surface text-[13px] font-semibold text-ink whitespace-nowrap; }
+  .chip-on { @apply border-accent bg-tint text-accent; }
+  .page-title { @apply text-[26px] leading-tight font-semibold; }
+  .section-title { @apply text-[15px] font-semibold; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

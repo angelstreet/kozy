@@ -54,30 +54,30 @@ export default function Shopping() {
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">{t('shopping', lang)}</h1>
-        <button onClick={() => setShowForm(!showForm)} className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center">
+        <h1 className="page-title">{t('shopping', lang)}</h1>
+        <button onClick={() => setShowForm(!showForm)} className="w-10 h-10 bg-accent text-accent-ink rounded-full flex items-center justify-center">
           <Plus size={20} />
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-sm space-y-3">
+        <div className="bg-surface rounded-xl p-4 mb-4 space-y-3 border border-line">
           <select value={newPropertyId} onChange={e => setNewPropertyId(e.target.value)}
-            className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent">
+            className="w-full p-2.5 rounded-lg border border-line bg-transparent">
             <option value="">{lang === 'fr' ? 'Sélectionner un logement' : 'Select property'}</option>
             {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <textarea value={newItems} onChange={e => setNewItems(e.target.value)}
             placeholder={lang === 'fr' ? 'Articles nécessaires...' : 'Items needed...'}
-            className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent resize-none" rows={3} />
-          <button onClick={submit} className="w-full py-2.5 bg-blue-500 text-white rounded-lg font-medium">
+            className="w-full p-2.5 rounded-lg border border-line bg-transparent resize-none" rows={3} />
+          <button onClick={submit} className="w-full py-2.5 bg-accent text-accent-ink rounded-lg font-medium">
             {lang === 'fr' ? 'Envoyer' : 'Submit'}
           </button>
         </div>
       )}
 
       {pending.length === 0 && resolved.length === 0 && !showForm ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-muted">
           <ShoppingCart size={48} className="mx-auto mb-3 opacity-50" />
           <p>{lang === 'fr' ? 'Aucune demande' : 'No requests yet'}</p>
           <p className="text-sm mt-1">{lang === 'fr' ? 'Signalez ce qui manque dans un logement' : 'Flag what\'s needed at a property'}</p>
@@ -86,13 +86,13 @@ export default function Shopping() {
         <>
           {pending.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{lang === 'fr' ? 'En attente' : 'Pending'}</h2>
+              <h2 className="text-sm font-semibold text-muted uppercase mb-2">{lang === 'fr' ? 'En attente' : 'Pending'}</h2>
               <div className="space-y-2">
                 {pending.map(r => (
-                  <div key={r.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                  <div key={r.id} className="bg-surface rounded-xl p-4">
                     <p className="font-medium">{r.property_name}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{r.items}</p>
-                    <p className="text-xs text-gray-400 mt-2">{new Date(r.created_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                    <p className="text-sm text-muted mt-1">{r.items}</p>
+                    <p className="text-xs text-muted mt-2">{new Date(r.created_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US')}</p>
                   </div>
                 ))}
               </div>
@@ -100,15 +100,15 @@ export default function Shopping() {
           )}
           {resolved.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{lang === 'fr' ? 'Résolus' : 'Resolved'}</h2>
+              <h2 className="text-sm font-semibold text-muted uppercase mb-2">{lang === 'fr' ? 'Résolus' : 'Resolved'}</h2>
               <div className="space-y-2">
                 {resolved.map(r => (
-                  <div key={r.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 opacity-60">
+                  <div key={r.id} className="bg-page rounded-xl p-4 opacity-60">
                     <div className="flex items-center gap-1">
-                      <Check size={14} className="text-green-500" />
+                      <Check size={14} className="text-accent" />
                       <p className="font-medium text-sm">{r.property_name}</p>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">{r.items}</p>
+                    <p className="text-sm text-muted mt-1">{r.items}</p>
                   </div>
                 ))}
               </div>

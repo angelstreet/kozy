@@ -9,6 +9,7 @@ import Properties from '@/pages/owner/Properties';
 import More from '@/pages/owner/More';
 import Cleaners from '@/pages/owner/Cleaners';
 import Payments from '@/pages/owner/Payments';
+import Messages from '@/pages/owner/Messages';
 import AddProperty from '@/pages/owner/AddProperty';
 import EditProperty from '@/pages/owner/EditProperty';
 import Schedule from '@/pages/cleaner/Schedule';
@@ -22,8 +23,8 @@ function AppRoutes() {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+      <div className="min-h-screen flex items-center justify-center bg-page">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-line border-t-accent" />
       </div>
     );
   }
@@ -40,6 +41,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendar" element={null} />
           <Route path="/properties" element={<Properties />} />
+          <Route path="/messages" element={<Messages />} />
           <Route path="/more" element={<More />} />
           <Route path="/cleaners" element={<Cleaners />} />
           <Route path="/payments" element={<Payments />} />

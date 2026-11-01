@@ -38,7 +38,7 @@ export default function DistributionDonut({ data, total, fmt }: Props) {
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs font-bold text-gray-900 dark:text-white">€{fmt(total)}</span>
+          <span className="text-xs font-semibold text-ink">€{fmt(total)}</span>
         </div>
       </div>
       <div className="space-y-1.5 w-full">
@@ -48,11 +48,11 @@ export default function DistributionDonut({ data, total, fmt }: Props) {
             <div key={item.name} className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                <span className="text-gray-500 dark:text-gray-400 truncate">{item.name}</span>
+                <span className="text-muted truncate">{item.name}</span>
               </div>
               <div className="flex items-center gap-2 ml-2">
-                <span className="text-gray-500 dark:text-gray-400">{pct.toFixed(1)}%</span>
-                <span className="font-medium text-gray-900 dark:text-white">€{fmt(item.value)}</span>
+                <span className="text-muted">{pct.toFixed(1)}%</span>
+                <span className="font-medium text-ink">€{fmt(item.value)}</span>
               </div>
             </div>
           );

@@ -23,8 +23,8 @@ export default function AnalyticsTabs({ activeTab, onChange, lang }: Props) {
             onClick={() => onChange(tab.key)}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
               activeTab === tab.key
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
+                ? 'bg-accent text-accent-ink'
+                : 'bg-surface text-muted border border-line'
             }`}
           >
             {lang === 'fr' ? tab.fr : tab.en}

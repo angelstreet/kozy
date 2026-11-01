@@ -2,66 +2,30 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { t } from '@/i18n';
-import { Home, CalendarDays, Building2, Menu, ShoppingCart, TrendingUp, Bell } from 'lucide-react';
-import { apiFetch } from '@/api';
-import { useEffect, useState } from 'react';
-
-const ownerTabs = [
-  { to: '/dashboard', icon: Home, label: 'dashboard' },
-  { to: '/calendar', icon: CalendarDays, label: 'calendar' },
-  { to: '/properties', icon: Building2, label: 'properties' },
-  { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
-  { to: '/more', icon: Menu, label: 'more' },
-];
-
-const cleanerTabs = [
-  { to: '/c/schedule', icon: CalendarDays, label: 'schedule' },
-  { to: '/c/shopping', icon: ShoppingCart, label: 'shopping' },
-  { to: '/c/notifications', icon: Bell, label: 'notifications' },
-  { to: '/c/more', icon: Menu, label: 'more' },
-];
+import { ownerNav, cleanerNav } from './navItems';
+import { useUnreadCount } from './useUnreadCount';
 
 export default function BottomNav() {
   const { role } = useAuth();
   const { lang } = useApp();
-  const tabs = role === 'owner' ? ownerTabs : cleanerTabs;
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (role !== 'cleaner') return;
-    const cleanerId = localStorage.getItem('kozy_cleaner_id') || '15';
-    apiFetch(`/notifications?cleaner_id=${cleanerId}`)
-      .then(r => r.json())
-      .then((d: any[]) => {
-        if (Array.isArray(d)) setUnreadCount(d.filter(n => n.read === 0).length);
-      })
-      .catch(() => {});
-    const interval = setInterval(() => {
-      apiFetch(`/notifications?cleaner_id=${cleanerId}`)
-        .then(r => r.json())
-        .then((d: any[]) => {
-          if (Array.isArray(d)) setUnreadCount(d.filter(n => n.read === 0).length);
-        })
-        .catch(() => {});
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [role]);
+  const tabs = (role === 'owner' ? ownerNav : cleanerNav).filter(i => !i.desktopOnly);
+  const unread = useUnreadCount(role === 'cleaner');
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 flex justify-around py-2 z-50">
+    <nav aria-label="Main" className="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-surface border-t border-line flex px-2 pb-[max(8px,env(safe-area-inset-bottom))]">
       {tabs.map(({ to, icon: Icon, label }) => (
         <NavLink key={to} to={to} className={({ isActive }) =>
-          `flex flex-col items-center text-xs ${isActive ? 'text-blue-500' : 'text-gray-400'}`
+          `flex-1 flex flex-col items-center gap-1 pt-2 pb-1 text-[11px] ${isActive ? 'text-accent font-semibold' : 'text-muted'}`
         }>
-          <div className="relative">
-            <Icon size={20} />
-            {label === 'notifications' && unreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-                {unreadCount > 99 ? '99+' : unreadCount}
+          <span className="relative">
+            <Icon size={20} strokeWidth={1.75} aria-hidden />
+            {label === 'notifications' && unread > 0 && (
+              <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 bg-danger text-white text-[10px] font-semibold rounded-full flex items-center justify-center">
+                {unread > 99 ? '99+' : unread}
               </span>
             )}
-          </div>
-          <span className="mt-0.5">{t(label, lang)}</span>
+          </span>
+          {t(label, lang)}
         </NavLink>
       ))}
     </nav>

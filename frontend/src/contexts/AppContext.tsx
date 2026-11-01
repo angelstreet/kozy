@@ -1,3 +1,4 @@
+import { apiFetch } from '@/api';
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 
 interface CacheEntry { data: any; ts: number; }
@@ -15,7 +16,12 @@ const AppContext = createContext<AppCtx>({} as AppCtx);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState(() => localStorage.getItem('kozy_lang') || 'en');
-  const [dark, setDark] = useState(() => localStorage.getItem('kozy_dark') === 'true');
+  // Stored choice wins; otherwise follow the system theme.
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem('kozy_dark');
+    if (saved === 'true' || saved === 'false') return saved === 'true';
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  });
   const cacheRef = useRef<Record<string, CacheEntry>>({});
   const [, setTick] = useState(0);
 
@@ -36,7 +42,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const fetchCached = useCallback(async (url: string, force = false) => {
     const entry = cacheRef.current[url];
     if (!force && entry && Date.now() - entry.ts < CACHE_TTL) return entry.data;
-    const res = await fetch(url);
+    const res = await apiFetch(url);
     const data = await res.json();
     cacheRef.current[url] = { data, ts: Date.now() };
     return data;

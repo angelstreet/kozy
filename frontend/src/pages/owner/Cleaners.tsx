@@ -5,7 +5,7 @@ import { useProperties } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, ArrowRight, Check, Loader2, X, Phone, Mail, Pencil, Trash2, ChevronRight, Users } from 'lucide-react';
+import { Plus, ArrowLeft, ArrowRight, Check, Loader2, X, Phone, Mail, Pencil, Trash2, ChevronRight, Users, Sparkles } from 'lucide-react';
 
 interface Cleaner {
   id: number;
@@ -32,7 +32,7 @@ export default function Cleaners() {
 
   const loadCleaners = async () => {
     try {
-      const data = await fetchCached('/kozy/api/cleaners', true);
+      const data = await fetchCached('/cleaners', true);
       setCleaners(data);
     } catch {}
     setLoading(false);
@@ -40,12 +40,12 @@ export default function Cleaners() {
 
   useEffect(() => { loadCleaners(); }, []);
 
-  if (loading || propLoading) return <div className="p-4 text-center text-gray-400 pt-20">Loading...</div>;
+  if (loading || propLoading) return <div className="p-4 text-center text-muted pt-20">Loading...</div>;
 
   if (isEmpty) {
     return (
       <div className="p-4">
-        <h1 className="text-2xl font-bold mb-4">{t('cleaners', lang)}</h1>
+        <h1 className="page-title mb-4">{t('cleaners', lang)}</h1>
         <EmptyState emoji="🧹" title="Add a property first" subtitle="Once you have a property, you can add cleaners and assign them." ctaLabel="+ Add Property" ctaTo="/add-property" />
       </div>
     );
@@ -96,8 +96,8 @@ export default function Cleaners() {
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t('cleaners', lang)}</h1>
-        <button onClick={() => setView('add')} className="bg-blue-500 text-white p-2 rounded-xl shadow-sm hover:bg-blue-600 transition-colors">
+        <h1 className="page-title">{t('cleaners', lang)}</h1>
+        <button onClick={() => setView('add')} className="bg-accent text-accent-ink p-2 rounded-xl shadow-sm hover:bg-accent-hover transition-colors">
           <Plus size={20} />
         </button>
       </div>
@@ -110,22 +110,22 @@ export default function Cleaners() {
             <button
               key={c.id}
               onClick={() => openDetail(c.id)}
-              className="w-full bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm flex items-center gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+              className="w-full bg-surface rounded-xl p-4 flex items-center gap-4 text-left hover:bg-page transition-colors border border-line"
             >
-              <div className="w-11 h-11 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-lg flex-shrink-0">
-                🧹
+              <div className="w-11 h-11 rounded-full bg-tint text-accent flex items-center justify-center flex-shrink-0">
+                <Sparkles size={20} strokeWidth={1.75} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{c.name}</p>
-                {c.email && <p className="text-sm text-gray-500 truncate">{c.email}</p>}
-                {c.phone && <p className="text-sm text-gray-400">{c.phone}</p>}
+                {c.email && <p className="text-sm text-muted truncate">{c.email}</p>}
+                {c.phone && <p className="text-sm text-muted">{c.phone}</p>}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full flex items-center gap-1">
+                <span className="text-xs bg-page text-muted px-2 py-1 rounded-full flex items-center gap-1">
                   <Users size={11} />
                   {c.property_count}
                 </span>
-                <ChevronRight size={16} className="text-gray-400" />
+                <ChevronRight size={16} className="text-muted" />
               </div>
             </button>
           ))}
@@ -189,41 +189,41 @@ function CleanerDetail({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
-      <header className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
+    <div className="min-h-screen bg-page text-ink">
+      <header className="flex items-center gap-3 px-4 py-3 bg-surface border-b">
         <button onClick={onBack}><ArrowLeft size={20} /></button>
-        <h1 className="font-bold text-lg flex-1 truncate">{cleaner.name}</h1>
-        <button onClick={onEdit} className="text-blue-500 hover:text-blue-400 p-1">
+        <h1 className="font-semibold text-lg flex-1 truncate">{cleaner.name}</h1>
+        <button onClick={onEdit} className="text-accent hover:text-accent p-1">
           <Pencil size={18} />
         </button>
-        <button onClick={handleDelete} disabled={deleting} className="text-red-500 hover:text-red-400 p-1">
+        <button onClick={handleDelete} disabled={deleting} className="text-danger hover:text-red-400 p-1">
           {deleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
         </button>
       </header>
 
       <div className="p-4 space-y-5">
         {/* Info card */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm space-y-3">
+        <div className="bg-surface rounded-xl p-5 space-y-3 border border-line">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-3xl">🧹</div>
+            <div className="w-16 h-16 rounded-full bg-tint text-accent flex items-center justify-center"><Sparkles size={28} strokeWidth={1.75} /></div>
             <div>
-              <h2 className="text-xl font-bold">{cleaner.name}</h2>
+              <h2 className="text-xl font-semibold">{cleaner.name}</h2>
               <span className={`text-xs px-2 py-0.5 rounded-full ${
-                cleaner.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                cleaner.status === 'invited' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                cleaner.status === 'active' ? 'bg-tint text-accent' :
+                cleaner.status === 'invited' ? 'bg-warn-tint text-warn' :
+                'bg-page text-muted'
               }`}>{cleaner.status}</span>
             </div>
           </div>
 
           {cleaner.email && (
-            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-3 text-sm text-muted">
               <Mail size={16} className="flex-shrink-0" />
               <span>{cleaner.email}</span>
             </div>
           )}
           {cleaner.phone && (
-            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-3 text-sm text-muted">
               <Phone size={16} className="flex-shrink-0" />
               <span>{cleaner.phone}</span>
             </div>
@@ -231,12 +231,12 @@ function CleanerDetail({
         </div>
 
         {/* Assignments */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700">
+        <div className="bg-surface rounded-xl overflow-hidden border border-line">
+          <div className="flex items-center justify-between px-4 py-3 border-b">
             <h3 className="font-semibold">Properties</h3>
             <button
               onClick={() => setAssignMode(m => !m)}
-              className="text-sm text-blue-500 hover:text-blue-400 font-medium"
+              className="text-sm text-accent hover:text-accent font-medium"
             >
               {assignMode ? 'Cancel' : 'Edit'}
             </button>
@@ -245,13 +245,13 @@ function CleanerDetail({
           {!assignMode ? (
             <div>
               {cleaner.assignments.length === 0 ? (
-                <p className="text-sm text-gray-400 px-4 py-4">No properties assigned yet.</p>
+                <p className="text-sm text-muted px-4 py-4">No properties assigned yet.</p>
               ) : (
                 cleaner.assignments.map(a => (
-                  <div key={a.property_id} className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700 last:border-0">
+                  <div key={a.property_id} className="flex items-center justify-between px-4 py-3 border-b last:border-0">
                     <span className="font-medium text-sm">{a.property_name}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      a.role === 'primary' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                      a.role === 'primary' ? 'bg-tint text-accent' : 'bg-warn-tint text-warn'
                     }`}>{a.role}</span>
                   </div>
                 ))
@@ -260,7 +260,7 @@ function CleanerDetail({
           ) : (
             <div className="p-4 space-y-3">
               {properties.map(p => (
-                <div key={p.id} className={`rounded-xl border-2 p-3 transition-all ${assignments[p.id] ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-700'}`}>
+                <div key={p.id} className={`rounded-xl border-2 p-3 transition-all ${assignments[p.id] ? 'border-accent bg-tint' : 'border-line'}`}>
                   <button onClick={() => toggleProp(p.id)} className="w-full flex items-center gap-3 text-left">
                     <div className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0"
                       style={{ borderColor: assignments[p.id] ? '#3B82F6' : '#D1D5DB', backgroundColor: assignments[p.id] ? '#3B82F6' : 'transparent' }}>
@@ -272,11 +272,11 @@ function CleanerDetail({
                   {assignments[p.id] && (
                     <div className="flex gap-2 mt-2 ml-8">
                       <button onClick={() => setRole(p.id, 'primary')}
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${assignments[p.id] === 'primary' ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${assignments[p.id] === 'primary' ? 'bg-accent text-accent-ink' : 'bg-page text-muted'}`}>
                         Primary
                       </button>
                       <button onClick={() => setRole(p.id, 'backup')}
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${assignments[p.id] === 'backup' ? 'bg-orange-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${assignments[p.id] === 'backup' ? 'bg-orange-500 text-white' : 'bg-page text-muted'}`}>
                         Backup
                       </button>
                     </div>
@@ -286,7 +286,7 @@ function CleanerDetail({
               <button
                 onClick={saveAssignments}
                 disabled={saving}
-                className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 mt-2"
+                className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-300 text-accent-ink font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 mt-2"
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                 Save Assignments
@@ -339,10 +339,10 @@ function CleanerForm({ cleaner, properties, onClose }: {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
-      <header className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
+    <div className="min-h-screen bg-page text-ink">
+      <header className="flex items-center gap-3 px-4 py-3 bg-surface border-b">
         <button onClick={onClose}><ArrowLeft size={20} /></button>
-        <h1 className="font-bold text-lg">{isEdit ? 'Edit Cleaner' : 'Add Cleaner'}</h1>
+        <h1 className="font-semibold text-lg">{isEdit ? 'Edit Cleaner' : 'Add Cleaner'}</h1>
       </header>
 
       <div className="p-4 space-y-4">
@@ -352,7 +352,7 @@ function CleanerForm({ cleaner, properties, onClose }: {
             value={form.name}
             onChange={e => upd('name', e.target.value)}
             placeholder="e.g. Marie Dupont"
-            className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2.5 rounded-xl border bg-surface outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
         <div>
@@ -362,7 +362,7 @@ function CleanerForm({ cleaner, properties, onClose }: {
             onChange={e => upd('email', e.target.value)}
             type="email"
             placeholder="marie@example.com"
-            className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2.5 rounded-xl border bg-surface outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
         <div>
@@ -372,12 +372,12 @@ function CleanerForm({ cleaner, properties, onClose }: {
             onChange={e => upd('phone', e.target.value)}
             type="tel"
             placeholder="+33 6 12 34 56 78"
-            className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2.5 rounded-xl border bg-surface outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-danger text-sm bg-danger-tint rounded-lg p-3">
             <X size={16} />
             {error}
           </div>
@@ -386,7 +386,7 @@ function CleanerForm({ cleaner, properties, onClose }: {
         <button
           onClick={submit}
           disabled={saving || !form.name.trim()}
-          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-2"
+          className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-300 disabled:cursor-not-allowed text-accent-ink font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-2"
         >
           {saving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
           {isEdit ? 'Save Changes' : 'Add Cleaner'}

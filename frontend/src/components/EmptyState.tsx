@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
+import { Building2, CalendarDays, CheckCircle2, Inbox, Plus, Sparkles, type LucideIcon } from 'lucide-react';
 
 interface EmptyStateProps {
+  /** Legacy emoji hint, mapped to an icon (no emoji in the UI). */
   emoji: string;
   title: string;
   subtitle: string;
@@ -8,20 +10,21 @@ interface EmptyStateProps {
   ctaTo?: string;
 }
 
+const ICONS: Record<string, LucideIcon> = { '🏠': Building2, '🏘️': Building2, '🧹': Sparkles, '✨': CheckCircle2, '📅': CalendarDays };
+
 export default function EmptyState({ emoji, title, subtitle, ctaLabel, ctaTo }: EmptyStateProps) {
   const navigate = useNavigate();
+  const Icon = ICONS[emoji] || Inbox;
+  const label = ctaLabel?.replace(/^\+\s*/, '');
 
   return (
-    <div className="flex flex-col items-center justify-center text-center px-8 py-16">
-      <div className="text-6xl mb-4">{emoji}</div>
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{title}</h2>
-      <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-xs">{subtitle}</p>
-      {ctaLabel && ctaTo && (
-        <button
-          onClick={() => navigate(ctaTo)}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-8 py-3 rounded-xl text-lg shadow-lg shadow-blue-500/25 transition-all active:scale-95"
-        >
-          {ctaLabel}
+    <div className="flex flex-col items-center justify-center text-center px-8 py-16 gap-2">
+      <span className="tile w-14 h-14 rounded-2xl mb-2"><Icon size={26} strokeWidth={1.75} aria-hidden /></span>
+      <h2 className="text-xl font-semibold">{title}</h2>
+      <p className="text-muted max-w-xs">{subtitle}</p>
+      {label && ctaTo && (
+        <button onClick={() => navigate(ctaTo)} className="btn-primary mt-6">
+          <Plus size={18} aria-hidden />{label}
         </button>
       )}
     </div>

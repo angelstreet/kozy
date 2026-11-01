@@ -18,5 +18,8 @@
   "notifications": "Notifications",
   "mark_read": "Mark as read",
   "no_notifications": "No notifications yet",
-  "unread": "unread"
+  "unread": "unread",
+  "today": "Today",
+  "messages": "Messages",
+  "results": "Results"
 }

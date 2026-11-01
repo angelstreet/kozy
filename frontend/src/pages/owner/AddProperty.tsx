@@ -92,18 +92,18 @@ export default function AddProperty() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
-      <header className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
+    <div className="min-h-screen bg-page text-ink">
+      <header className="flex items-center gap-3 px-4 py-3 bg-surface border-b">
         <button onClick={() => step > 1 ? setStep(s => s - 1) : navigate(-1)}>
           <ArrowLeft size={20} />
         </button>
-        <h1 className="font-bold text-lg flex-1">Add Property</h1>
-        <span className="text-sm text-gray-400">Step {step}/2</span>
+        <h1 className="font-semibold text-lg flex-1">Add Property</h1>
+        <span className="text-sm text-muted">Step {step}/2</span>
       </header>
 
       <div className="flex gap-1 px-4 pt-3">
         {[1, 2].map(s => (
-          <div key={s} className={`h-1 flex-1 rounded-full transition-all ${s <= step ? 'bg-blue-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+          <div key={s} className={`h-1 flex-1 rounded-full transition-all ${s <= step ? 'bg-accent' : 'bg-line'}`} />
         ))}
       </div>
 
@@ -116,69 +116,69 @@ export default function AddProperty() {
               <input
                 value={form.name} onChange={e => upd('name', e.target.value)}
                 placeholder="e.g. Studio Montmartre"
-                className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full px-3 py-2.5 rounded-xl border bg-surface focus:ring-2 focus:ring-accent outline-none"
               />
             </div>
 
             {!smoobuKeyExists && (
               <>
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-sm mt-4">
-                  <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">📅 Connect your calendars</p>
-                  <p className="text-blue-600 dark:text-blue-400">Import bookings from Airbnb and/or Booking.com. Both optional.</p>
+                <div className="bg-tint rounded-xl p-4 text-sm mt-4">
+                  <p className="font-medium text-accent mb-1">Connect your calendars</p>
+                  <p className="text-accent">Import bookings from Airbnb and/or Booking.com. Both optional.</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Airbnb iCal URL</label>
+                  <label className="block text-xs text-muted mb-1">Airbnb iCal URL</label>
                   <div className="flex gap-2">
                     <input
                       value={form.ical_airbnb} onChange={e => { upd('ical_airbnb', e.target.value); setAirbnbValid(null); }}
                       placeholder="https://www.airbnb.com/calendar/ical/..."
-                      className="flex-1 px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm"
+                      className="flex-1 px-3 py-2.5 rounded-xl border bg-surface outline-none text-sm"
                     />
                     <button disabled={!form.ical_airbnb.trim()} onClick={() => testIcal(form.ical_airbnb, 'airbnb')}
-                        className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+                        className="px-3 py-2 bg-page rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
                         {testingAirbnb ? <Loader2 size={16} className="animate-spin" /> : 'Test'}
                       </button>
                   </div>
-                  {airbnbValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
-                  {airbnbValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
+                  {airbnbValid === true && <p className="text-accent text-sm mt-1">Valid iCal feed</p>}
+                  {airbnbValid === false && <p className="text-danger text-sm mt-1">Could not validate URL</p>}
                   {airbnbPreview && airbnbPreview.length > 0 && (
-                    <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3 max-h-40 overflow-y-auto">
-                      <p className="text-xs font-medium text-gray-500 mb-2">{airbnbPreview.length} booking(s) found:</p>
+                    <div className="mt-2 bg-surface rounded-lg border p-3 max-h-40 overflow-y-auto">
+                      <p className="text-xs font-medium text-muted mb-2">{airbnbPreview.length} booking(s) found:</p>
                       {airbnbPreview.slice(0, 5).map((b: any, i: number) => (
-                        <div key={i} className="text-xs py-1 border-b dark:border-gray-700 last:border-0">
+                        <div key={i} className="text-xs py-1 border-b last:border-0">
                           <span className="font-medium">{b.guest_name || 'Unknown'}</span> · {b.checkin_date} → {b.checkout_date}
                         </div>
                       ))}
-                      {airbnbPreview.length > 5 && <p className="text-xs text-gray-400 mt-1">...and {airbnbPreview.length - 5} more</p>}
+                      {airbnbPreview.length > 5 && <p className="text-xs text-muted mt-1">...and {airbnbPreview.length - 5} more</p>}
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Booking.com iCal URL</label>
+                  <label className="block text-xs text-muted mb-1">Booking.com iCal URL</label>
                   <div className="flex gap-2">
                     <input
                       value={form.ical_booking} onChange={e => { upd('ical_booking', e.target.value); setBookingValid(null); }}
                       placeholder="https://admin.booking.com/..."
-                      className="flex-1 px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-sm"
+                      className="flex-1 px-3 py-2.5 rounded-xl border bg-surface outline-none text-sm"
                     />
                     <button disabled={!form.ical_booking.trim()} onClick={() => testIcal(form.ical_booking, 'booking')}
-                        className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+                        className="px-3 py-2 bg-page rounded-xl text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
                         {testingBooking ? <Loader2 size={16} className="animate-spin" /> : 'Test'}
                       </button>
                   </div>
-                  {bookingValid === true && <p className="text-green-500 text-sm mt-1">✅ Valid iCal feed</p>}
-                  {bookingValid === false && <p className="text-red-500 text-sm mt-1">❌ Could not validate URL</p>}
+                  {bookingValid === true && <p className="text-accent text-sm mt-1">Valid iCal feed</p>}
+                  {bookingValid === false && <p className="text-danger text-sm mt-1">Could not validate URL</p>}
                   {bookingPreview && bookingPreview.length > 0 && (
-                    <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3 max-h-40 overflow-y-auto">
-                      <p className="text-xs font-medium text-gray-500 mb-2">{bookingPreview.length} booking(s) found:</p>
+                    <div className="mt-2 bg-surface rounded-lg border p-3 max-h-40 overflow-y-auto">
+                      <p className="text-xs font-medium text-muted mb-2">{bookingPreview.length} booking(s) found:</p>
                       {bookingPreview.slice(0, 5).map((b: any, i: number) => (
-                        <div key={i} className="text-xs py-1 border-b dark:border-gray-700 last:border-0">
+                        <div key={i} className="text-xs py-1 border-b last:border-0">
                           <span className="font-medium">{b.guest_name || 'Unknown'}</span> · {b.checkin_date} → {b.checkout_date}
                         </div>
                       ))}
-                      {bookingPreview.length > 5 && <p className="text-xs text-gray-400 mt-1">...and {bookingPreview.length - 5} more</p>}
+                      {bookingPreview.length > 5 && <p className="text-xs text-muted mt-1">...and {bookingPreview.length - 5} more</p>}
                     </div>
                   )}
                 </div>
@@ -186,16 +186,16 @@ export default function AddProperty() {
             )}
 
             {smoobuKeyExists && (
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 text-sm mt-4">
-                <p className="font-medium text-green-700 dark:text-green-300 mb-1">✅ Smoobu Integration Active</p>
-                <p className="text-green-600 dark:text-green-400">Bookings will be automatically synced from Smoobu with full guest details.</p>
+              <div className="bg-tint rounded-xl p-4 text-sm mt-4">
+                <p className="font-medium text-accent mb-1">Smoobu Integration Active</p>
+                <p className="text-accent">Bookings will be automatically synced from Smoobu with full guest details.</p>
               </div>
             )}
 
             <button
               disabled={!form.name.trim()}
               onClick={() => setStep(2)}
-              className="w-full bg-blue-500 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-4"
+              className="w-full bg-accent disabled:bg-gray-300 text-accent-ink font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-4"
             >
               Next <ArrowRight size={18} />
             </button>
@@ -205,36 +205,36 @@ export default function AddProperty() {
         {/* Step 2: Assign Cleaner */}
         {step === 2 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold">Assign a Cleaner</h2>
-            <p className="text-sm text-gray-500">Optionally assign a cleaner to this property now, or do it later.</p>
+            <h2 className="text-lg font-semibold">Assign a Cleaner</h2>
+            <p className="text-sm text-muted">Optionally assign a cleaner to this property now, or do it later.</p>
 
             <div className="space-y-3">
               <button onClick={() => upd('cleaner_option', 'skip')}
-                className={`w-full p-4 rounded-xl border-2 text-left transition-all ${form.cleaner_option === 'skip' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                className={`w-full p-4 rounded-xl border-2 text-left transition-all ${form.cleaner_option === 'skip' ? 'border-accent bg-tint' : 'border-line'}`}>
                 <p className="font-medium">⏭️ Skip for now</p>
-                <p className="text-sm text-gray-500">You can assign cleaners later</p>
+                <p className="text-sm text-muted">You can assign cleaners later</p>
               </button>
 
               <button onClick={() => upd('cleaner_option', 'invite')}
-                className={`w-full p-4 rounded-xl border-2 text-left transition-all ${form.cleaner_option === 'invite' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
-                <p className="font-medium">✉️ Invite by email</p>
-                <p className="text-sm text-gray-500">Send an invite to a new cleaner</p>
+                className={`w-full p-4 rounded-xl border-2 text-left transition-all ${form.cleaner_option === 'invite' ? 'border-accent bg-tint' : 'border-line'}`}>
+                <p className="font-medium">Invite by email</p>
+                <p className="text-sm text-muted">Send an invite to a new cleaner</p>
               </button>
 
               {form.cleaner_option === 'invite' && (
                 <div className="pl-4 space-y-3">
                   <input value={form.cleaner_name} onChange={e => upd('cleaner_name', e.target.value)}
-                    placeholder="Cleaner name" className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none" />
+                    placeholder="Cleaner name" className="w-full px-3 py-2.5 rounded-xl border bg-surface outline-none" />
                   <input value={form.cleaner_email} onChange={e => upd('cleaner_email', e.target.value)}
-                    placeholder="cleaner@email.com" type="email" className="w-full px-3 py-2.5 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 outline-none" />
+                    placeholder="cleaner@email.com" type="email" className="w-full px-3 py-2.5 rounded-xl border bg-surface outline-none" />
                 </div>
               )}
 
               {existingCleaners.length > 0 && (
                 <button onClick={() => upd('cleaner_option', 'existing')}
-                  className={`w-full p-4 rounded-xl border-2 text-left transition-all ${form.cleaner_option === 'existing' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
-                  <p className="font-medium">👥 Select existing cleaner</p>
-                  <p className="text-sm text-gray-500">Choose from your team</p>
+                  className={`w-full p-4 rounded-xl border-2 text-left transition-all ${form.cleaner_option === 'existing' ? 'border-accent bg-tint' : 'border-line'}`}>
+                  <p className="font-medium">Select existing cleaner</p>
+                  <p className="text-sm text-muted">Choose from your team</p>
                 </button>
               )}
 
@@ -242,9 +242,9 @@ export default function AddProperty() {
                 <div className="pl-4 space-y-2">
                   {existingCleaners.map(c => (
                     <button key={c.id} onClick={() => upd('cleaner_id', c.id)}
-                      className={`w-full p-3 rounded-xl border text-left ${form.cleaner_id === c.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                      className={`w-full p-3 rounded-xl border text-left ${form.cleaner_id === c.id ? 'border-accent bg-tint' : 'border-line'}`}>
                       <p className="font-medium">{c.name}</p>
-                      <p className="text-sm text-gray-400">{c.email}</p>
+                      <p className="text-sm text-muted">{c.email}</p>
                     </button>
                   ))}
                 </div>
@@ -252,7 +252,7 @@ export default function AddProperty() {
             </div>
 
             <button disabled={saving} onClick={submit}
-              className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-6 shadow-lg shadow-green-500/25">
+              className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-300 text-accent-ink font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-6 shadow-lg shadow-green-500/25">
               {saving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
               {saving ? 'Saving...' : 'Create Property'}
             </button>

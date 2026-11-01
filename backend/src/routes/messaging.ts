@@ -68,6 +68,18 @@ router.put('/api/messaging/templates/:key', async (c) => {
   return c.json({ ok: true });
 });
 
+// Turn one template on or off. Body: { active: boolean }
+router.patch('/api/messaging/templates/:key', async (c) => {
+  const { active } = await c.req.json();
+  if (typeof active !== 'boolean') return c.json({ error: 'active (boolean) required' }, 400);
+  const res = await db.execute({
+    sql: "UPDATE message_template SET active = ?, updated_at = datetime('now') WHERE user_id = ? AND key = ?",
+    args: [active ? 1 : 0, c.get('userId'), c.req.param('key')],
+  });
+  if (!res.rowsAffected) return c.json({ error: 'No such template' }, 404);
+  return c.json({ ok: true, key: c.req.param('key'), active });
+});
+
 // Placeholder keys per apartment (values stay server-side; they hold door codes).
 router.get('/api/messaging/placeholders', async (c) => {
   const ph = await loadPlaceholders(c.get('userId'));

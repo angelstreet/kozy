@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiFetch } from '@/api';
 
 export default function NotificationBell() {
   const { cleanerId } = useAuth();
@@ -11,7 +12,7 @@ export default function NotificationBell() {
   const fetchUnread = useCallback(async () => {
     if (!cleanerId) return;
     try {
-      const res = await fetch('/api/notifications?cleaner_id=' + cleanerId);
+      const res = await apiFetch('/notifications?cleaner_id=' + cleanerId);
       const data = await res.json();
       if (Array.isArray(data)) {
         setUnread(data.filter((n: any) => !n.read).length);
@@ -30,12 +31,12 @@ export default function NotificationBell() {
   return (
     <button
       onClick={() => navigate('/c/notifications')}
-      className="relative p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      className="icon-btn relative"
       aria-label="Notifications"
     >
-      <Bell size={20} className="text-gray-600 dark:text-gray-300" />
+      <Bell size={20} strokeWidth={1.75} />
       {unread > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+        <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-danger text-accent-ink text-[10px] font-semibold rounded-full flex items-center justify-center">
           {unread > 9 ? '9+' : unread}
         </span>
       )}

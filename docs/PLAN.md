@@ -133,10 +133,23 @@ Mockup first, then build, in light and dark, mobile first (owner rules: `web-ui-
 - [x] Mockup v1 (2026-11-01, private canvas https://claude.ai/artifact/6AK4o6P32jUN7E5owWz42U): Today, Inbox +
       quick replies, Automatic messages, Calendar, Results, Today dark. Warm off-white / teal, Inter, 5-tab nav
       (Today, Calendar, Inbox, Results, More). Waiting for owner feedback before building.
+- [x] Build v1 (2026-11-01): colour tokens light/dark (`frontend/src/index.css`, Tailwind `page/surface/line/ink/
+      muted/accent/...`), Inter, new header (language, theme, role, account icons), 5-tab nav (Today, Calendar,
+      Messages, Results, More; Properties in More and the desktop sidebar), new Today and Messages screens
+      (sending mode, rules on/off, 7-day preview, quick replies, log), every other screen moved onto the tokens,
+      emoji replaced by icons. Fixed: the deployed app called `/kozy/api` (HTML) instead of `/api`.
+- [x] Owner's 3 properties created in prod Kozy and Smoobu history imported (804 bookings).
+- [ ] Calendar and Results: real redesign (today only re-coloured); booking bars still use old channel hexes.
+- [ ] Imported bookings include Smoobu cancellations? `status` is null on all 804: check the sync.
 - [ ] Audit every owner screen (dashboard, calendar, properties, analytics, cleaners, payments, settings) and the cleaner screens.
 - [ ] Design tokens + one component set (shadcn/ui is already in the stack); icons with labels, one primary action per screen.
 - [ ] New screens: Inbox (Phase 2), Pricing (Phase 4), ROI (Phase 5).
 - [ ] Remove debug/screenshot scripts and PNGs from the repo root.
+
+## Security
+
+- [x] `POST /api/seed`, `/api/reset` and `/api/dev/*` were public and wipe the DB: now 403 on Vercel/production (2026-11-01).
+- [ ] `/api/notifications*` skips auth (any cleaner_id readable): put it behind Clerk or a cleaner token.
 
 ## Phase 7 — assistant / automation
 

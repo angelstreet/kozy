@@ -538,7 +538,7 @@ export default function Analytics() {
   if (loading || propsLoading) {
     return (
       <div className="p-4 flex items-center justify-center h-48">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
       </div>
     );
   }
@@ -547,11 +547,11 @@ export default function Analytics() {
     <div className="p-4 space-y-4 pb-20">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <TrendingUp size={20} className="text-blue-500" />
+          <h1 className="page-title flex items-center gap-2">
+            <TrendingUp size={20} className="text-accent" />
             {lang === 'fr' ? 'Analytique' : 'Analytics'}
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted mt-1">
             {lang === 'fr'
               ? 'Structuree comme Airbnb: revenus, performance, qualite, rapports.'
               : 'Structured like Airbnb: earnings, performance, quality, reports.'}

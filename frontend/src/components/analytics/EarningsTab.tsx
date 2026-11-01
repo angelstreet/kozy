@@ -47,13 +47,13 @@ export default function EarningsTab({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)] gap-4">
-        <section className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-[0.2em] mb-2">
+        <section className="bg-surface rounded-2xl p-4 border border-line">
+          <p className="text-xs text-muted uppercase tracking-[0.2em] mb-2">
             {histogramTitle}
           </p>
           <div className="flex flex-col gap-1 mb-4">
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">€{fmt(totalRevenue)}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-3xl font-semibold text-ink">€{fmt(totalRevenue)}</p>
+            <p className="text-sm text-muted">
               {totalBookedNights} {lang === 'fr' ? 'nuits reservees dans la periode' : 'booked nights in range'}
             </p>
           </div>
@@ -83,20 +83,20 @@ export default function EarningsTab({
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[260px] flex items-center justify-center text-sm text-gray-400">
+            <div className="h-[260px] flex items-center justify-center text-sm text-muted">
               {lang === 'fr' ? 'Aucune donnee pour cette periode' : 'No data for this period'}
             </div>
           )}
         </section>
 
-        <section className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-[0.2em] mb-3">
+        <section className="bg-surface rounded-2xl p-4 border border-line">
+          <p className="text-xs text-muted uppercase tracking-[0.2em] mb-3">
             {lang === 'fr' ? 'Distribution des revenus' : 'Revenue distribution'}
           </p>
           {distributionData.length > 0 ? (
             <DistributionDonut data={distributionData} total={totalRevenue} fmt={fmt} />
           ) : (
-            <div className="h-[260px] flex items-center justify-center text-sm text-gray-400">
+            <div className="h-[260px] flex items-center justify-center text-sm text-muted">
               {lang === 'fr' ? 'Aucune donnee' : 'No data'}
             </div>
           )}
@@ -104,29 +104,29 @@ export default function EarningsTab({
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">
+        <div className="bg-surface rounded-2xl p-4 border border-line">
+          <p className="text-xs text-muted uppercase tracking-wide">
             {lang === 'fr' ? 'Revenu reserve' : 'Booked revenue'}
           </p>
-          <p className="text-2xl font-bold mt-2 text-gray-900 dark:text-white">€{fmt(upcomingRevenue)}</p>
+          <p className="text-2xl font-semibold mt-2 text-ink">€{fmt(upcomingRevenue)}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">
+        <div className="bg-surface rounded-2xl p-4 border border-line">
+          <p className="text-xs text-muted uppercase tracking-wide">
             {lang === 'fr' ? 'Nuits vendues' : 'Sold nights'}
           </p>
-          <p className="text-2xl font-bold mt-2 text-gray-900 dark:text-white">{totalBookedNights}</p>
+          <p className="text-2xl font-semibold mt-2 text-ink">{totalBookedNights}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">
+        <div className="bg-surface rounded-2xl p-4 border border-line">
+          <p className="text-xs text-muted uppercase tracking-wide">
             {lang === 'fr' ? 'Menage' : 'Cleaning'}
           </p>
-          <p className="text-2xl font-bold mt-2 text-red-500">-€{fmt(cleanerCost)}</p>
+          <p className="text-2xl font-semibold mt-2 text-danger">-€{fmt(cleanerCost)}</p>
         </div>
-        <div className={`rounded-2xl p-4 shadow-sm ${netCashflow >= 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
-          <p className="text-xs text-gray-400 uppercase tracking-wide">
+        <div className={`rounded-2xl p-4 shadow-sm ${netCashflow >= 0 ? 'bg-tint' : 'bg-danger-tint'}`}>
+          <p className="text-xs text-muted uppercase tracking-wide">
             {lang === 'fr' ? 'Cash-flow net' : 'Net cashflow'}
           </p>
-          <p className={`text-2xl font-bold mt-2 ${netCashflow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+          <p className={`text-2xl font-semibold mt-2 ${netCashflow >= 0 ? 'text-accent' : 'text-danger'}`}>
             {netCashflow >= 0 ? '+' : ''}€{fmt(netCashflow)}
           </p>
         </div>

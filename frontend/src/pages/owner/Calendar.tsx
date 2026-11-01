@@ -108,16 +108,16 @@ function BookingPopover({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
     <div
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 w-80"
+      className="bg-surface rounded-xl shadow-2xl border border-line p-4 w-80"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-start justify-between mb-3">
-        <h3 className="text-base font-bold text-gray-900 dark:text-white">
+        <h3 className="text-base font-semibold text-ink">
           {cleanGuestName(booking.guest_name)}
         </h3>
         <button 
           onClick={onClose} 
-          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+          className="p-1 hover:bg-page rounded transition-colors"
         >
           <X size={16} />
         </button>
@@ -126,60 +126,60 @@ function BookingPopover({
       <div className="space-y-2.5">
         <div className="flex items-center gap-2">
           <div 
-            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-semibold"
             style={{ backgroundColor: getSourceColor(booking.source) }}
           >
             {getSourceInitial(booking.source).replace('.', '')}
           </div>
-          <span className="font-medium text-sm text-gray-700 dark:text-gray-300">
+          <span className="font-medium text-sm text-ink">
             {getSourceLabel(booking.source)}
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex items-center gap-2 text-sm text-muted">
           <Users size={14} />
           <span>5 {lang === 'fr' ? 'voyageurs' : 'guests'}</span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex items-center gap-2 text-sm text-muted">
           <Moon size={14} />
           <span>{nights} {lang === 'fr' ? (nights > 1 ? 'nuits' : 'nuit') : (nights > 1 ? 'nights' : 'night')}</span>
         </div>
 
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-2.5 space-y-2">
+        <div className="border-t border-line pt-2.5 space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{lang === 'fr' ? 'Arrivée' : 'From'}</span>
+            <span className="text-muted">{lang === 'fr' ? 'Arrivée' : 'From'}</span>
             <div className="text-right">
-              <div className="font-medium text-gray-900 dark:text-white">
+              <div className="font-medium text-ink">
                 {checkin.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}
               </div>
-              <div className="text-xs text-gray-500">(16:00)</div>
+              <div className="text-xs text-muted">(16:00)</div>
             </div>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{lang === 'fr' ? 'Départ' : 'To'}</span>
+            <span className="text-muted">{lang === 'fr' ? 'Départ' : 'To'}</span>
             <div className="text-right">
-              <div className="font-medium text-gray-900 dark:text-white">
+              <div className="font-medium text-ink">
                 {checkout.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}
               </div>
-              <div className="text-xs text-gray-500">(12:00)</div>
+              <div className="text-xs text-muted">(12:00)</div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-2.5">
+        <div className="border-t border-line pt-2.5">
           <div className="flex items-center gap-2 text-sm">
-            <TrendingUp size={14} className="text-gray-500" />
-            <span className="text-gray-500">{lang === 'fr' ? 'Valeur du paiement' : 'Payout value'}</span>
-            <span className="ml-auto font-bold text-gray-900 dark:text-white">730.41</span>
+            <TrendingUp size={14} className="text-muted" />
+            <span className="text-muted">{lang === 'fr' ? 'Valeur du paiement' : 'Payout value'}</span>
+            <span className="ml-auto font-semibold text-ink">730.41</span>
           </div>
         </div>
 
         <div className="pt-2 space-y-2">
-          <button className="w-full px-3 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
+          <button className="w-full px-3 py-2 bg-accent text-accent-ink rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors">
             {lang === 'fr' ? 'Voir plus' : 'View more'}
           </button>
-          <button className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <button className="w-full px-3 py-2 border border-line text-ink rounded-lg text-sm font-medium hover:bg-page transition-colors">
             {lang === 'fr' ? 'Modifier la réservation' : 'Edit booking'}
           </button>
         </div>
@@ -318,35 +318,35 @@ function MonthGrid({
   }, [weeks, filteredBookings, propertySlotMap]);
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden max-w-full">
+    <div className="bg-surface rounded-lg shadow-sm border border-line overflow-hidden max-w-full">
       <div className="px-3 sm:px-4 py-2.5">
-        <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+        <h2 className="text-sm sm:text-base font-semibold text-ink">
           {new Date(year, month).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
         </h2>
       </div>
-      <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+      <div className="grid grid-cols-7 border-b border-line bg-page">
         {dayNames.map((day, idx) => (
-          <div key={day} className={`text-center text-[10px] font-semibold py-1.5 ${idx >= 5 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+          <div key={day} className={`text-center text-[10px] font-semibold py-1.5 ${idx >= 5 ? 'text-accent' : 'text-muted'}`}>
             {day}
           </div>
         ))}
       </div>
-      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+      <div className="divide-y divide-line">
         {weeks.map((week, weekIdx) => {
           const maxLanes = Math.max(1, ...(weekBookingBars[weekIdx]?.map(b => (b.lane ?? 0) + 1) ?? [1]));
           const rowMinHeight = Math.max(56, 22 + maxLanes * 22 + 6);
           return (
             <div key={weekIdx} className="grid grid-cols-7 relative" style={{ minHeight: `${rowMinHeight}px` }}>
               {week.map((cell, dayIdx) => {
-                if (!cell.date) return <div key={dayIdx} className="border-r border-gray-50 dark:border-gray-800" />;
+                if (!cell.date) return <div key={dayIdx} className="border-r border-line" />;
                 const isToday = cell.date.toDateString() === today.toDateString();
                 const isWeekend = cell.date.getDay() === 0 || cell.date.getDay() === 6;
                 return (
                   <div
                     key={dayIdx}
-                    className={`relative p-1 border-r border-gray-50 dark:border-gray-800 flex justify-center ${!cell.isCurrentMonth ? 'opacity-30' : ''} ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''} ${isToday ? 'ring-2 ring-inset ring-blue-500 dark:ring-blue-400' : ''}`}
+                    className={`relative p-1 border-r border-line flex justify-center ${!cell.isCurrentMonth ? 'opacity-30' : ''} ${isWeekend ? 'bg-tint/20' : ''} ${isToday ? 'ring-2 ring-inset ring-accent' : ''}`}
                   >
-                    <div className={`text-[11px] font-semibold text-center ${isToday ? 'bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]' : 'w-full'} ${isWeekend ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <div className={`text-[11px] font-semibold text-center ${isToday ? 'bg-accent text-accent-ink rounded-full w-5 h-5 flex items-center justify-center text-[10px]' : 'w-full'} ${isWeekend ? 'text-accent' : 'text-ink'}`}>
                       {cell.date.getDate()}
                     </div>
                   </div>
@@ -379,7 +379,7 @@ function MonthGrid({
                     title={`${guestName} • ${booking.property_name}`}
                   >
                     <div className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50" style={{ backgroundColor: propertyColor }} />
-                    <div className="w-3.5 h-3.5 rounded-full bg-white/90 flex items-center justify-center text-[8px] font-bold flex-shrink-0" style={{ color: sourceColor }}>
+                    <div className="w-3.5 h-3.5 rounded-full bg-surface/90 flex items-center justify-center text-[8px] font-semibold flex-shrink-0" style={{ color: sourceColor }}>
                       {getSourceInitial(booking.source).charAt(0)}
                     </div>
                     <span className="flex-1 min-w-0 truncate text-[10px]">{guestName}</span>
@@ -503,15 +503,15 @@ function WeekGrid({
   const rowMinHeight = Math.max(96, 32 + maxLanes * 24 + 10);
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden max-w-full">
+    <div className="bg-surface rounded-lg shadow-sm border border-line overflow-hidden max-w-full">
       <div className="px-3 sm:px-4 py-2.5">
-        <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+        <h2 className="text-sm sm:text-base font-semibold text-ink">
           {week[0].date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })} - {week[6].date.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}
         </h2>
       </div>
-      <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+      <div className="grid grid-cols-7 border-b border-line bg-page">
         {dayNames.map((day, idx) => (
-          <div key={day} className={`text-center text-[10px] font-semibold py-1.5 ${idx >= 5 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+          <div key={day} className={`text-center text-[10px] font-semibold py-1.5 ${idx >= 5 ? 'text-accent' : 'text-muted'}`}>
             {day}
           </div>
         ))}
@@ -523,9 +523,9 @@ function WeekGrid({
           return (
             <div
               key={dayIdx}
-              className={`relative p-1 border-r border-gray-50 dark:border-gray-800 flex justify-center ${isWeekend ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''} ${isToday ? 'ring-2 ring-inset ring-blue-500 dark:ring-blue-400' : ''}`}
+              className={`relative p-1 border-r border-line flex justify-center ${isWeekend ? 'bg-tint/20' : ''} ${isToday ? 'ring-2 ring-inset ring-accent' : ''}`}
             >
-              <div className={`text-[11px] font-semibold text-center ${isToday ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px]' : 'w-full'} ${isWeekend ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+              <div className={`text-[11px] font-semibold text-center ${isToday ? 'bg-accent text-accent-ink rounded-full w-6 h-6 flex items-center justify-center text-[10px]' : 'w-full'} ${isWeekend ? 'text-accent' : 'text-ink'}`}>
                 {cell.date.getDate()}
               </div>
             </div>
@@ -552,7 +552,7 @@ function WeekGrid({
               title={`${guestName} • ${booking.property_name}`}
             >
               <div className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50" style={{ backgroundColor: propertyColor }} />
-              <div className="w-3.5 h-3.5 rounded-full bg-white/90 flex items-center justify-center text-[8px] font-bold flex-shrink-0" style={{ color: sourceColor }}>
+              <div className="w-3.5 h-3.5 rounded-full bg-surface/90 flex items-center justify-center text-[8px] font-semibold flex-shrink-0" style={{ color: sourceColor }}>
                 {getSourceInitial(booking.source).charAt(0)}
               </div>
               <span className="flex-1 min-w-0 truncate">{guestName}</span>
@@ -883,7 +883,7 @@ export default function Calendar() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-gray-400">{lang === 'fr' ? 'Chargement...' : 'Loading...'}</div>
+        <div className="text-muted">{lang === 'fr' ? 'Chargement...' : 'Loading...'}</div>
       </div>
     );
   }
@@ -891,7 +891,7 @@ export default function Calendar() {
   if (isEmpty) {
     return (
       <div className="p-8">
-        <h1 className="text-2xl font-bold mb-6">{t('calendar', lang)}</h1>
+        <h1 className="page-title mb-6">{t('calendar', lang)}</h1>
         <EmptyState
           emoji="📅"
           title={lang === 'fr' ? "Aucune propriété" : "No properties yet"}
@@ -904,32 +904,32 @@ export default function Calendar() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
+    <div className="min-h-screen bg-page overflow-x-hidden">
       {/* COMPACT HEADER */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3 overflow-hidden">
+      <div className="bg-surface border-b border-line px-4 py-3 overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
           {/* Left: Navigation + Month */}
           <div className="flex items-center gap-3">
             <button
               onClick={goPrev}
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              className="p-1.5 hover:bg-page rounded transition-colors"
             >
               <ChevronLeft size={20} />
             </button>
             {(year !== today.getFullYear() || month !== today.getMonth()) && (
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-2.5 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                className="px-2.5 py-1 text-xs font-medium bg-tint text-accent rounded-md hover:bg-blue-100 transition-colors"
               >
                 {lang === 'fr' ? "Aujourd'hui" : 'Today'}
               </button>
             )}
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white whitespace-nowrap">
+            <h1 className="text-base sm:text-lg font-semibold text-ink whitespace-nowrap">
               {headerLabel}
             </h1>
             <button
               onClick={goNext}
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              className="p-1.5 hover:bg-page rounded transition-colors"
             >
               <ChevronRight size={20} />
             </button>
@@ -940,7 +940,7 @@ export default function Calendar() {
             {/* Property Dropdown */}
             <div className="relative flex-1 sm:flex-none">
               <select
-                className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-full sm:w-48 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                className="px-2 sm:px-3 py-2 border border-line bg-surface text-xs sm:text-sm font-semibold text-ink rounded-xl shadow-sm focus:ring-2 focus:ring-accent focus:border-accent transition-all appearance-none w-full sm:w-48 cursor-pointer hover:shadow-md hover:border-accent"
                 value={displayPropertyId}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -963,7 +963,7 @@ export default function Calendar() {
             {/* Platform Dropdown — desktop only */}
             <div className="relative hidden sm:block">
               <select
-                className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-40 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                className="px-3 py-2 border border-line bg-surface text-sm font-semibold text-ink rounded-xl shadow-sm focus:ring-2 focus:ring-accent focus:border-accent transition-all appearance-none w-40 cursor-pointer hover:shadow-md hover:border-accent"
                 value={displaySource}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -980,25 +980,25 @@ export default function Calendar() {
 
             {/* Search — desktop only */}
             <div className="relative hidden sm:flex">
-              <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
               <input
                 type="text"
                 placeholder={lang === 'fr' ? "Rechercher" : "Search"}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-40"
+                className="pl-8 pr-3 py-1.5 border border-line rounded-lg bg-surface text-sm focus:ring-2 focus:ring-accent focus:border-transparent w-40"
               />
             </div>
 
             {/* View Mode Toggle — icon-only on mobile, icon+text on desktop */}
-            <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden flex-shrink-0">
+            <div className="flex rounded-lg border border-line overflow-hidden flex-shrink-0">
               <button
                 onClick={() => setViewMode('calendar')}
                 className={`p-2 transition-colors flex items-center justify-center rounded-l-lg ${
                   viewMode === 'calendar'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
-                }`}
+                    ? 'bg-accent text-accent-ink'
+                    : 'bg-surface text-muted hover:bg-page'
+                } border border-line`}
                 title={lang === 'fr' ? 'Calendrier' : 'Calendar'}
               >
                 <CalendarIcon size={20} />
@@ -1007,9 +1007,9 @@ export default function Calendar() {
                 onClick={() => setViewMode('timeline')}
                 className={`p-2 transition-colors flex items-center justify-center rounded-r-lg ${
                   viewMode === 'timeline'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750'
-                }`}
+                    ? 'bg-accent text-accent-ink'
+                    : 'bg-surface text-muted hover:bg-page'
+                } border border-line`}
                 title={lang === 'fr' ? 'Timeline' : 'Timeline'}
               >
                 <BarChart3 size={20} />
@@ -1019,7 +1019,7 @@ export default function Calendar() {
             {viewMode === 'calendar' && (
               <div className="relative flex-shrink-0">
                 <select
-                  className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-full sm:w-36 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                  className="px-2 sm:px-3 py-2 border border-line bg-surface text-xs sm:text-sm font-semibold text-ink rounded-xl shadow-sm focus:ring-2 focus:ring-accent focus:border-accent transition-all appearance-none w-full sm:w-36 cursor-pointer hover:shadow-md hover:border-accent"
                   value={calendarSpan}
                   onChange={(e) => setCalendarSpan(e.target.value as typeof calendarSpan)}
                 >
@@ -1046,7 +1046,7 @@ export default function Calendar() {
             {viewMode === 'timeline' && (
               <div className="relative flex-shrink-0">
                 <select
-                  className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none w-full sm:w-36 cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:bg-gray-700"
+                  className="px-2 sm:px-3 py-2 border border-line bg-surface text-xs sm:text-sm font-semibold text-ink rounded-xl shadow-sm focus:ring-2 focus:ring-accent focus:border-accent transition-all appearance-none w-full sm:w-36 cursor-pointer hover:shadow-md hover:border-accent"
                   value={timelineSpan}
                   onChange={(e) => setTimelineSpan(e.target.value as typeof timelineSpan)}
                 >
@@ -1072,7 +1072,7 @@ export default function Calendar() {
       </div>
 
       {/* UNIFIED BADGE ROW — desktop only (properties first, then separator, then platforms) */}
-      <div className="hidden sm:flex px-4 pt-3 pb-1 overflow-x-auto items-center gap-3 text-xs text-gray-500 dark:text-gray-400 min-w-max" style={{ scrollbarWidth: 'none' }}>
+      <div className="hidden sm:flex px-4 pt-3 pb-1 overflow-x-auto items-center gap-3 text-xs text-muted min-w-max" style={{ scrollbarWidth: 'none' }}>
         {/* Property badges */}
         {properties.map((p: any) => (
           <button
@@ -1087,9 +1087,9 @@ export default function Calendar() {
                 setSelectedPropertyIds([p.id]);
               }
             }}
-            className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer whitespace-nowrap ${
+            className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-page transition-all cursor-pointer whitespace-nowrap ${
               activeCalendarPropertyId === p.id
-                ? 'bg-blue-100 dark:bg-blue-900/30 shadow-sm ring-1 ring-blue-400/50'
+                ? 'bg-tint shadow-sm ring-1 ring-accent/50'
                 : ''
             }`}
           >
@@ -1097,7 +1097,7 @@ export default function Calendar() {
               className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
               style={{ backgroundColor: p.color || '#9CA3AF' }}
             />
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+            <span className="text-xs font-medium text-ink group-hover:text-gray-900 dark:group-hover:text-white">
               {p.name}
             </span>
           </button>
@@ -1105,7 +1105,7 @@ export default function Calendar() {
 
         {/* Separator */}
         {properties.length > 0 && (
-          <span className="text-gray-300 dark:text-gray-600 select-none">|</span>
+          <span className="text-muted select-none">|</span>
         )}
 
         {/* Platform badges */}
@@ -1119,9 +1119,9 @@ export default function Calendar() {
             key={source}
             type="button"
             onClick={() => toggleSource(source)}
-            className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer whitespace-nowrap ${
+            className={`group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-page transition-all cursor-pointer whitespace-nowrap ${
               selectedSources.includes(normalizeSource(source))
-                ? 'bg-blue-100 dark:bg-blue-900/30 shadow-sm ring-1 ring-blue-400/50'
+                ? 'bg-tint shadow-sm ring-1 ring-accent/50'
                 : ''
             }`}
           >
@@ -1129,7 +1129,7 @@ export default function Calendar() {
               className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
               style={{ backgroundColor: getSourceColor(source) }}
             />
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+            <span className="text-xs font-medium text-ink group-hover:text-gray-900 dark:group-hover:text-white">
               {label}
             </span>
           </button>
@@ -1170,15 +1170,15 @@ export default function Calendar() {
           </div>
         ) : (
           /* TIMELINE VIEW - Multi-property Gantt */
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+          <div className="bg-surface rounded-lg shadow-sm border border-line overflow-hidden">
             <div>
           <div
-              className="grid gap-px bg-gray-200 dark:bg-gray-700"
+              className="grid gap-px bg-line"
               style={{ gridTemplateColumns: `140px repeat(${timelineDays.length}, minmax(0, 1fr))` }}
             >
                   {/* Property header (sticky) */}
                   <div 
-                    className="sticky left-0 z-40 p-3 font-bold text-sm bg-gray-50 dark:bg-gray-800 border-b border-r border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                    className="sticky left-0 z-40 p-3 font-semibold text-sm bg-page border-b border-r border-line text-ink"
                     style={{ gridRow: 1, gridColumn: 1 }}
                   >
                     {lang === 'fr' ? 'Propriétés' : 'Properties'}
@@ -1190,8 +1190,8 @@ export default function Calendar() {
                       key={`head-${idx}`}
                       className={`min-h-[48px] flex flex-col items-center justify-center p-1 text-xs font-medium border-b transition-colors ${
                         isSameDay(day, today) 
-                          ? 'bg-blue-500 text-white font-bold' 
-                          : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300'
+                          ? 'bg-accent text-accent-ink font-semibold' 
+                          : 'bg-surface text-ink'
                       }`}
                       style={{
                         gridRow: 1,
@@ -1212,7 +1212,7 @@ export default function Calendar() {
                         {/* Property name (sticky) */}
                         <div
                           key={`prop-${property.id}`}
-                          className="sticky left-0 z-20 bg-white dark:bg-gray-900 p-3 text-sm font-semibold border-r border-b border-gray-200 dark:border-gray-700 flex items-center gap-2"
+                          className="sticky left-0 z-20 bg-surface p-3 text-sm font-semibold border-r border-b border-line flex items-center gap-2"
                           style={{ gridRow: rowNum, gridColumn: 1, height: rowHeight }}
                         >
                           <div 
@@ -1225,7 +1225,7 @@ export default function Calendar() {
                         {/* Timeline bar container */}
                         <div
                           key={`row-${property.id}`}
-                          className="relative border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+                          className="relative border-b border-line bg-surface"
                           style={{ gridRow: rowNum, gridColumn: `2 / ${timelineDays.length + 2}`, height: rowHeight }}
                         >
                           {bars.map((bar, bIdx) => {
@@ -1246,7 +1246,7 @@ export default function Calendar() {
                                 title={`${guestName} • ${getSourceLabel(bar.booking.source)} • ${bar.booking.checkin_date} → ${bar.booking.checkout_date}`}
                               >
                                 <div 
-                                  className="w-4 h-4 rounded-full bg-white/90 flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                  className="w-4 h-4 rounded-full bg-surface/90 flex items-center justify-center text-[9px] font-semibold flex-shrink-0"
                                   style={{ color: sourceColor }}
                                 >
                                   {getSourceInitial(bar.booking.source).charAt(0)}

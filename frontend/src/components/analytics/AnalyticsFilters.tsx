@@ -34,23 +34,23 @@ export default function AnalyticsFilters({
       <select
         value={selectedPropertyId ?? ''}
         onChange={e => setSelectedPropertyId(e.target.value === '' ? null : Number(e.target.value))}
-        className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium rounded-xl focus:ring-2 focus:ring-blue-500"
+        className="px-3 py-2 border border-line bg-surface text-sm font-medium rounded-xl focus:ring-2 focus:ring-accent"
       >
         <option value="">{lang === 'fr' ? 'Toutes proprietes' : 'All Properties'}</option>
         {properties.map(property => (
           <option key={property.id} value={property.id}>{property.name}</option>
         ))}
       </select>
-      <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 flex-wrap">
+      <div className="flex gap-1 bg-page rounded-xl p-1 flex-wrap">
         {periods.map(item => (
           <button
             key={item.value}
             onClick={() => setPeriod(item.value)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               period === item.value
-                ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
+                ? 'bg-surface text-accent'
+                : 'text-muted hover:text-ink'
+            } border border-line`}
           >
             {item.label}
           </button>
