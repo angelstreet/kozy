@@ -5,7 +5,7 @@ import { isDue, parisToUtc, render, sendAtFor, skipReason, type BookingForMessag
 const booking = (over: Partial<BookingForMessaging> = {}): BookingForMessaging => ({
   id: 1, type: 'reservation', isBlocked: false, channel: 'Airbnb', apartmentId: 10,
   createdAt: '2026-11-01 14:30', arrival: '2026-11-10', departure: '2026-11-13',
-  firstName: 'Ana', guestName: 'Ana Silva', language: 'pt', checkIn: null, checkOut: null,
+  firstName: 'ana', guestName: 'Ana Silva', language: 'pt', checkIn: null, checkOut: null,
   price: 300, email: null, ...over,
 });
 const tpl = (over: Partial<MessageTemplate> = {}): MessageTemplate => ({
@@ -23,7 +23,8 @@ test('arrival-day message is due from 08:00 Paris, not before, not 2 days later'
   assert.equal(sendAtFor(t, b).toISOString(), '2026-11-10T07:00:00.000Z');
   assert.equal(isDue(t, b, new Date('2026-11-10T06:59:00Z')), false);
   assert.equal(isDue(t, b, new Date('2026-11-10T07:05:00Z')), true);
-  assert.equal(isDue(t, b, new Date('2026-11-12T07:05:00Z')), false);
+  assert.equal(isDue(t, b, new Date('2026-11-10T12:59:00Z')), true);
+  assert.equal(isDue(t, b, new Date('2026-11-10T13:01:00Z')), false); // > 6 h late: skipped
 });
 
 test('confirmation is due right after booking', () => {

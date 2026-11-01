@@ -74,8 +74,11 @@ export function skipReason(b: BookingForMessaging): string | null {
   return null;
 }
 
-/** Grace period: a run that misses the exact time still sends within this window. */
-export const GRACE_MS = 36 * 3600 * 1000;
+/**
+ * Grace period: a run that misses the exact time still sends within this window, but an
+ * arrival-day message is never sent a day late.
+ */
+export const GRACE_MS = 6 * 3600 * 1000;
 
 /**
  * Whether template t is due for booking b at `now`.
@@ -116,8 +119,9 @@ export function render(
   placeholders: Record<string, string>,
   defaults: { checkIn: string; checkOut: string },
 ): string {
+  const first = (b.firstName || b.guestName.split(' ')[0] || '').trim();
   const std: Record<string, string> = {
-    first_name: b.firstName || b.guestName.split(' ')[0] || '',
+    first_name: first.charAt(0).toLocaleUpperCase() + first.slice(1),
     guest_name: b.guestName,
     arrival: formatDate(b.arrival, lang),
     departure: formatDate(b.departure, lang),
