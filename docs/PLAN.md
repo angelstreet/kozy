@@ -30,11 +30,17 @@ here — this repo is public.
 | Day before check-out reminder | Yes (~09:00) | Not visible |
 | Check-in time requests | Answered "Request approved/declined" | — |
 
-Where the Booking.com templates are configured (Booking.com scheduled messages or Smoobu
-automation) is not visible through the API — check in the Smoobu and Booking.com extranet UIs.
+Smoobu UI, checked 2026-11-01:
+- **Experience → Communication** (automated templates): one template only, "Facture", manual
+  sending only. Smoobu sends nothing automatically, so the Booking.com messages above come from
+  Booking.com's own scheduled messages.
+- **Guest Guide**: enabled, standard blocks on (tours, weather, review, map, book next stay…),
+  but no content blocks and no message sends its `[guestAppLink]` — guests never see it.
+- **Online Check-in**: disabled.
 
-- [ ] Check Smoobu → Messages → automated messages, Booking.com extranet → scheduled messages,
-      Airbnb → scheduled messages; list each template, channel and trigger.
+- [x] Smoobu automated messages checked (above).
+- [ ] Booking.com extranet → scheduled messages, Airbnb → scheduled messages: list each template,
+      language and trigger (needs the owner signed in to both in Chrome).
 - [ ] Rebuild the full set in Smoobu for all channels and all 3 properties, in FR + EN:
       booking confirmation, J-3 practical info, arrival-day check-in (address, code, photos),
       mid-stay check, day-before check-out, after check-out thank-you + review request.
