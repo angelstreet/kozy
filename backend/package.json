@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "test": "echo no tests yet"
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@clerk/backend": "^2.30.1",

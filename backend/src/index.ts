@@ -10,6 +10,7 @@ import { syncSmoobuData, syncSmoobuBookings } from './smoobu-sync.js';
 import { syncProperty } from './unified-sync.js';
 import { clerkAuth } from './clerk-middleware.js';
 import integrationRoutes from './routes/integration.js';
+import messagingRoutes from './routes/messaging.js';
 
 type Variables = {
   userId: string;
@@ -24,7 +25,8 @@ app.use('/api/*', async (c, next) => {
   // Skip auth for external API (has own token), invite routes, seed/reset, and health
   if (path.startsWith('/api/external/') || path.startsWith('/api/invite/') ||
       path.startsWith('/api/notifications') || path.startsWith('/api/dev/') ||
-      path === '/api/seed' || path === '/api/reset' || path === '/api/dev/seed') {
+      path === '/api/seed' || path === '/api/reset' || path === '/api/dev/seed' ||
+      path === '/api/messaging/run' || path === '/api/messaging/webhook') {
     return next();
   }
   return clerkAuth(c, next);
@@ -43,6 +45,7 @@ app.use('/*', async (c, next) => {
 });
 
 app.route('', integrationRoutes);
+app.route('', messagingRoutes);
 
 // Local auth login (bypasses Clerk)
 app.post('/api/auth/login', async (c) => {

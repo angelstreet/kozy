@@ -28,6 +28,8 @@ export interface SmoobuReservation {
     name: string; // "Airbnb", "Booking.com"
   };
   'reference-id': string; // Airbnb/Booking.com booking ID
+  'created-at'?: string; // "2026-02-01 14:30", Paris local
+  'is-blocked-booking'?: boolean;
   apartment: {
     id: number;
     name: string;
