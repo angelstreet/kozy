@@ -25,7 +25,8 @@ New keys (`usr_live_…` + secret) sign every request: base64 HMAC-SHA256 over
 - [x] Settings page takes key + secret.
 - [x] Legacy key removed from tracked files (`store-smoobu-key.js`, `test-smoobu-sync.js`, proof doc).
       It stays in git history; it dies on 3 Nov anyway.
-- [ ] Fix the production build — the last `main` deploy on Vercel failed; only `dev` previews are live.
+- [x] Production build fixed (invalid `vercel.json`, broken pre-push hook, API function built as
+      CommonJS, default-export handler). Live at kozy-steel.vercel.app since 2026-11-01.
 - [ ] Add `ENCRYPTION_KEY` to Vercel (missing, so the deployed backend can't decrypt stored keys),
       then save key + secret in Settings (or `backend/store-smoobu-key.js`) for the owner's user.
 - [ ] Konto (separate repo) Property ROI calls Smoobu with the legacy key → move to HMAC before 3 Nov.
