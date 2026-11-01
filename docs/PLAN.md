@@ -91,6 +91,10 @@ New keys (`usr_live_…` + secret) sign every request: base64 HMAC-SHA256 over
 - [ ] Scheduled messages: booking confirmation, pre-arrival instructions, mid-stay check, check-out, review request.
 - [ ] Later: auto-send for safe templates only; anything about money, refunds, dates or complaints waits for the owner.
 
+- [ ] Idea (owner: not now, 2026-11-01): guest reviews can't be posted by API (no review endpoint
+      in Smoobu, no Airbnb host API). Daily Telegram nudge from openclaw instead: guests who left
+      yesterday, a ready-to-paste 5-star text in their language, reservation link; flagged guests skipped.
+
 ## Phase 3 — reservations
 
 - [ ] Create / edit / cancel direct bookings from Kozy (`POST/PUT/DELETE /api/reservations`),
