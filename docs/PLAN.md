@@ -130,6 +130,9 @@ PriceLabs today: base/min/max per listing, pushes daily prices to Smoobu.
 
 Mockup first, then build, in light and dark, mobile first (owner rules: `web-ui-ux-rules` skill).
 
+- [x] Mockup v1 (2026-11-01, private canvas https://claude.ai/artifact/6AK4o6P32jUN7E5owWz42U): Today, Inbox +
+      quick replies, Automatic messages, Calendar, Results, Today dark. Warm off-white / teal, Inter, 5-tab nav
+      (Today, Calendar, Inbox, Results, More). Waiting for owner feedback before building.
 - [ ] Audit every owner screen (dashboard, calendar, properties, analytics, cleaners, payments, settings) and the cleaner screens.
 - [ ] Design tokens + one component set (shadcn/ui is already in the stack); icons with labels, one primary action per screen.
 - [ ] New screens: Inbox (Phase 2), Pricing (Phase 4), ROI (Phase 5).
