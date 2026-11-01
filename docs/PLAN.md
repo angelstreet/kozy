@@ -9,44 +9,46 @@ its API.
 Private facts (listing IDs, addresses, results) are in the owner's `kozy` Claude skill, not
 here — this repo is public.
 
-## Strategy: consolidate in Smoobu first, then move to Kozy
+## Strategy: everything through APIs, Kozy as the brain, Smoobu as the pipe
 
-1. **Smoobu first.** Everything that is configured separately on Airbnb and Booking.com today
-   (automatic messages, house rules, check-in info) moves into Smoobu, so there is one place
-   that covers every channel, direct bookings included. Then switch the channel-side copies
-   off so guests don't get the same message twice.
-2. **Then Kozy.** Kozy takes over from Smoobu and PriceLabs feature by feature (messages,
-   reservations, pricing), always through Smoobu's API, with Smoobu's version switched off only
-   once Kozy's has run without problems.
-3. **What stays in Smoobu:** the Airbnb / Booking.com connection itself (only approved partners
-   get those APIs). Kozy can shrink Smoobu to a pipe, not remove it.
+Owner rule: APIs, not browser automation. Consequences:
 
-### Automatic guest messages — state on 2026-11-01 (from Smoobu message threads)
+- Airbnb and Booking.com have no API for hosts; Smoobu (an approved partner on both) is the
+  only programmatic way in: bookings, rates, guest threads, sending messages.
+- Smoobu's automated templates ("Communication"), Guest Guide and Online Check-in are UI-only,
+  and so are the channels' own scheduled messages. So "configure it in Smoobu first" is not an
+  API path. Instead **Kozy sends the automatic messages itself** through
+  `POST /api/reservations/{id}/messages/send-message-to-guest`, which works the same for every
+  channel, direct bookings included.
+- Kozy then replaces PriceLabs (prices pushed with `POST /api/rates`). Smoobu stays as the pipe.
+- One manual step is unavoidable: switching off the Booking.com scheduled messages in the
+  extranet once Kozy's versions are live (no API for it), so guests don't get them twice.
 
-| | Booking.com | Airbnb |
-|---|---|---|
-| Booking confirmation | Rare: 1 of ~10 recent bookings got "Merci pour votre réservation…" minutes after booking | Not visible — Smoobu only receives the guest side of Airbnb threads |
-| Arrival day check-in instructions (~08:30) | Yes: Gignac (French) and Noisy (English, address + code) | Not visible; guests ask for the address on arrival day, which suggests none |
-| Day before check-out reminder | Yes (~09:00) | Not visible |
-| Check-in time requests | Answered "Request approved/declined" | — |
+### Automatic guest messages today (harvested via the Smoobu messages API, 2026-11-01)
 
-Smoobu UI, checked 2026-11-01:
-- **Experience → Communication** (automated templates): one template only, "Facture", manual
-  sending only. Smoobu sends nothing automatically, so the Booking.com messages above come from
-  Booking.com's own scheduled messages.
-- **Guest Guide**: enabled, standard blocks on (tours, weather, review, map, book next stay…),
-  but no content blocks and no message sends its `[guestAppLink]` — guests never see it.
-- **Online Check-in**: disabled.
+All current automatic messages are **Booking.com scheduled messages**. Smoobu sends nothing
+automatically (one manual "Facture" template; Guest Guide has no content; Online Check-in is
+off). Airbnb's side is invisible: Smoobu only receives the guest half of Airbnb threads.
+Full texts are kept privately (they contain door codes), not in this repo.
 
-- [x] Smoobu automated messages checked (above).
-- [ ] Booking.com extranet → scheduled messages, Airbnb → scheduled messages: list each template,
-      language and trigger (needs the owner signed in to both in Chrome).
-- [ ] Rebuild the full set in Smoobu for all channels and all 3 properties, in FR + EN:
-      booking confirmation, J-3 practical info, arrival-day check-in (address, code, photos),
-      mid-stay check, day-before check-out, after check-out thank-you + review request.
-- [ ] Switch off the Airbnb / Booking.com copies; check the next booking on each channel.
-- [ ] Move to Smoobu what can replace PriceLabs there (seasonal rates, weekday/weekend,
-      length-of-stay and last-minute rules) — then Kozy's pricing engine (Phase 4) replaces both.
+| Property | After booking | Arrival day | Day before check-out | After check-out |
+|---|---|---|---|---|
+| Gignac house | — | FR, ~07:00, access + keybox + wifi | FR, keys + linen | — |
+| Noisy T2 Balcon | FR + EN, practical info (check-out time placeholder is broken) | EN self check-in | FR, keys + bins | — |
+| Noisy T2 Jardin | — | EN self check-in | EN, keys + bins | — |
+
+Gaps: no confirmation for Gignac and Jardin, single-language messages, no review request,
+nothing at all on Airbnb (guests ask for the address on arrival day), nothing for direct bookings.
+
+- [x] Inventory of current templates (via API).
+- [ ] Kozy message engine: templates per property × trigger × language (FR/EN, guest `language`
+      picks), placeholders (guest name, dates, check-in time), stored in Kozy.
+- [ ] Triggers from Smoobu data: new booking (webhook, or poll every 10 min), J-3, arrival day
+      08:00, day before check-out 09:00, after check-out (review request). Sent-log per booking
+      so nothing is sent twice; skip cancelled bookings.
+- [ ] Dry-run week: Kozy shows what it would send; owner approves the texts.
+- [ ] Go live on Airbnb first (nothing runs there today), then Booking.com + switch off its
+      scheduled messages (manual, once).
 
 ## Phase 0 — Smoobu key migration (deadline: legacy `Api-Key` auth stops 3 Nov 2026)
 
