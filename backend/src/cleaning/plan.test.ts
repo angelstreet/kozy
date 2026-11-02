@@ -59,3 +59,12 @@ test('message lines in French and English', () => {
   assert.match(msg, /Déplacé : Dimanche 8 novembre.*\(au lieu du samedi 7 novembre\)/);
   assert.match(msg, /Détails : https:\/\/x\/c\/t$/);
 });
+
+test('first assignment: the schedule is not repeated under the new tasks', () => {
+  const a = { date: '2026-11-08', property: 'Gignac', start: '10:00', nextArrival: null, nextCheckIn: null, nextGuests: null };
+  const b = { ...a, date: '2026-11-10' };
+  const first = updateMessage([{ kind: 'new', line: a }, { kind: 'new', line: b }], [a, b], 'fr', 'L');
+  assert.doesNotMatch(first, /Vos prochains ménages/);
+  const later = updateMessage([{ kind: 'new', line: b }], [a, b], 'fr', 'L');
+  assert.match(later, /Vos prochains ménages/);
+});

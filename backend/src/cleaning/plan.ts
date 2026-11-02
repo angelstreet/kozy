@@ -143,7 +143,11 @@ export function updateMessage(
     const was = c.kind === 'moved' && c.from ? ` (${t.was} ${shortDate(c.from, lang)})` : '';
     return `${t[c.kind]}${lang === 'fr' ? ' : ' : ': '}${scheduleLine(c.line, lang)}${was}`;
   });
-  return [t.update, '', ...changeLines, '', upcomingBlock(upcoming, lang), '', `${t.link} ${link}`].join('\n');
+  // When every upcoming task is a new one (first assignment), the schedule would repeat the change lines.
+  const key = (l: ScheduleLine) => `${l.date}|${l.property}`;
+  const announced = new Set(changes.filter((c) => c.kind === 'new').map((c) => key(c.line)));
+  const repeat = upcoming.length > 0 && upcoming.every((l) => announced.has(key(l)));
+  return [t.update, '', ...changeLines, '', ...(repeat ? [] : [upcomingBlock(upcoming, lang), '']), `${t.link} ${link}`].join('\n');
 }
 
 export function reminderMessage(lines: ScheduleLine[], lang: Lang, link: string): string {
