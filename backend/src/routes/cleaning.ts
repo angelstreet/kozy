@@ -85,7 +85,19 @@ router.put('/api/cleaning/properties/:id', async (c) => {
   return Number(res.rowsAffected) ? c.json({ ok: true }) : c.json({ error: 'Property not found' }, 404);
 });
 
-router.post('/api/cleaning/run', async (c) => c.json(await runCleaning(c.get('userId'))));
+// Owner run. {"sendNow":true} sends every cleaner their current planning on this run.
+router.post('/api/cleaning/run', async (c) => {
+  const userId = c.get('userId');
+  const { sendNow } = await c.req.json().catch(() => ({}));
+  if (sendNow) {
+    await db.execute({
+      sql: `UPDATE cleaner SET planning_due = 'force' WHERE id IN (SELECT pc.cleaner_id FROM property_cleaner pc
+            JOIN property p ON p.id = pc.property_id WHERE p.user_id = ?)`,
+      args: [userId],
+    });
+  }
+  return c.json(await runCleaning(userId));
+});
 
 router.get('/api/cleaning/messages', async (c) => {
   const rows = (await db.execute({

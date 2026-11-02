@@ -33,6 +33,8 @@ export async function migrateCleaning() {
     await db.execute('ALTER TABLE cleaner ADD COLUMN link_token TEXT');
     await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaner_link_token ON cleaner(link_token)');
   }
+  // planning_due: 'evening' (send at 19:00), 'now' (change for today or tomorrow), 'force' (owner: send now).
+  if (!cleanerCols.includes('planning_due')) await db.execute('ALTER TABLE cleaner ADD COLUMN planning_due TEXT');
   if (!cleanerCols.includes('credit_paid')) {
     await db.execute('ALTER TABLE cleaner ADD COLUMN credit_paid INTEGER');
     await db.execute('ALTER TABLE cleaner ADD COLUMN credit_used INTEGER');
