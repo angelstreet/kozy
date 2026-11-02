@@ -62,7 +62,9 @@ export default function CleanerMessages() {
 
   const runNow = async () => {
     setBusy('run'); setRunNote('');
-    const res = await apiFetch('/cleaning/run', { method: 'POST' });
+    const res = await apiFetch('/cleaning/run', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sendNow: true }),
+    });
     const d = await res.json().catch(() => ({}));
     setRunNote(res.ok
       ? (fr ? `${d.messages ?? 0} nouveau(x) message(s)` : `${d.messages ?? 0} new message(s)`)
@@ -75,7 +77,7 @@ export default function CleanerMessages() {
     <section className="space-y-3 mt-8">
       <div className="flex items-center justify-between gap-3">
         <h2 className="section-title flex items-center gap-2"><MessageCircle size={18} aria-hidden />{fr ? 'Messages WhatsApp' : 'WhatsApp messages'}</h2>
-        <button className="icon-btn" onClick={runNow} disabled={busy !== null} title={fr ? 'Mettre à jour maintenant' : 'Update now'} aria-label={fr ? 'Mettre à jour maintenant' : 'Update now'}>
+        <button className="icon-btn" onClick={runNow} disabled={busy !== null} title={fr ? 'Envoyer les plannings maintenant' : 'Send plannings now'} aria-label={fr ? 'Envoyer les plannings maintenant' : 'Send plannings now'}>
           {busy === 'run' ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
         </button>
       </div>
@@ -94,7 +96,7 @@ export default function CleanerMessages() {
           {mode === 'live' && testPhone
             ? (fr ? `Test : tous les plannings partent sur votre numéro (${testPhone}), avec le nom de l’agent en tête.` : `Test: every planning goes to your number (${testPhone}), headed with the cleaner’s name.`)
             : mode === 'live'
-            ? (fr ? 'Chaque agent reçoit son planning (ce mois et le suivant) par WhatsApp dès qu’il change.' : 'Each cleaner gets their planning (this month and next) by WhatsApp whenever it changes.')
+            ? (fr ? 'Planning des 3 prochaines semaines par WhatsApp : le dimanche à 19h, et à 19h le jour d’un changement (tout de suite s’il touche aujourd’hui ou demain).' : 'Next 3 weeks by WhatsApp: Sunday at 19:00, and at 19:00 on the day of a change (at once if it is for today or tomorrow).')
             : mode === 'dry_run'
               ? (fr ? 'Rien n’est envoyé. Les messages prévus apparaissent ci-dessous.' : 'Nothing is sent. Planned messages show below.')
               : (fr ? 'Aucun message aux agents de ménage.' : 'No messages to cleaners.')}

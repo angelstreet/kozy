@@ -166,15 +166,16 @@ every task of the property, so anything attached to a task would be lost.
       no longer wipe tasks; moved / cancelled / new-next-arrival detected. Rebuilt every 10 min by openclaw.
 - [x] Cleaners (2026-11-02): Ester on the two Noisy flats, Christelle on the villa.
 - [x] WhatsApp planning per cleaner, in the owner's own format (owner: the first version was too long):
-      `Haut : 31 oct, 3, 10, 21 nov` per property, this month and next, guests for the villa `3(8)`, sent only
-      when the text changes. Labels per property (`PUT /api/cleaning/properties/:id`). No reminders or week plans.
+      `Haut : 31 oct, 3, 10, 21 nov` per property, today + 3 weeks, guests for the villa `3(8)`. Sent Sunday 19:00
+      to everyone; a booking change inside 3 weeks sends one planning at 19:00 that day, a change for today or
+      tomorrow at once, beyond 3 weeks waits for Sunday (`cleaner.planning_due`). "Send now" on Cleaners. Labels per property (`PUT /api/cleaning/properties/:id`). No reminders or week plans.
       Each cleaner also has a no-login schedule page `/s/<token>`. Outbox `cleaner_message`; openclaw
       `scripts/openclaw/kozy-cleaning-run.py` sends through its WhatsApp channel (relinked 2026-11-02).
 - [x] Test number: while set, every live message goes to the owner's phone headed `[Christelle]` (on now).
 - [x] Prepaid pack counter (Ester, 2026-11-02): packs of 6, last line of her planning `9/12` = used / paid,
       +1 per cleaning, +2 on Sunday or a public holiday, moves by itself on the cleaning day.
       "+6 payés" button on Cleaners. Christelle is paid per cleaning: no counter.
-- [ ] Go live to the real numbers: clear the test number (Ester's number still to enter).
+- [ ] Go live to the real numbers: clear the test number (both cleaners' numbers are in).
 - [ ] Email / SMS as a second channel if a cleaner has no WhatsApp.
 - [ ] Cleaning guide per property: rooms → steps (beds, bathroom, kitchen, bins, linen, restock, keys), reference
       photo per step ("how it should look"), editable by the owner, FR/EN.
