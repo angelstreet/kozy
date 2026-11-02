@@ -153,7 +153,11 @@ Mockup first, then build, in light and dark, mobile first (owner rules: `web-ui-
 ## Security
 
 - [x] `POST /api/seed`, `/api/reset` and `/api/dev/*` were public and wipe the DB: now 403 on Vercel/production (2026-11-01).
-- [ ] `/api/notifications*` skips auth (any cleaner_id readable): put it behind Clerk or a cleaner token.
+- [x] `/api/notifications*` was public and read every owner's tasks: removed (2026-11-02). `/api/tasks`,
+      `/api/shopping`, `/api/cleaners*`, cleaning credits / links / invites scoped to the owner (`cleaner.owner_id`)
+      or the cleaner's own data.
+- [x] The legacy login page showed the owner's email and a password in the public bundle: removed (still in git
+      history).
 
 ## Phase 7 — cleaning (2026-11-01)
 
@@ -179,6 +183,11 @@ every task of the property, so anything attached to a task would be lost.
 - [ ] Email / SMS as a second channel if a cleaner has no WhatsApp.
 - [ ] Cleaning guide per property: rooms → steps (beds, bathroom, kitchen, bins, linen, restock, keys), reference
       photo per step ("how it should look"), editable by the owner, FR/EN.
+- [x] Cleaner accounts (2026-11-02, owner chose accounts over link sign-in): "Envoyer l'invitation" on the cleaner
+      screen sends `/invite/<token>` by WhatsApp; she creates a Clerk account there and joins (`cleaner.clerk_user_id`).
+      `GET /api/me` decides cleaner vs owner (no role picker or switch in prod). Cleaner app: Planning (her cleanings,
+      window, guests, pack counter, mark done) + Courses. Old cleaner screens removed.
+- [ ] Mockup then build: cleaning checklist, photos, reports, stock (cleaner app), in light and dark.
 - [ ] Cleaner flow on the phone: start → tick steps → photo for required steps (camera upload, Vercel Blob) →
       done. Done is blocked until required steps and photos are in.
 - [ ] Reports from any step: missing item, broken item, product needed, damage by guest — type, note, photo.
@@ -186,7 +195,6 @@ every task of the property, so anything attached to a task would be lost.
 - [ ] Stock per property (toilet paper, soap, coffee, cleaning products, linen sets): cleaner sets low / out,
       replaces the free-text shopping list; owner gets one restock list.
 - [ ] Owner view: task timeline, photos, reports, approve → payment created.
-- [ ] Before any of this: put `/api/tasks`, `/api/shopping`, `/api/notifications*` behind auth (Security).
 
 ## Phase 8 — assistant / automation
 
