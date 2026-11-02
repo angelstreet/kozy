@@ -1,4 +1,4 @@
-import { Home, CalendarDays, MessageSquare, LineChart, Building2, Menu, ShoppingCart, Bell, type LucideIcon } from 'lucide-react';
+import { Home, CalendarDays, MessageSquare, LineChart, Building2, Menu, ShoppingCart, type LucideIcon } from 'lucide-react';
 
 export interface NavItem { to: string; icon: LucideIcon; label: string; desktopOnly?: boolean }
 
@@ -14,6 +14,4 @@ export const ownerNav: NavItem[] = [
 export const cleanerNav: NavItem[] = [
   { to: '/c/schedule', icon: CalendarDays, label: 'schedule' },
   { to: '/c/shopping', icon: ShoppingCart, label: 'shopping' },
-  { to: '/c/notifications', icon: Bell, label: 'notifications' },
-  { to: '/c/more', icon: Menu, label: 'more' },
 ];

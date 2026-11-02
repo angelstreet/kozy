@@ -43,6 +43,12 @@ export async function setTestPhone(userId: string, phone: string | null) {
   });
 }
 
+/** A cleaner belongs to the owner who added her ('dev-user' = local dev, sees all). */
+export async function ownsCleaner(userId: string, cleanerId: number): Promise<boolean> {
+  if (userId === 'dev-user') return true;
+  return (await db.execute({ sql: 'SELECT 1 FROM cleaner WHERE id = ? AND owner_id = ?', args: [cleanerId, userId] })).rows.length > 0;
+}
+
 /** Paris wall clock: date, hour, weekday (0 = Sunday). */
 export function parisClock(now: Date) {
   const parts = new Intl.DateTimeFormat('en-GB', {

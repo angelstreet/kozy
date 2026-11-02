@@ -72,9 +72,7 @@ function LegacyLogin() {
           </button>
         </form>
         {error && <p className="text-danger text-sm mt-2 text-center">{error}</p>}
-        <div className="text-xs text-muted mt-4 text-center">
-          Test: owner@example.com / user | Your account: joachim.ndoye@gmail.com / kozy123
-        </div>
+        <div className="text-xs text-muted mt-4 text-center">Local dev: owner@example.com / user</div>
         <div className="flex justify-center gap-4 mt-4 text-sm">
           <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')} className="text-accent">{lang === 'en' ? 'FR' : 'EN'}</button>
           <button onClick={toggleDark} className="icon-btn" aria-label="Theme">{dark ? <Sun size={20} strokeWidth={1.75} /> : <Moon size={20} strokeWidth={1.75} />}</button>

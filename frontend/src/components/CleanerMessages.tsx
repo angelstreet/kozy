@@ -15,6 +15,7 @@ const STATUS: Record<string, { icon: typeof Clock; fr: string; en: string; cls: 
 };
 const KIND: Record<string, [string, string]> = {
   planning: ['Planning', 'Planning'],
+  invite: ['Invitation app', 'App invite'],
   update: ['Planning modifié', 'Schedule changed'],
   reminder: ['Rappel J-1', 'Day-before reminder'],
   week: ['Semaine', 'Week plan'],

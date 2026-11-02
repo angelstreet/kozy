@@ -36,3 +36,18 @@ export async function clerkAuth(c: Context, next: Next) {
     return c.json({ error: 'Invalid token' }, 401);
   }
 }
+
+/**
+ * The signed-in user on a route that skips clerkAuth (e.g. the invite pages), or null when there is no valid
+ * token. Dev mode (no Clerk key): X-Local-User-Id or 'dev-user'.
+ */
+export async function optionalUserId(c: Context): Promise<string | null> {
+  if (!clerkSecretKey) return c.req.header('X-Local-User-Id') || 'dev-user';
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  try {
+    return (await verifyToken(authHeader.slice(7), { secretKey: clerkSecretKey })).sub;
+  } catch {
+    return null;
+  }
+}

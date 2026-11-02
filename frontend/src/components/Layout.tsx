@@ -1,7 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { UserButton } from '@clerk/clerk-react';
 import { ArrowLeftRight, Globe, LogOut, Moon, Sun } from 'lucide-react';
-import NotificationBell from './NotificationBell';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import Logo from './Logo';
@@ -38,10 +37,11 @@ export default function Layout() {
             <button className="icon-btn" onClick={toggleDark} title={dark ? (fr ? 'Thème clair' : 'Light theme') : (fr ? 'Thème sombre' : 'Dark theme')} aria-label={dark ? 'Light theme' : 'Dark theme'}>
               {dark ? <Sun size={20} strokeWidth={1.75} /> : <Moon size={20} strokeWidth={1.75} />}
             </button>
-            <button className="icon-btn" onClick={() => setRole(otherRole)} title={switchLabel} aria-label={switchLabel}>
-              <ArrowLeftRight size={20} strokeWidth={1.75} />
-            </button>
-            {role === 'cleaner' && <NotificationBell />}
+            {!clerkEnabled && (
+              <button className="icon-btn" onClick={() => setRole(otherRole)} title={switchLabel} aria-label={switchLabel}>
+                <ArrowLeftRight size={20} strokeWidth={1.75} />
+              </button>
+            )}
             <span className="w-11 h-11 flex items-center justify-center">
               {clerkEnabled
                 ? <UserButton afterSignOutUrl="/" />

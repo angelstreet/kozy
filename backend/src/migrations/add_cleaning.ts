@@ -7,6 +7,8 @@ import db from '../db.js';
  * - property.cleaning_label / cleaning_show_guests: how the place is named in a cleaner's planning
  *   ("Haut", "Bas", "Villa") and whether the next guests' count is shown ("3(8)").
  * - cleaner.link_token: opens the cleaner's schedule page without a login.
+ * - cleaner.owner_id: the owner (Clerk user) who added her; owner screens and APIs only show their own cleaners.
+ * - cleaner.clerk_user_id: the Kozy account the cleaner created from her invite link (role 'cleaner').
  * - cleaner.credit_paid / credit_used / credit_as_of: prepaid packs ("9/12" in the planning). Used grows by 1
  *   per cleaning after credit_as_of, 2 on Sunday or a public holiday. NULL paid = paid per cleaning, no counter.
  * - cleaner_message: outbox. openclaw pulls 'queued' rows, sends them by WhatsApp and marks them
@@ -32,6 +34,15 @@ export async function migrateCleaning() {
   if (!cleanerCols.includes('link_token')) {
     await db.execute('ALTER TABLE cleaner ADD COLUMN link_token TEXT');
     await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaner_link_token ON cleaner(link_token)');
+  }
+  if (!cleanerCols.includes('owner_id')) {
+    await db.execute('ALTER TABLE cleaner ADD COLUMN owner_id TEXT');
+    await db.execute(`UPDATE cleaner SET owner_id = (SELECT p.user_id FROM property_cleaner pc JOIN property p ON p.id = pc.property_id
+      WHERE pc.cleaner_id = cleaner.id AND p.user_id IS NOT NULL LIMIT 1) WHERE owner_id IS NULL`);
+  }
+  if (!cleanerCols.includes('clerk_user_id')) {
+    await db.execute('ALTER TABLE cleaner ADD COLUMN clerk_user_id TEXT');
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaner_clerk_user ON cleaner(clerk_user_id)');
   }
   // planning_due: 'evening' (send at 19:00), 'now' (change for today or tomorrow), 'force' (owner: send now).
   if (!cleanerCols.includes('planning_due')) await db.execute('ALTER TABLE cleaner ADD COLUMN planning_due TEXT');

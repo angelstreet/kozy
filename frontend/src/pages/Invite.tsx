@@ -1,115 +1,96 @@
 import { API_BASE } from '@/apiBase';
-import { AlertCircle, Home } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { apiFetch } from '@/api';
+import Logo from '@/components/Logo';
+import { useApp } from '@/contexts/AppContext';
+import { SignUp, useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { AlertCircle, Check, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Check, Loader2 } from 'lucide-react';
 
-interface InviteData {
-  name: string;
-  status: string;
-  properties: string[];
-  language: string;
-}
+interface InviteData { name: string; status: string; properties: string[]; language: string }
 
+const clerkEnabled = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+/**
+ * Cleaner invite (/invite/:token, sent by the owner on WhatsApp): create a Kozy account, then join. Joining ties
+ * the account to the cleaner, so the app opens her planning from then on.
+ */
 export default function Invite() {
   const { token } = useParams<{ token: string }>();
+  const { lang } = useApp();
   const [data, setData] = useState<InviteData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [accepted, setAccepted] = useState(false);
-  const [accepting, setAccepting] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
 
   useEffect(() => {
     fetch(`${API_BASE}/invite/${token}`)
       .then(r => r.json())
-      .then(d => {
-        if (d.error) setError(d.error);
-        else {
-          setData(d);
-          if (d.status === 'active') setAccepted(true);
-        }
-      })
-      .catch(() => setError('Failed to load invite'))
-      .finally(() => setLoading(false));
+      .then(d => (d.error ? setError(d.error) : setData(d)))
+      .catch(() => setError('Failed to load invite'));
   }, [token]);
 
-  const accept = async () => {
-    setAccepting(true);
-    try {
-      const res = await fetch(`${API_BASE}/invite/${token}/accept`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone || undefined, email: email || undefined })
-      });
-      const d = await res.json();
-      if (d.error) setError(d.error);
-      else setAccepted(true);
-    } catch { setError('Failed to accept invite'); }
-    setAccepting(false);
-  };
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-page"><Loader2 className="animate-spin text-accent" size={32} /></div>;
-  if (error) return (
-    <div className="min-h-screen flex items-center justify-center bg-page p-4">
-      <div className="bg-surface rounded-2xl p-8 max-w-md w-full text-center border border-line">
-        <p className="flex justify-center mb-4 text-warn"><AlertCircle size={40} strokeWidth={1.5} /></p>
-        <h1 className="page-title mb-2">Oops</h1>
-        <p className="text-muted">{error}</p>
-      </div>
-    </div>
-  );
-
-  if (accepted) return (
-    <div className="min-h-screen flex items-center justify-center bg-page p-4">
-      <div className="bg-surface rounded-2xl p-8 max-w-md w-full text-center border border-line">
-        <div className="w-16 h-16 bg-tint rounded-full flex items-center justify-center mx-auto mb-4">
-          <Check size={32} className="text-accent" />
-        </div>
-        <h1 className="page-title mb-2">You're all set!</h1>
-        <p className="text-muted mb-6">Welcome to Kozy, {data?.name}! You can now access your cleaning schedule.</p>
-        <a href="/kozy" className="inline-block bg-accent text-accent-ink font-semibold px-6 py-3 rounded-xl">Open Kozy</a>
-      </div>
-    </div>
-  );
+  const fr = (data?.language || lang) === 'fr';
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-page p-4">
-      <div className="bg-surface rounded-2xl p-8 max-w-md w-full">
-        <p className="flex justify-center mb-4 text-accent"><Home size={40} strokeWidth={1.5} /></p>
-        <h1 className="page-title text-center mb-2">You're invited to Kozy!</h1>
-        <p className="text-muted text-center mb-6">
-          Hi <strong>{data?.name}</strong>, you've been invited to manage cleaning for:
-        </p>
-
-        {data?.properties && data.properties.length > 0 && (
-          <div className="bg-tint rounded-xl p-4 mb-6">
-            {data.properties.map((p, i) => (
-              <p key={i} className="text-accent font-medium">{p}</p>
-            ))}
+    <div className="min-h-screen bg-page text-ink flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="flex justify-center"><Logo /></div>
+        {error && (
+          <div className="card p-5 flex items-center gap-3 text-danger">
+            <AlertCircle size={20} aria-hidden />
+            <p className="text-sm">{fr ? 'Cette invitation ne fonctionne plus. Demandez-en une nouvelle au propriétaire.' : 'This invite no longer works. Ask the owner for a new one.'}</p>
           </div>
         )}
-
-        <div className="space-y-3 mb-6">
-          <div>
-            <label className="block text-sm font-medium mb-1">Phone (optional)</label>
-            <input value={phone} onChange={e => setPhone(e.target.value)} type="tel" placeholder="+33 6 12 34 56 78"
-              className="w-full px-3 py-2.5 rounded-xl border bg-surface outline-none" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Email (optional)</label>
-            <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="your@email.com"
-              className="w-full px-3 py-2.5 rounded-xl border bg-surface outline-none" />
-          </div>
-        </div>
-
-        <button onClick={accept} disabled={accepting}
-          className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-300 text-accent-ink font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-500/25">
-          {accepting ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-          {accepting ? 'Joining...' : 'Accept & Join'}
-        </button>
+        {!data && !error && <div className="flex justify-center"><Loader2 className="animate-spin text-muted" size={28} aria-label="Loading" /></div>}
+        {data && (
+          <>
+            <div className="text-center space-y-1">
+              <h1 className="page-title">{fr ? `Bonjour ${data.name}` : `Hello ${data.name}`}</h1>
+              <p className="text-sm text-muted">
+                {fr ? 'Créez votre compte Kozy pour voir vos ménages' : 'Create your Kozy account to see your cleanings'}
+                {data.properties.length > 0 && ` : ${data.properties.join(', ')}`}
+              </p>
+            </div>
+            {clerkEnabled ? <ClerkJoin token={token!} fr={fr} /> : <Join token={token!} fr={fr} />}
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+function ClerkJoin({ token, fr }: { token: string; fr: boolean }) {
+  const { isLoaded, isSignedIn } = useClerkAuth();
+  if (!isLoaded) return null;
+  if (!isSignedIn) {
+    return (
+      <div className="flex justify-center">
+        <SignUp routing="hash" forceRedirectUrl={window.location.href} signInForceRedirectUrl={window.location.href}
+          appearance={{ elements: { rootBox: 'w-full', card: 'shadow-none border' } }} />
+      </div>
+    );
+  }
+  return <Join token={token} fr={fr} />;
+}
+
+function Join({ token, fr }: { token: string; fr: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const join = async () => {
+    setBusy(true); setError('');
+    const res = await apiFetch(`/invite/${token}/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) window.location.href = import.meta.env.BASE_URL; // reload: the app now opens the cleaner view
+    else { setError(d.error || 'Error'); setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-3">
+      <button onClick={join} disabled={busy} className="btn-primary w-full min-h-[48px] flex items-center justify-center gap-2">
+        {busy ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+        {fr ? 'Rejoindre et voir mon planning' : 'Join and see my planning'}
+      </button>
+      {error && <p className="text-sm text-danger text-center">{error}</p>}
     </div>
   );
 }

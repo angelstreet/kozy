@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { AppProvider } from '@/contexts/AppContext';
 import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
-import RoleSelect from '@/pages/RoleSelect';
 import Dashboard from '@/pages/owner/Dashboard';
 import Properties from '@/pages/owner/Properties';
 import More from '@/pages/owner/More';
@@ -14,8 +13,6 @@ import AddProperty from '@/pages/owner/AddProperty';
 import EditProperty from '@/pages/owner/EditProperty';
 import Schedule from '@/pages/cleaner/Schedule';
 import Shopping from '@/pages/cleaner/Shopping';
-import CleanerMore from '@/pages/cleaner/CleanerMore';
-import CleanerNotifications from '@/pages/cleaner/CleanerNotifications';
 import Invite from '@/pages/Invite';
 import CleanerLink from '@/pages/CleanerLink';
 
@@ -31,9 +28,6 @@ function AppRoutes() {
   }
 
   if (!role) return <Login />;
-
-  // Signed in but no role selected yet
-  if (role === null) return <RoleSelect />;
 
   return (
     <Routes>
@@ -54,8 +48,6 @@ function AppRoutes() {
         {role === 'cleaner' && <>
           <Route path="/c/schedule" element={<Schedule />} />
           <Route path="/c/shopping" element={<Shopping />} />
-          <Route path="/c/more" element={<CleanerMore />} />
-          <Route path="/c/notifications" element={<CleanerNotifications />} />
           <Route path="*" element={<Navigate to="/c/schedule" />} />
         </>}
       </Route>

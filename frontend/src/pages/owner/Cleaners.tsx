@@ -18,6 +18,8 @@ interface Cleaner {
 }
 
 interface CleanerDetail extends Cleaner {
+  clerk_user_id?: string | null;
+  language?: string | null;
   assignments: { property_id: number; property_name: string; role: 'primary' | 'backup' }[];
 }
 
@@ -233,6 +235,8 @@ function CleanerDetail({
           )}
         </div>
 
+        <AppAccess cleaner={cleaner} />
+
         {/* Assignments */}
         <div className="bg-surface rounded-xl overflow-hidden border border-line">
           <div className="flex items-center justify-between px-4 py-3 border-b">
@@ -395,6 +399,44 @@ function CleanerForm({ cleaner, properties, onClose }: {
           {isEdit ? 'Save Changes' : 'Add Cleaner'}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─── App account: invite by WhatsApp, or linked ───────────────────────────────
+
+function AppAccess({ cleaner }: { cleaner: CleanerDetail }) {
+  const { lang } = useApp();
+  const fr = lang === 'fr';
+  const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'error'>('idle');
+  const [note, setNote] = useState('');
+
+  const send = async () => {
+    setState('busy');
+    const res = await apiFetch(`/cleaning/invite/${cleaner.id}`, { method: 'POST' });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setState('sent');
+      setNote(d.status === 'dry_run' ? (fr ? 'Mode test : visible dans les messages, rien n’est envoyé.' : 'Test mode: shown in messages, nothing sent.') : (fr ? 'Invitation envoyée par WhatsApp.' : 'Invite sent by WhatsApp.'));
+    } else { setState('error'); setNote(d.error || 'Error'); }
+  };
+
+  return (
+    <div className="card p-4 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold">{fr ? 'Application Kozy' : 'Kozy app'}</p>
+        <p className="text-xs text-muted">{cleaner.clerk_user_id
+          ? (fr ? 'Compte créé : elle voit son planning dans l’app.' : 'Account created: she sees her planning in the app.')
+          : note || (fr ? 'Pas encore de compte. L’invitation contient le lien pour en créer un.' : 'No account yet. The invite holds the link to create one.')}</p>
+      </div>
+      {cleaner.clerk_user_id
+        ? <span className="pill bg-tint text-accent"><Check size={14} aria-hidden />{fr ? 'Actif' : 'Active'}</span>
+        : (
+          <button className="btn-secondary text-sm" onClick={send} disabled={state === 'busy'}>
+            {state === 'busy' ? <Loader2 size={16} className="animate-spin" /> : null}
+            {state === 'sent' ? (fr ? 'Renvoyer' : 'Send again') : (fr ? 'Envoyer l’invitation' : 'Send invite')}
+          </button>
+        )}
     </div>
   );
 }

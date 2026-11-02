@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { API_BASE } from '@/apiBase';
 
 type Role = 'owner' | 'cleaner' | null;
@@ -25,7 +25,44 @@ try {
   }
 } catch {}
 
+/**
+ * With Clerk (production) the server decides the role: GET /api/me answers 'cleaner' for an account linked from a
+ * cleaner invite, 'owner' otherwise. No role picker, no switch. Without Clerk (local dev) the legacy logins below.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
+  return clerkAuth ? <ClerkAuthProvider>{children}</ClerkAuthProvider> : <LocalAuthProvider>{children}</LocalAuthProvider>;
+}
+
+function ClerkAuthProvider({ children }: { children: ReactNode }) {
+  const clerk = clerkAuth.useAuth();
+  const [me, setMe] = useState<{ role: Role; cleanerId: number | null } | null>(null);
+
+  useEffect(() => {
+    if (!clerk.isLoaded) return;
+    if (!clerk.isSignedIn) { setMe(null); return; }
+    let cancelled = false;
+    (async () => {
+      const token = await clerk.getToken();
+      const res = await fetch(`${API_BASE}/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+      const d = res?.ok ? await res.json() : { role: 'owner' };
+      if (!cancelled) setMe({ role: d.role === 'cleaner' ? 'cleaner' : 'owner', cleanerId: d.cleanerId ?? null });
+    })();
+    return () => { cancelled = true; };
+  }, [clerk.isLoaded, clerk.isSignedIn, clerk.userId]);
+
+  const value: AuthCtx = {
+    role: me?.role ?? null,
+    userId: clerk.userId ?? null,
+    cleanerId: me?.cleanerId ?? null,
+    login: async () => false,
+    logout: () => { clerk.signOut(); },
+    setRole: () => {},
+    isLoaded: clerk.isLoaded && (!clerk.isSignedIn || me !== null),
+  };
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function LocalAuthProvider({ children }: { children: ReactNode }) {
   const [role, setRoleState] = useState<Role>(() => {
     // Local dev: check localStorage first, default to 'owner'
     const saved = localStorage.getItem('kozy_role');

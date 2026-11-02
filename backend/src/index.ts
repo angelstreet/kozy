@@ -8,7 +8,7 @@ import { seedCleanerTestData } from './seed.js';
 import { fetchAndParseIcal, syncPropertyIcal } from './ical-sync.js';
 import { syncSmoobuData, syncSmoobuBookings } from './smoobu-sync.js';
 import { syncProperty } from './unified-sync.js';
-import { clerkAuth } from './clerk-middleware.js';
+import { clerkAuth, optionalUserId } from './clerk-middleware.js';
 import integrationRoutes from './routes/integration.js';
 import messagingRoutes from './routes/messaging.js';
 import cleaningRoutes from './routes/cleaning.js';
@@ -29,7 +29,7 @@ app.use('/api/*', async (c, next) => {
   }
   // Skip auth for external API (has own token), invite routes, seed/reset, and health
   if (path.startsWith('/api/external/') || path.startsWith('/api/invite/') ||
-      path.startsWith('/api/notifications') || path.startsWith('/api/dev/') ||
+      path.startsWith('/api/dev/') ||
       path === '/api/seed' || path === '/api/reset' || path === '/api/dev/seed' ||
       path === '/api/messaging/run' || path === '/api/messaging/webhook' ||
       path.startsWith('/api/cleaning/cron/') || path.startsWith('/api/s/')) {
@@ -112,20 +112,70 @@ app.post('/api/properties/:id/ical-test', async (c) => {
   }
 });
 
+async function ownsProperty(userId: string, propertyId: number): Promise<boolean> {
+  if (userId === 'dev-user') return true;
+  return (await db.execute({ sql: 'SELECT 1 FROM property WHERE id = ? AND user_id = ?', args: [propertyId, userId] })).rows.length > 0;
+}
+
+// Who is signed in: a cleaner (account linked from her invite) or an owner. The app opens the matching view.
+app.get('/api/me', async (c) => {
+  const userId = c.get('userId');
+  const cl = (await db.execute({ sql: 'SELECT id, name FROM cleaner WHERE clerk_user_id = ?', args: [userId] })).rows[0] as any;
+  return c.json(cl ? { role: 'cleaner', cleanerId: Number(cl.id), name: cl.name } : { role: 'owner' });
+});
+
+// Cleaner view: her cleanings from a week ago to 30 days ahead, and her pack counter.
+app.get('/api/cleaner/planning', async (c) => {
+  const userId = c.get('userId');
+  const cl = (await db.execute({ sql: 'SELECT id, name FROM cleaner WHERE clerk_user_id = ?', args: [userId] })).rows[0] as any;
+  if (!cl) return c.json({ error: 'Not a cleaner account' }, 403);
+  const { parisClock, cleanerCredit } = await import('./cleaning/engine.js');
+  const today = parisClock(new Date()).date;
+  const shift = (d: number) => new Date(Date.parse(`${today}T12:00:00Z`) + d * 86400000).toISOString().slice(0, 10);
+  const owners = (await db.execute({
+    sql: 'SELECT DISTINCT p.user_id FROM cleaning_task ct JOIN property p ON p.id = ct.property_id WHERE ct.assigned_to = ?', args: [cl.id],
+  })).rows as any[];
+  const counters = (await Promise.all(owners.map((o) => cleanerCredit(String(o.user_id), Number(cl.id), today)))).filter(Boolean);
+  const tasks = (await db.execute({
+    sql: `SELECT ct.id, ct.date, ct.status, p.name AS property, COALESCE(p.cleaning_label, p.name) AS label, p.address,
+            COALESCE(ct.start_time, p.checkout_time, '12:00') AS start,
+            ct.next_arrival AS nextArrival, ct.next_checkin AS nextCheckIn, ct.next_guests AS nextGuests
+          FROM cleaning_task ct JOIN property p ON p.id = ct.property_id
+          WHERE ct.assigned_to = ? AND ct.date BETWEEN ? AND ? ORDER BY ct.date, start`,
+    args: [cl.id, shift(-7), shift(30)],
+  })).rows;
+  return c.json({ name: cl.name, today, counter: counters[0] ?? null, tasks });
+});
+
 // Cleaners
+// Owners only see and change their own cleaners (cleaner.owner_id).
+app.use('/api/cleaners/:id/*', async (c, next) => {
+  const { ownsCleaner } = await import('./cleaning/engine.js');
+  return /^\d+$/.test(c.req.param('id')) && !(await ownsCleaner(c.get('userId'), Number(c.req.param('id')))) ? c.json({ error: 'Not found' }, 404) : next();
+});
+app.use('/api/cleaners/:id', async (c, next) => {
+  const { ownsCleaner } = await import('./cleaning/engine.js');
+  return /^\d+$/.test(c.req.param('id')) && !(await ownsCleaner(c.get('userId'), Number(c.req.param('id')))) ? c.json({ error: 'Not found' }, 404) : next();
+});
+
 app.get('/api/cleaners', async (c) => {
-  const result = await db.execute(`
-    SELECT c.*, COUNT(pc.property_id) as property_count
-    FROM cleaner c
-    LEFT JOIN property_cleaner pc ON pc.cleaner_id = c.id
-    GROUP BY c.id
-    ORDER BY c.name
-  `);
+  const userId = c.get('userId');
+  const result = await db.execute({
+    sql: `SELECT c.id, c.name, c.email, c.phone, c.status, c.language, c.invite_token, c.invite_method, c.invite_sent_at,
+            c.invite_accepted_at, c.clerk_user_id IS NOT NULL AS has_account, COUNT(pc.property_id) as property_count
+          FROM cleaner c
+          LEFT JOIN property_cleaner pc ON pc.cleaner_id = c.id
+          WHERE ? OR c.owner_id = ?
+          GROUP BY c.id
+          ORDER BY c.name`,
+    args: [userId === 'dev-user' ? 1 : 0, userId],
+  });
   return c.json(result.rows);
 });
 
 // GET /api/cleaners/by-email?email=X — look up cleaner by email (for local dev auth)
 app.get('/api/cleaners/by-email', async (c) => {
+  if (c.get('userId') !== 'dev-user') return c.json({ error: 'Not found' }, 404);
   const email = c.req.query('email');
   if (!email) return c.json({ error: 'email required' }, 400);
   const result = await db.execute({ sql: 'SELECT * FROM cleaner WHERE email = ?', args: [email] });
@@ -138,7 +188,7 @@ app.post('/api/cleaners', async (c) => {
   const { name, email, phone } = body;
   if (!name || !email) return c.json({ error: 'Name and email required' }, 400);
 
-  const result = await db.execute({ sql: 'INSERT INTO cleaner (name, email, phone, status) VALUES (?, ?, ?, ?)', args: [name, email, phone || null, 'active'] });
+  const result = await db.execute({ sql: 'INSERT INTO cleaner (name, email, phone, status, owner_id) VALUES (?, ?, ?, ?, ?)', args: [name, email, phone || null, 'active', c.get('userId')] });
   const cleaner = await db.execute({ sql: 'SELECT * FROM cleaner WHERE id = ?', args: [Number(result.lastInsertRowid)] });
   return c.json(cleaner.rows[0], 201);
 });
@@ -154,8 +204,8 @@ app.post('/api/cleaners/invite', async (c) => {
   const invite_token = crypto.randomBytes(16).toString('hex');
 
   const result = await db.execute({
-    sql: 'INSERT INTO cleaner (name, email, phone, status, invite_token, invite_method, invite_sent_at, language) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    args: [name, email || null, phone || null, 'invited', invite_token, invite_method || 'email', new Date().toISOString(), language || 'fr'],
+    sql: 'INSERT INTO cleaner (name, email, phone, status, invite_token, invite_method, invite_sent_at, language, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    args: [name, email || null, phone || null, 'invited', invite_token, invite_method || 'email', new Date().toISOString(), language || 'fr', c.get('userId')],
   });
 
   const cleanerId = Number(result.lastInsertRowid);
@@ -187,18 +237,21 @@ app.post('/api/invite/:token/accept', async (c) => {
   const result = await db.execute({ sql: 'SELECT * FROM cleaner WHERE invite_token = ?', args: [token] });
   const cleaner = result.rows[0] as any;
   if (!cleaner) return c.json({ error: 'Invalid or expired invite' }, 404);
-  if (cleaner.status === 'active') return c.json({ error: 'Invite already accepted' }, 400);
+  // The invite ties the signed-in Kozy account to this cleaner: from then on the app opens her cleaner view.
+  const userId = await optionalUserId(c);
+  if (!userId) return c.json({ error: 'Sign in first' }, 401);
+  if (cleaner.clerk_user_id && cleaner.clerk_user_id !== userId) return c.json({ error: 'Invite already used by another account' }, 409);
+  const owns = await db.execute({ sql: 'SELECT 1 FROM property WHERE user_id = ? LIMIT 1', args: [userId] });
+  if (owns.rows.length) return c.json({ error: 'This account is an owner account' }, 409);
 
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => ({}));
   const { phone, email } = body;
-
   await db.execute({
-    sql: 'UPDATE cleaner SET status = ?, invite_accepted_at = ?, phone = COALESCE(?, phone), email = COALESCE(?, email) WHERE id = ?',
-    args: ['active', new Date().toISOString(), phone || null, email || null, cleaner.id],
+    sql: `UPDATE cleaner SET status = 'active', invite_accepted_at = COALESCE(invite_accepted_at, ?), clerk_user_id = ?,
+          phone = COALESCE(?, phone), email = COALESCE(?, email) WHERE id = ?`,
+    args: [new Date().toISOString(), userId, phone || null, email || null, cleaner.id],
   });
-
-  const updated = await db.execute({ sql: 'SELECT * FROM cleaner WHERE id = ?', args: [cleaner.id] });
-  return c.json(updated.rows[0]);
+  return c.json({ ok: true, name: cleaner.name });
 });
 
 // Resend invite
@@ -302,14 +355,18 @@ app.delete('/api/properties/:id', async (c) => {
   return c.json({ ok: true });
 });
 
-// Tasks
+// Tasks: an owner sees the tasks of their properties, a cleaner only her own (see /api/cleaner/planning).
 app.get('/api/tasks', async (c) => {
-  const result = await db.execute(`
-    SELECT ct.*, p.name as property_name, cl.name as cleaner_name
-    FROM cleaning_task ct
-    LEFT JOIN property p ON p.id = ct.property_id
-    LEFT JOIN cleaner cl ON cl.id = ct.assigned_to
-  `);
+  const userId = c.get('userId');
+  const all = userId === 'dev-user';
+  const result = await db.execute({
+    sql: `SELECT ct.*, p.name as property_name, cl.name as cleaner_name
+          FROM cleaning_task ct
+          JOIN property p ON p.id = ct.property_id
+          LEFT JOIN cleaner cl ON cl.id = ct.assigned_to
+          WHERE ? OR p.user_id = ? OR ct.assigned_to = (SELECT id FROM cleaner WHERE clerk_user_id = ?)`,
+    args: [all ? 1 : 0, userId, userId],
+  });
   return c.json(result.rows);
 });
 
@@ -317,6 +374,7 @@ app.post('/api/tasks', async (c) => {
   const body = await c.req.json();
   const { property_id, booking_id, date, status, assigned_to, rate } = body;
   if (!property_id || !date) return c.json({ error: 'property_id and date required' }, 400);
+  if (!(await ownsProperty(c.get('userId'), Number(property_id)))) return c.json({ error: 'Not your property' }, 403);
   const result = await db.execute({
     sql: 'INSERT INTO cleaning_task (property_id, booking_id, date, status, assigned_to, rate) VALUES (?, ?, ?, ?, ?, ?)',
     args: [property_id, booking_id || null, date, status || 'pending', assigned_to || null, rate || null],
@@ -325,11 +383,18 @@ app.post('/api/tasks', async (c) => {
   return c.json(task.rows[0], 201);
 });
 
+// Status change by the property's owner or the cleaner the task is assigned to.
 app.patch('/api/tasks/:id', async (c) => {
   const id = Number(c.req.param('id'));
-  const body = await c.req.json();
-  const { status } = body;
-  if (!status) return c.json({ error: 'status required' }, 400);
+  const userId = c.get('userId');
+  const { status } = await c.req.json();
+  if (!['pending', 'confirmed', 'in_progress', 'done'].includes(status)) return c.json({ error: 'invalid status' }, 400);
+  const allowed = await db.execute({
+    sql: `SELECT ct.id FROM cleaning_task ct JOIN property p ON p.id = ct.property_id
+          WHERE ct.id = ? AND (? OR p.user_id = ? OR ct.assigned_to = (SELECT id FROM cleaner WHERE clerk_user_id = ?))`,
+    args: [id, userId === 'dev-user' ? 1 : 0, userId, userId],
+  });
+  if (!allowed.rows.length) return c.json({ error: 'Not found' }, 404);
   await db.execute({ sql: 'UPDATE cleaning_task SET status = ? WHERE id = ?', args: [status, id] });
   const task = await db.execute({ sql: 'SELECT * FROM cleaning_task WHERE id = ?', args: [id] });
   return c.json(task.rows[0]);
@@ -357,30 +422,42 @@ app.patch('/api/payments/:id', async (c) => {
   return c.json(payment.rows[0]);
 });
 
-// Shopping
+// Shopping: the owner sees requests for their properties, a cleaner her own; she can only ask for her properties.
 app.get('/api/shopping', async (c) => {
-  const result = await db.execute(`
-    SELECT sr.*, p.name as property_name, cl.name as cleaner_name
-    FROM shopping_request sr
-    LEFT JOIN property p ON p.id = sr.property_id
-    LEFT JOIN cleaner cl ON cl.id = sr.cleaner_id
-  `);
+  const userId = c.get('userId');
+  const result = await db.execute({
+    sql: `SELECT sr.*, p.name as property_name, cl.name as cleaner_name
+          FROM shopping_request sr
+          JOIN property p ON p.id = sr.property_id
+          LEFT JOIN cleaner cl ON cl.id = sr.cleaner_id
+          WHERE ? OR p.user_id = ? OR sr.cleaner_id = (SELECT id FROM cleaner WHERE clerk_user_id = ?)`,
+    args: [userId === 'dev-user' ? 1 : 0, userId, userId],
+  });
   return c.json(result.rows);
 });
 
 app.post('/api/shopping', async (c) => {
-  const body = await c.req.json();
-  const { property_id, cleaner_id, items } = body;
+  const userId = c.get('userId');
+  const { property_id, items } = await c.req.json();
   if (!property_id || !items) return c.json({ error: 'property_id and items required' }, 400);
-  const result = await db.execute({ sql: 'INSERT INTO shopping_request (property_id, cleaner_id, items) VALUES (?, ?, ?)', args: [property_id, cleaner_id || null, items] });
+  const me = (await db.execute({ sql: 'SELECT id FROM cleaner WHERE clerk_user_id = ?', args: [userId] })).rows[0] as any;
+  const mine = me
+    ? (await db.execute({ sql: 'SELECT 1 FROM property_cleaner WHERE cleaner_id = ? AND property_id = ?', args: [me.id, property_id] })).rows.length > 0
+    : await ownsProperty(userId, Number(property_id));
+  if (!mine) return c.json({ error: 'Not your property' }, 403);
+  const result = await db.execute({ sql: 'INSERT INTO shopping_request (property_id, cleaner_id, items) VALUES (?, ?, ?)', args: [property_id, me?.id ?? null, items] });
   const sr = await db.execute({ sql: 'SELECT * FROM shopping_request WHERE id = ?', args: [Number(result.lastInsertRowid)] });
   return c.json(sr.rows[0], 201);
 });
 
 app.patch('/api/shopping/:id', async (c) => {
   const id = Number(c.req.param('id'));
-  const body = await c.req.json();
-  const { status } = body;
+  const { status } = await c.req.json();
+  const own = await db.execute({
+    sql: 'SELECT sr.id FROM shopping_request sr JOIN property p ON p.id = sr.property_id WHERE sr.id = ? AND (? OR p.user_id = ?)',
+    args: [id, c.get('userId') === 'dev-user' ? 1 : 0, c.get('userId')],
+  });
+  if (!own.rows.length) return c.json({ error: 'Not found' }, 404);
   await db.execute({ sql: 'UPDATE shopping_request SET status = ? WHERE id = ?', args: [status, id] });
   const sr = await db.execute({ sql: 'SELECT * FROM shopping_request WHERE id = ?', args: [id] });
   return c.json(sr.rows[0]);
@@ -826,133 +903,6 @@ app.get('/api/external/properties', async (c) => {
 });
 
 
-// ==================== NOTIFICATIONS ====================
-
-// Ensure notification table exists (also called in migrate)
-async function ensureNotificationTable() {
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS notification (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      cleaner_id INTEGER REFERENCES cleaner(id),
-      type TEXT DEFAULT 'daily_reminder',
-      title TEXT,
-      body TEXT,
-      read INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
-}
-
-// GET /api/notifications?cleaner_id=X
-app.get('/api/notifications', async (c) => {
-  await ensureNotificationTable();
-  const cleaner_id = c.req.query('cleaner_id');
-  if (!cleaner_id) return c.json({ error: 'cleaner_id required' }, 400);
-  const result = await db.execute({
-    sql: 'SELECT * FROM notification WHERE cleaner_id = ? ORDER BY created_at DESC LIMIT 50',
-    args: [Number(cleaner_id)],
-  });
-  return c.json(result.rows);
-});
-
-// PATCH /api/notifications/:id/read
-app.patch('/api/notifications/:id/read', async (c) => {
-  await ensureNotificationTable();
-  const id = Number(c.req.param('id'));
-  await db.execute({ sql: 'UPDATE notification SET read = 1 WHERE id = ?', args: [id] });
-  return c.json({ ok: true });
-});
-
-// DELETE /api/notifications/read-all?cleaner_id=X
-app.delete('/api/notifications/read-all', async (c) => {
-  await ensureNotificationTable();
-  const cleaner_id = c.req.query('cleaner_id');
-  if (!cleaner_id) return c.json({ error: 'cleaner_id required' }, 400);
-  await db.execute({ sql: 'UPDATE notification SET read = 1 WHERE cleaner_id = ?', args: [Number(cleaner_id)] });
-  return c.json({ ok: true });
-});
-
-// GET /api/notifications/daily-check — check which cleaners have tasks tomorrow
-app.get('/api/notifications/daily-check', async (c) => {
-  await ensureNotificationTable();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-
-  const result = await db.execute({
-    sql: `
-      SELECT ct.assigned_to as cleaner_id, cl.name as cleaner_name,
-             p.name as property_name, p.checkout_time,
-             COUNT(*) OVER (PARTITION BY ct.assigned_to) as task_count
-      FROM cleaning_task ct
-      JOIN property p ON p.id = ct.property_id
-      JOIN cleaner cl ON cl.id = ct.assigned_to
-      WHERE ct.date = ? AND ct.assigned_to IS NOT NULL
-    `,
-    args: [tomorrowStr],
-  });
-
-  return c.json({ date: tomorrowStr, tasks: result.rows });
-});
-
-// POST /api/notifications/trigger-daily — create daily reminder notifications
-app.post('/api/notifications/trigger-daily', async (c) => {
-  await ensureNotificationTable();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-
-  // Get all cleaners with tasks tomorrow
-  const result = await db.execute({
-    sql: `
-      SELECT ct.assigned_to as cleaner_id, cl.name as cleaner_name,
-             p.name as property_name, p.checkout_time
-      FROM cleaning_task ct
-      JOIN property p ON p.id = ct.property_id
-      JOIN cleaner cl ON cl.id = ct.assigned_to
-      WHERE ct.date = ? AND ct.assigned_to IS NOT NULL
-      ORDER BY ct.assigned_to, p.checkout_time
-    `,
-    args: [tomorrowStr],
-  });
-
-  const rows = result.rows as any[];
-
-  // Group by cleaner
-  const byCleanerMap = new Map<number, { name: string; tasks: { property_name: string; checkout_time: string }[] }>();
-  for (const row of rows) {
-    if (!byCleanerMap.has(row.cleaner_id)) {
-      byCleanerMap.set(row.cleaner_id, { name: row.cleaner_name, tasks: [] });
-    }
-    byCleanerMap.get(row.cleaner_id)!.tasks.push({
-      property_name: row.property_name,
-      checkout_time: row.checkout_time,
-    });
-  }
-
-  const created: number[] = [];
-
-  for (const [cleaner_id, { name, tasks }] of byCleanerMap) {
-    const count = tasks.length;
-    const taskList = tasks.map(t => `${t.property_name} at ${t.checkout_time || '?'}`).join(', ');
-    const body = `Tomorrow you have ${count} intervention(s): ${taskList}`;
-    const title = `📅 Reminder: ${count} cleaning${count > 1 ? 's' : ''} tomorrow`;
-
-    await db.execute({
-      sql: 'INSERT INTO notification (cleaner_id, type, title, body) VALUES (?, ?, ?, ?)',
-      args: [cleaner_id, 'daily_reminder', title, body],
-    });
-    created.push(cleaner_id);
-  }
-
-  return c.json({
-    ok: true,
-    date: tomorrowStr,
-    notifications_created: created.length,
-    cleaner_ids: created,
-  });
-});
-
 // /api/dev/seed — Task #829: Seed test bookings + cleaning tasks for cleaner testing
 app.post('/api/dev/seed', async (c) => {
   if (process.env.NODE_ENV === 'production') {
@@ -978,23 +928,6 @@ app.post('/api/reset', async (c) => {
   return c.json({ ok: true, message: 'All data cleared' });
 });
 
-// ── Notifications ──────────────────────────────────────
-app.get('/api/notifications', async (c) => {
-  const cleaner_id = c.req.query('cleaner_id');
-  if (!cleaner_id) return c.json({ error: 'cleaner_id required' }, 400);
-  const result = await db.execute({
-    sql: 'SELECT * FROM notification WHERE cleaner_id = ? ORDER BY created_at DESC',
-    args: [cleaner_id],
-  });
-  return c.json(result.rows);
-});
-
-app.patch('/api/notifications/:id', async (c) => {
-  const id = c.req.param('id');
-  await db.execute({ sql: 'UPDATE notification SET read = 1 WHERE id = ?', args: [id] });
-  return c.json({ ok: true });
-});
-
 // Weekly summary helper
 function getNextWeekRange() {
   const now = new Date();
@@ -1008,59 +941,9 @@ function getNextWeekRange() {
   return { from: fmt(mon), to: fmt(sun) };
 }
 
-app.get('/api/notifications/weekly-summary', async (c) => {
-  const { from, to } = getNextWeekRange();
-  const tasks = await db.execute({
-    sql: `SELECT ct.id, ct.date, ct.status, ct.rate, ct.assigned_to,
-                 p.name as property_name, p.address,
-                 cl.name as cleaner_name
-          FROM cleaning_task ct
-          JOIN property p ON p.id = ct.property_id
-          JOIN cleaner cl ON cl.id = ct.assigned_to
-          WHERE ct.date >= ? AND ct.date <= ?
-          ORDER BY ct.assigned_to, ct.date`,
-    args: [from, to],
-  });
-  return c.json({ week: { from, to }, tasks: tasks.rows });
-});
 
-app.post('/api/notifications/trigger-weekly', async (c) => {
-  const { from, to } = getNextWeekRange();
-  const tasksRes = await db.execute({
-    sql: `SELECT ct.id, ct.date, ct.status, ct.rate, ct.assigned_to,
-                 p.name as property_name,
-                 cl.name as cleaner_name
-          FROM cleaning_task ct
-          JOIN property p ON p.id = ct.property_id
-          JOIN cleaner cl ON cl.id = ct.assigned_to
-          WHERE ct.date >= ? AND ct.date <= ?
-          ORDER BY ct.assigned_to, ct.date`,
-    args: [from, to],
-  });
 
-  const byCleanerId: Record<string, any[]> = {};
-  for (const row of tasksRes.rows as any[]) {
-    const cid = String((row as any).assigned_to);
-    if (!byCleanerId[cid]) byCleanerId[cid] = [];
-    byCleanerId[cid].push(row);
-  }
-
-  const created = [];
-  for (const [cleaner_id, tasks] of Object.entries(byCleanerId)) {
-    const count = tasks.length;
-    const title = `Your week: ${count} cleaning${count > 1 ? 's' : ''} scheduled`;
-    const lines = (tasks as any[]).map((t: any) => `• ${t.date} — ${t.property_name}`);
-    const body = `Week of ${from} to ${to}:\n${lines.join('\n')}` as string;
-    const r = await db.execute({
-      sql: `INSERT INTO notification (cleaner_id, type, title, body, read, created_at) VALUES (?, ?, ?, ?, 0, datetime('now'))`,
-      args: [Number(cleaner_id), 'weekly_summary', title, body],
-    });
-    created.push({ cleaner_id: Number(cleaner_id), notification_id: Number(r.lastInsertRowid) });
-  }
-  return c.json({ ok: true, created, week: { from, to } });
-});
-
-// ── Dev Seed (for testing notifications) ──────────────
+// ── Dev Seed (test cleaners, properties and tasks) ──────────────
 app.post('/api/dev/seed', async (c) => {
   // Ensure we have test cleaners/properties
   const cleaners = await db.execute('SELECT COUNT(*) as cnt FROM cleaner');

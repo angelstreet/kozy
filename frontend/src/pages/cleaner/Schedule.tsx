@@ -1,92 +1,117 @@
 import { apiFetch } from '@/api';
 import { useApp } from '@/contexts/AppContext';
-import { t } from '@/i18n';
+import { CheckCircle2, Circle, Clock, Loader2, MapPin, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { MapPin, Clock, CheckCircle2 } from 'lucide-react';
 
 interface Task {
   id: number;
-  property_name: string;
   date: string;
   status: string;
-  rate: number;
+  property: string;
+  label: string;
+  address: string | null;
+  start: string;
+  nextArrival: string | null;
+  nextCheckIn: string | null;
+  nextGuests: number | null;
 }
 
+interface Planning { name: string; today: string; counter: string | null; tasks: Task[] }
+
+const fmtDate = (d: string, fr: boolean) =>
+  new Intl.DateTimeFormat(fr ? 'fr-FR' : 'en-GB', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' })
+    .format(new Date(`${d}T12:00:00Z`));
+const fmtTime = (t: string, fr: boolean) => (fr ? t.replace(/^0?(\d+):(\d\d)$/, (_, h, m) => `${h}h${m === '00' ? '' : m}`) : t);
+
+/** Cleaner home: her cleanings (last week to 30 days ahead), pack counter, mark a cleaning done. */
 export default function Schedule() {
   const { lang } = useApp();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const fr = lang === 'fr';
+  const [data, setData] = useState<Planning | null>(null);
+  const [error, setError] = useState(false);
+  const [busy, setBusy] = useState<number | null>(null);
 
-  useEffect(() => {
-    apiFetch('/tasks').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : [])).catch(() => {});
-  }, []);
+  const load = () => apiFetch('/cleaner/planning')
+    .then(r => (r.ok ? r.json() : Promise.reject()))
+    .then(setData)
+    .catch(() => setError(true));
+  useEffect(() => { load(); }, []);
 
-  const updateStatus = async (id: number, status: string) => {
-    const res = await apiFetch(`/tasks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+  const toggleDone = async (t: Task) => {
+    setBusy(t.id);
+    const res = await apiFetch(`/tasks/${t.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: t.status === 'done' ? 'pending' : 'done' }),
     });
-    if (res.ok) {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-    }
+    if (res.ok) await load();
+    setBusy(null);
   };
 
-  const statusColor: Record<string, string> = {
-    pending: 'bg-warn-tint text-warn',
-    confirmed: 'bg-tint text-accent',
-    in_progress: 'bg-info-tint text-info',
-    done: 'bg-tint text-accent',
-  };
+  if (error) return <div className="p-4"><div className="card p-5 text-sm text-danger">{fr ? 'Impossible de charger votre planning.' : 'Could not load your planning.'}</div></div>;
+  if (!data) return <div className="flex justify-center pt-16"><Loader2 className="animate-spin text-muted" size={28} aria-label="Loading" /></div>;
 
-  const nextStatus: Record<string, string> = {
-    pending: 'confirmed',
-    confirmed: 'in_progress',
-    in_progress: 'done',
-  };
+  const upcoming = data.tasks.filter(t => t.date >= data.today);
+  const past = data.tasks.filter(t => t.date < data.today).reverse();
 
-  const sorted = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
+  const card = (t: Task) => {
+    const sameDay = t.nextArrival === t.date;
+    const done = t.status === 'done';
+    return (
+      <article key={t.id} className={`card p-4 space-y-2 ${done ? 'opacity-70' : ''}`}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold first-letter:uppercase">{t.date === data.today ? (fr ? 'Aujourd’hui' : 'Today') : fmtDate(t.date, fr)}</h2>
+          {sameDay && !done && <span className="pill bg-warn-tint text-warn">{fr ? 'Arrivée le jour même' : 'Same-day arrival'}</span>}
+        </div>
+        <p className="text-sm font-semibold">{t.label}</p>
+        {t.address && (
+          <a className="text-sm text-accent flex items-center gap-1.5 underline-offset-2 hover:underline" target="_blank" rel="noreferrer"
+            href={`https://maps.google.com/?q=${encodeURIComponent(t.address)}`}>
+            <MapPin size={14} aria-hidden />{t.address}
+          </a>
+        )}
+        <p className="text-sm text-muted flex items-center gap-1.5">
+          <Clock size={14} aria-hidden />
+          {fr ? 'À partir de' : 'From'} {fmtTime(t.start, fr)}
+          {t.nextArrival
+            ? <> · {fr ? 'avant' : 'before'} {sameDay ? '' : `${fmtDate(t.nextArrival, fr)} `}{fmtTime(t.nextCheckIn || '16:00', fr)}</>
+            : <> · {fr ? 'pas d’arrivée prévue' : 'no arrival planned'}</>}
+        </p>
+        {!!t.nextGuests && (
+          <p className="text-sm text-muted flex items-center gap-1.5">
+            <Users size={14} aria-hidden />{fr ? `${t.nextGuests} pers. ensuite` : `${t.nextGuests} guests next`}
+          </p>
+        )}
+        {t.date <= data.today && (
+          <button onClick={() => toggleDone(t)} disabled={busy === t.id} aria-pressed={done}
+            className={`mt-1 w-full min-h-[44px] rounded-xl font-semibold flex items-center justify-center gap-2 ${done ? 'btn-secondary' : 'btn-primary'}`}>
+            {busy === t.id ? <Loader2 size={18} className="animate-spin" /> : done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+            {done ? (fr ? 'Fait' : 'Done') : (fr ? 'Marquer comme fait' : 'Mark as done')}
+          </button>
+        )}
+      </article>
+    );
+  };
 
   return (
-    <div className="p-4">
-      <h1 className="page-title mb-4">{t('schedule', lang)}</h1>
-
-      {sorted.length === 0 ? (
-        <div className="text-center py-12 text-muted">
-          <Clock size={48} className="mx-auto mb-3 opacity-50" />
-          <p>{lang === 'fr' ? 'Aucun nettoyage prévu' : 'No cleanings scheduled'}</p>
+    <div className="p-4 space-y-4 max-w-[640px] mx-auto">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="page-title">{fr ? `Bonjour ${data.name}` : `Hello ${data.name}`}</h1>
+          <p className="text-sm text-muted">{fr ? 'Vos ménages des 30 prochains jours' : 'Your cleanings in the next 30 days'}</p>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {sorted.map(task => (
-            <div key={task.id} className="bg-surface rounded-xl p-4 border border-line">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-semibold">{task.property_name}</p>
-                  <p className="text-sm text-muted mt-1">{task.date}</p>
-                  <p className="text-sm text-muted">{task.rate} €</p>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor[task.status] || ''}`}>
-                  {task.status.replace('_', ' ')}
-                </span>
-              </div>
-              {nextStatus[task.status] && (
-                <button
-                  onClick={() => updateStatus(task.id, nextStatus[task.status])}
-                  className="mt-3 w-full py-2 bg-accent text-accent-ink text-sm rounded-lg font-medium hover:bg-accent-hover">
-                  {task.status === 'pending' ? (lang === 'fr' ? 'Confirmer' : 'Confirm') :
-                   task.status === 'confirmed' ? (lang === 'fr' ? 'Commencer' : 'Start') :
-                   (lang === 'fr' ? 'Terminer' : 'Mark Done')}
-                </button>
-              )}
-              {task.status === 'done' && (
-                <div className="mt-3 flex items-center justify-center gap-1 text-accent text-sm">
-                  <CheckCircle2 size={16} /> {lang === 'fr' ? 'Terminé' : 'Completed'}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+        {data.counter && (
+          <div className="text-right" title={fr ? 'Ménages faits / payés' : 'Cleanings done / paid'}>
+            <p className="text-xs text-muted">{fr ? 'Forfait' : 'Pack'}</p>
+            <p className="text-lg font-semibold tabular-nums">{data.counter}</p>
+          </div>
+        )}
+      </div>
+      {upcoming.length === 0 && <div className="card p-5 text-sm text-muted">{fr ? 'Aucun ménage prévu.' : 'No cleaning planned.'}</div>}
+      {upcoming.map(card)}
+      {past.length > 0 && <>
+        <h2 className="section-title pt-2">{fr ? 'Cette semaine passée' : 'Past week'}</h2>
+        {past.map(card)}
+      </>}
     </div>
   );
 }

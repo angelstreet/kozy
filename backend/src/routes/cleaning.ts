@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Hono } from 'hono';
 import db from '../db.js';
 import {
-  cleanerCredit, cleanerLink, cleanerSchedule, parisClock, getCleanerMode, getTestPhone, runCleaning, runCleaningForAll, setCleanerMode, setTestPhone, type CleanerMode,
+  cleanerCredit, cleanerLink, cleanerSchedule, ownsCleaner, parisClock, getCleanerMode, getTestPhone, runCleaning, runCleaningForAll, setCleanerMode, setTestPhone, type CleanerMode,
 } from '../cleaning/engine.js';
 
 type Variables = {
@@ -122,6 +122,42 @@ router.get('/api/cleaning/credits', async (c) => {
   return c.json({ cleaners: await Promise.all(rows.map(async (r) => ({
     id: Number(r.id), name: r.name, counter: await cleanerCredit(userId, Number(r.id), today),
   }))) });
+});
+
+router.use('/api/cleaning/credits/:cleanerId/*', async (c, next) =>
+  (await ownsCleaner(c.get('userId'), Number(c.req.param('cleanerId')))) ? next() : c.json({ error: 'Not found' }, 404));
+router.use('/api/cleaning/credits/:cleanerId', async (c, next) =>
+  (await ownsCleaner(c.get('userId'), Number(c.req.param('cleanerId')))) ? next() : c.json({ error: 'Not found' }, 404));
+router.use('/api/cleaning/link/:cleanerId', async (c, next) =>
+  (await ownsCleaner(c.get('userId'), Number(c.req.param('cleanerId')))) ? next() : c.json({ error: 'Not found' }, 404));
+
+router.use('/api/cleaning/invite/:cleanerId', async (c, next) =>
+  (await ownsCleaner(c.get('userId'), Number(c.req.param('cleanerId')))) ? next() : c.json({ error: 'Not found' }, 404));
+
+// Sends the cleaner her account invite by WhatsApp (to the test number while one is set).
+router.post('/api/cleaning/invite/:cleanerId', async (c) => {
+  const userId = c.get('userId');
+  const id = Number(c.req.param('cleanerId'));
+  const cl = (await db.execute({ sql: 'SELECT id, name, phone, language, invite_token FROM cleaner WHERE id = ?', args: [id] })).rows[0] as any;
+  let token = cl.invite_token as string | null;
+  if (!token) {
+    token = crypto.randomBytes(16).toString('hex');
+    await db.execute({ sql: "UPDATE cleaner SET invite_token = ?, invite_method = 'whatsapp' WHERE id = ?", args: [token, id] });
+  }
+  const mode = await getCleanerMode(userId);
+  if (mode === 'off') return c.json({ error: 'WhatsApp messages are off' }, 400);
+  const phone = (await getTestPhone(userId)) || cl.phone;
+  const url = `${process.env.KOZY_APP_URL || 'https://kozy-steel.vercel.app'}/invite/${token}`;
+  const body = (cl.language || 'fr').startsWith('en')
+    ? `Hello ${cl.name},\nHere is your Kozy access to see your cleanings: ${url}`
+    : `Bonjour ${cl.name},\nVoici votre accès Kozy pour voir vos ménages : ${url}`;
+  const status = mode === 'dry_run' ? 'dry_run' : phone ? 'queued' : 'no_phone';
+  await db.execute({
+    sql: `INSERT INTO cleaner_message (user_id, cleaner_id, kind, dedupe_key, phone, body, status) VALUES (?, ?, 'invite', ?, ?, ?, ?)`,
+    args: [userId, id, `${mode}:invite:${id}:${Date.now()}`, phone, body, status],
+  });
+  await db.execute({ sql: 'UPDATE cleaner SET invite_sent_at = ? WHERE id = ?', args: [new Date().toISOString(), id] });
+  return c.json({ ok: true, status, url });
 });
 
 router.put('/api/cleaning/credits/:cleanerId', async (c) => {
