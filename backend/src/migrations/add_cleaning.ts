@@ -4,6 +4,8 @@ import db from '../db.js';
  * Cleaning tasks that follow Smoobu bookings, and the WhatsApp messages cleaners get.
  * - cleaning_task gains booking_ref (Smoobu reservation id, the stable key across syncs) and the
  *   time window: start_time on the check-out day, next guests' arrival day, time and count.
+ * - property.cleaning_label / cleaning_show_guests: how the place is named in a cleaner's planning
+ *   ("Haut", "Bas", "Villa") and whether the next guests' count is shown ("3(8)").
  * - cleaner.link_token: opens the cleaner's schedule page without a login.
  * - cleaner_message: outbox. openclaw pulls 'queued' rows, sends them by WhatsApp and marks them
  *   sent / failed. dry_run rows are only shown to the owner. dedupe_key stops repeats.
@@ -19,6 +21,10 @@ export async function migrateCleaning() {
   await add('next_checkin', 'TEXT');
   await add('next_guests', 'INTEGER');
   await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaning_task_booking_ref ON cleaning_task(property_id, booking_ref)');
+
+  const propCols = (await db.execute('PRAGMA table_info(property)')).rows.map((c: any) => c.name ?? c[1]);
+  if (!propCols.includes('cleaning_label')) await db.execute('ALTER TABLE property ADD COLUMN cleaning_label TEXT');
+  if (!propCols.includes('cleaning_show_guests')) await db.execute('ALTER TABLE property ADD COLUMN cleaning_show_guests INTEGER DEFAULT 0');
 
   const cleanerCols = (await db.execute('PRAGMA table_info(cleaner)')).rows.map((c: any) => c.name ?? c[1]);
   if (!cleanerCols.includes('link_token')) {

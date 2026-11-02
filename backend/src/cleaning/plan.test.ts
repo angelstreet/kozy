@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diffTasks, planTasks, scheduleLine, updateMessage, type StayForCleaning } from './plan.js';
+import { diffTasks, planningDates, planningMessage, planTasks, type StayForCleaning } from './plan.js';
 
 const stay = (over: Partial<StayForCleaning>): StayForCleaning => ({
   ref: '1', apartmentId: 10, arrival: '2026-11-05', departure: '2026-11-08', checkIn: null, checkOut: null,
@@ -49,22 +49,13 @@ test('diff: new, moved, changed window, cancelled; done tasks are never cancelle
   ]);
 });
 
-test('message lines in French and English', () => {
-  const line = { date: '2026-11-08', property: 'Gignac', start: '10:00', nextArrival: '2026-11-08', nextCheckIn: '16:00', nextGuests: 4 };
-  assert.equal(scheduleLine(line, 'fr'), 'Dimanche 8 novembre, Gignac, à partir de 10h, avant 16h (arrivée le jour même, 4 pers.)');
-  assert.equal(scheduleLine({ ...line, nextArrival: null }, 'en'), 'Sunday 8 November, Gignac, from 10:00, no arrival planned');
-  assert.equal(scheduleLine({ ...line, nextArrival: '2026-11-10', nextGuests: 0 }, 'fr'), 'Dimanche 8 novembre, Gignac, à partir de 10h, avant mardi 10 novembre 16h');
-  const msg = updateMessage([{ kind: 'moved', line, from: '2026-11-07' }], [line], 'fr', 'https://x/c/t');
-  assert.match(msg, /^Kozy : votre planning de ménage a changé\./);
-  assert.match(msg, /Déplacé : Dimanche 8 novembre.*\(au lieu du samedi 7 novembre\)/);
-  assert.match(msg, /Détails : https:\/\/x\/c\/t$/);
-});
-
-test('first assignment: the schedule is not repeated under the new tasks', () => {
-  const a = { date: '2026-11-08', property: 'Gignac', start: '10:00', nextArrival: null, nextCheckIn: null, nextGuests: null };
-  const b = { ...a, date: '2026-11-10' };
-  const first = updateMessage([{ kind: 'new', line: a }, { kind: 'new', line: b }], [a, b], 'fr', 'L');
-  assert.doesNotMatch(first, /Vos prochains ménages/);
-  const later = updateMessage([{ kind: 'new', line: b }], [a, b], 'fr', 'L');
-  assert.match(later, /Vos prochains ménages/);
+test('planning: days grouped by month, guests only where asked', () => {
+  const t = (date: string, guests: number | null = null) => ({ date, guests });
+  assert.equal(planningDates([t('2026-11-10'), t('2026-10-31'), t('2026-11-03'), t('2026-11-21')], false, 'fr'), '31 oct, 3, 10, 21 nov');
+  assert.equal(planningDates([t('2026-10-31', 6), t('2026-11-03', 8), t('2026-11-21')], true, 'fr'), '31 oct(6), 3(8), 21 nov');
+  assert.equal(planningMessage([
+    { label: 'Haut', showGuests: false, tasks: [t('2026-10-31'), t('2026-11-03')] },
+    { label: 'Bas', showGuests: false, tasks: [t('2026-10-29'), t('2026-11-05')] },
+    { label: 'Villa', showGuests: true, tasks: [] },
+  ], 'fr'), 'Bonjour,\nHaut : 31 oct, 3 nov\nBas : 29 oct, 5 nov');
 });

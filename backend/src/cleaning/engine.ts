@@ -4,17 +4,13 @@ import { decryptApiKey } from '../encryption.js';
 import { parseSmoobuCredentials } from '../smoobu-client.js';
 import { fetchSmoobuBookings } from '../smoobu-sync.js';
 import { addDays, type Lang } from '../messaging/schedule.js';
-import {
-  diffTasks, planTasks, reminderMessage, updateMessage, weekMessage,
-  type ExistingTask, type ScheduleLine, type StayForCleaning, type TaskChange,
-} from './plan.js';
+import { diffTasks, planningMessage, planTasks, type ExistingTask, type PlanningRow, type StayForCleaning } from './plan.js';
 
 export type CleanerMode = 'off' | 'dry_run' | 'live';
 
 const MODE_KEY = 'cleaner_messages_mode';
+const TEST_PHONE_KEY = 'cleaner_messages_test_phone';
 const HORIZON_DAYS = 60; // tasks are kept this far ahead
-const UPCOMING_DAYS = 14; // schedule shown in an update message
-const REMINDER_HOUR = 18; // J-1 reminder and Sunday week plan, Paris time
 const APP_URL = process.env.KOZY_APP_URL || 'https://kozy-steel.vercel.app';
 
 export async function getCleanerMode(userId: string): Promise<CleanerMode> {
@@ -27,6 +23,20 @@ export async function setCleanerMode(userId: string, mode: CleanerMode) {
     sql: `INSERT INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, datetime('now'))
           ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
     args: [userId, MODE_KEY, mode],
+  });
+}
+
+/** While set, every live message goes to this number (the owner's), headed with the cleaner's name. */
+export async function getTestPhone(userId: string): Promise<string | null> {
+  const row = (await db.execute({ sql: 'SELECT value FROM user_settings WHERE user_id = ? AND key = ?', args: [userId, TEST_PHONE_KEY] })).rows[0] as any;
+  return row?.value || null;
+}
+
+export async function setTestPhone(userId: string, phone: string | null) {
+  await db.execute({
+    sql: `INSERT INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, datetime('now'))
+          ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    args: [userId, TEST_PHONE_KEY, phone],
   });
 }
 
@@ -51,52 +61,53 @@ export async function cleanerLink(cleanerId: number): Promise<string> {
   return `${APP_URL}/s/${token}`;
 }
 
-interface Cleaner { id: number; phone: string | null; language: string | null }
-
-async function enqueue(userId: string, mode: CleanerMode, cleaner: Cleaner, kind: string, key: string, body: string) {
-  if (mode === 'off') return false;
-  const status = mode === 'dry_run' ? 'dry_run' : cleaner.phone ? 'queued' : 'no_phone';
-  const res = await db.execute({
-    sql: `INSERT OR IGNORE INTO cleaner_message (user_id, cleaner_id, kind, dedupe_key, phone, body, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    args: [userId, cleaner.id, kind, `${mode}:${key}`, cleaner.phone, body, status],
-  });
-  return Number(res.rowsAffected) > 0;
-}
-
-const lineSql = `SELECT ct.date, p.name AS property, COALESCE(ct.start_time, p.checkout_time, '12:00') AS start,
-  ct.next_arrival AS nextArrival, ct.next_checkin AS nextCheckIn, ct.next_guests AS nextGuests
-  FROM cleaning_task ct JOIN property p ON p.id = ct.property_id`;
-
-async function tasksFor(cleanerId: number, from: string, to: string): Promise<ScheduleLine[]> {
-  return (await db.execute({
-    sql: `${lineSql} WHERE ct.assigned_to = ? AND ct.date BETWEEN ? AND ? AND ct.status != 'done' ORDER BY ct.date, start`,
-    args: [cleanerId, from, to],
-  })).rows as any;
-}
+interface Cleaner { id: number; name: string; phone: string | null; language: string | null }
 
 const langOf = (c: Cleaner): Lang => ((c.language || 'fr').startsWith('en') ? 'en' : 'fr');
 
+/** First day of this month → last day of next month: the span the owner's hand-written planning covers. */
+function planningSpan(today: string): [string, string] {
+  const [y, m] = today.split('-').map(Number);
+  const end = new Date(Date.UTC(y, m + 1, 0)); // day 0 of the month after next = last day of next month
+  return [`${today.slice(0, 7)}-01`, end.toISOString().slice(0, 10)];
+}
+
+async function planningFor(userId: string, cleaner: Cleaner, from: string, to: string): Promise<string | null> {
+  const rows = (await db.execute({
+    sql: `SELECT p.id, COALESCE(p.cleaning_label, p.name) AS label, p.cleaning_show_guests AS showGuests, ct.date, ct.next_guests AS guests
+          FROM cleaning_task ct JOIN property p ON p.id = ct.property_id
+          WHERE p.user_id = ? AND ct.assigned_to = ? AND ct.date BETWEEN ? AND ? ORDER BY p.id, ct.date`,
+    args: [userId, cleaner.id, from, to],
+  })).rows as any[];
+  if (!rows.length) return null;
+  const byProperty = new Map<number, PlanningRow>();
+  for (const r of rows) {
+    if (!byProperty.has(Number(r.id))) byProperty.set(Number(r.id), { label: String(r.label), showGuests: Boolean(r.showGuests), tasks: [] });
+    byProperty.get(Number(r.id))!.tasks.push({ date: String(r.date), guests: r.guests == null ? null : Number(r.guests) });
+  }
+  return planningMessage([...byProperty.values()], langOf(cleaner));
+}
+
 /**
- * One tick for one owner: rebuild tasks from Smoobu (one per guest check-out, next arrival as the
- * deadline), tell each cleaner what changed with the next two weeks, then J-1 reminders after 18:00
- * and the week plan on Sunday after 18:00. The first run for a property only creates tasks.
+ * One tick for one owner: rebuild tasks from Smoobu (one per guest check-out, next arrival as the deadline,
+ * open tasks follow the property's primary cleaner), then send each cleaner their planning for this month and
+ * next whenever its text differs from the last one they got.
  */
 export async function runCleaning(userId: string, now = new Date()) {
   const mode = await getCleanerMode(userId);
+  const testPhone = await getTestPhone(userId);
   const user = (await db.execute({ sql: 'SELECT smoobu_api_key_encrypted FROM user WHERE id = ?', args: [userId] })).rows[0] as any;
   if (!user?.smoobu_api_key_encrypted) return { userId, mode, error: 'no Smoobu key' };
   const creds = parseSmoobuCredentials(decryptApiKey(user.smoobu_api_key_encrypted));
   const reservations = await fetchSmoobuBookings(creds);
 
-  const { date: today, hour, weekday } = parisClock(now);
+  const today = parisClock(now).date;
   const horizon = addDays(today, HORIZON_DAYS);
   const props = (await db.execute({
     sql: `SELECT id, name, smoobu_apartment_id, checkout_time, checkin_time, rate, sunday_rate FROM property
           WHERE user_id = ? AND enabled = 1 AND smoobu_apartment_id IS NOT NULL`,
     args: [userId],
   })).rows as any[];
-
-  const changesByCleaner = new Map<number, { kind: TaskChange['kind']; line: ScheduleLine; from?: string }[]>();
   const summary: any[] = [];
 
   for (const p of props) {
@@ -109,12 +120,11 @@ export async function runCleaning(userId: string, now = new Date()) {
         isBlocked: Boolean(r['is-blocked-booking']), cancelled: r.type === 'cancellation',
       }));
     const planned = planTasks(stays, today, horizon, { checkIn: p.checkin_time || '16:00', checkOut: p.checkout_time || '12:00' });
-    const existingRows = (await db.execute({
-      sql: `SELECT id, booking_ref, date, status, assigned_to, next_arrival, next_checkin FROM cleaning_task
+    const existing: ExistingTask[] = ((await db.execute({
+      sql: `SELECT id, booking_ref, date, status, next_arrival, next_checkin FROM cleaning_task
             WHERE property_id = ? AND booking_ref IS NOT NULL AND date >= ?`,
       args: [p.id, today],
-    })).rows as any[];
-    const existing: ExistingTask[] = existingRows.map((t) => ({
+    })).rows as any[]).map((t) => ({
       id: Number(t.id), bookingRef: String(t.booking_ref), date: String(t.date), status: String(t.status),
       nextArrival: t.next_arrival ?? null, nextCheckIn: t.next_checkin ?? null,
     }));
@@ -123,9 +133,6 @@ export async function runCleaning(userId: string, now = new Date()) {
       summary.push({ property: p.id, skipped: 'no stays from Smoobu, kept existing tasks' });
       continue;
     }
-    const firstRun = Number(((await db.execute({
-      sql: 'SELECT COUNT(*) AS n FROM cleaning_task WHERE property_id = ? AND booking_ref IS NOT NULL', args: [p.id],
-    })).rows[0] as any).n) === 0;
     const primary = ((await db.execute({
       sql: "SELECT cleaner_id FROM property_cleaner WHERE property_id = ? ORDER BY role = 'primary' DESC LIMIT 1", args: [p.id],
     })).rows[0] as any)?.cleaner_id ?? null;
@@ -133,12 +140,9 @@ export async function runCleaning(userId: string, now = new Date()) {
     const changes = diffTasks(existing, planned);
     for (const ch of changes) {
       const t = ch.task as any;
-      let cleanerId: number | null;
       if (ch.kind === 'cancelled') {
-        cleanerId = existingRows.find((r) => Number(r.id) === t.id)?.assigned_to ?? null;
         await db.execute({ sql: 'DELETE FROM cleaning_task WHERE id = ?', args: [t.id] });
       } else if (ch.kind === 'new') {
-        cleanerId = primary;
         const sunday = new Date(`${t.date}T12:00:00Z`).getUTCDay() === 0;
         await db.execute({
           sql: `INSERT INTO cleaning_task (property_id, date, status, assigned_to, rate, booking_ref, start_time, next_arrival, next_checkin, next_guests)
@@ -146,78 +150,51 @@ export async function runCleaning(userId: string, now = new Date()) {
           args: [p.id, t.date, primary, sunday ? p.sunday_rate ?? p.rate : p.rate, t.bookingRef, t.start, t.nextArrival, t.nextCheckIn, t.nextGuests],
         });
       } else {
-        cleanerId = existingRows.find((r) => String(r.booking_ref) === t.bookingRef)?.assigned_to ?? null;
         await db.execute({
           sql: `UPDATE cleaning_task SET date = ?, start_time = ?, next_arrival = ?, next_checkin = ?, next_guests = ?
                 WHERE property_id = ? AND booking_ref = ?`,
           args: [t.date, t.start, t.nextArrival, t.nextCheckIn, t.nextGuests, p.id, t.bookingRef],
         });
       }
-      // Changes far ahead are not worth a message: the week plan and the link cover them.
-      if (firstRun || !cleanerId || t.date > addDays(today, UPCOMING_DAYS)) continue;
-      const line: ScheduleLine = {
-        date: t.date, property: p.name, start: t.start ?? p.checkout_time ?? '12:00',
-        nextArrival: t.nextArrival ?? null, nextCheckIn: t.nextCheckIn ?? null, nextGuests: t.nextGuests ?? null,
-      };
-      if (!changesByCleaner.has(Number(cleanerId))) changesByCleaner.set(Number(cleanerId), []);
-      changesByCleaner.get(Number(cleanerId))!.push({ kind: ch.kind, line, from: ch.from });
     }
-    // Tasks made before the property had a cleaner: give them to the primary cleaner, announced as new.
-    let assigned = 0;
-    if (primary) {
-      const orphans = (await db.execute({
-        sql: `SELECT id, date, start_time, next_arrival, next_checkin, next_guests FROM cleaning_task
-              WHERE property_id = ? AND booking_ref IS NOT NULL AND assigned_to IS NULL AND date >= ? AND status != 'done' ORDER BY date`,
-        args: [p.id, today],
-      })).rows as any[];
-      for (const o of orphans) {
-        await db.execute({ sql: 'UPDATE cleaning_task SET assigned_to = ? WHERE id = ?', args: [primary, o.id] });
-        assigned++;
-        if (o.date > addDays(today, UPCOMING_DAYS)) continue;
-        if (!changesByCleaner.has(Number(primary))) changesByCleaner.set(Number(primary), []);
-        changesByCleaner.get(Number(primary))!.push({ kind: 'new', line: {
-          date: o.date, property: p.name, start: o.start_time ?? p.checkout_time ?? '12:00',
-          nextArrival: o.next_arrival ?? null, nextCheckIn: o.next_checkin ?? null, nextGuests: o.next_guests ?? null,
-        } });
-      }
-    }
-    summary.push({ property: p.id, planned: planned.length, changes: changes.length, assigned, firstRun });
+    // Open tasks follow the property's primary cleaner (added later, or changed).
+    const reassigned = primary ? Number((await db.execute({
+      sql: `UPDATE cleaning_task SET assigned_to = ? WHERE property_id = ? AND booking_ref IS NOT NULL AND date >= ?
+            AND status = 'pending' AND (assigned_to IS NULL OR assigned_to != ?)`,
+      args: [primary, p.id, today, primary],
+    })).rowsAffected) : 0;
+    summary.push({ property: p.id, planned: planned.length, changes: changes.length, reassigned });
   }
 
-  const cleaners = (await db.execute('SELECT id, phone, language FROM cleaner')).rows as any[];
-  const byId = new Map(cleaners.map((c) => [Number(c.id), { id: Number(c.id), phone: c.phone ?? null, language: c.language ?? null }]));
+  // One planning per cleaner of this owner (or who had one before: their last task may have moved away).
+  const [from, to] = planningSpan(today);
+  const cleaners = (await db.execute({
+    sql: `SELECT DISTINCT c.id, c.name, c.phone, c.language FROM cleaner c
+          WHERE c.id IN (SELECT ct.assigned_to FROM cleaning_task ct JOIN property p ON p.id = ct.property_id WHERE p.user_id = ?)
+             OR c.id IN (SELECT cleaner_id FROM cleaner_message WHERE user_id = ?)`,
+    args: [userId, userId],
+  })).rows as any[];
   let messages = 0;
-
-  for (const [cleanerId, changes] of changesByCleaner) {
-    const c = byId.get(cleanerId);
-    if (!c) continue;
-    changes.sort((a, b) => a.line.date.localeCompare(b.line.date));
-    const body = updateMessage(changes, await tasksFor(cleanerId, today, addDays(today, UPCOMING_DAYS)), langOf(c), await cleanerLink(cleanerId));
-    const key = `update:${cleanerId}:${crypto.createHash('sha1').update(JSON.stringify(changes)).digest('hex').slice(0, 12)}`;
-    if (await enqueue(userId, mode, c, 'update', key, body)) messages++;
+  for (const r of cleaners) {
+    const c: Cleaner = { id: Number(r.id), name: String(r.name), phone: r.phone ?? null, language: r.language ?? null };
+    const body = await planningFor(userId, c, from, to);
+    if (!body) continue;
+    const last = (await db.execute({
+      sql: "SELECT body FROM cleaner_message WHERE user_id = ? AND cleaner_id = ? AND kind = 'planning' AND dedupe_key LIKE ? ORDER BY id DESC LIMIT 1",
+      args: [userId, c.id, `${mode}:%`],
+    })).rows[0] as any;
+    if (last?.body === body || mode === 'off') continue;
+    const phone = testPhone || c.phone;
+    const status = mode === 'dry_run' ? 'dry_run' : phone ? 'queued' : 'no_phone';
+    // Redirected messages carry the cleaner's name so the owner knows whose planning it is; the stored body stays clean.
+    await db.execute({
+      sql: `INSERT INTO cleaner_message (user_id, cleaner_id, kind, dedupe_key, phone, body, status) VALUES (?, ?, 'planning', ?, ?, ?, ?)`,
+      args: [userId, c.id, `${mode}:planning:${c.id}:${now.getTime()}`, phone, body, status],
+    });
+    messages++;
   }
 
-  if (hour >= REMINDER_HOUR) {
-    const tomorrow = addDays(today, 1);
-    const assigned = (await db.execute({
-      sql: `SELECT DISTINCT ct.assigned_to AS id FROM cleaning_task ct JOIN property p ON p.id = ct.property_id
-            WHERE p.user_id = ? AND ct.assigned_to IS NOT NULL AND ct.date BETWEEN ? AND ?`,
-      args: [userId, tomorrow, addDays(today, 7)],
-    })).rows as any[];
-    for (const a of assigned) {
-      const c = byId.get(Number(a.id));
-      if (!c) continue;
-      const link = await cleanerLink(c.id);
-      const tomorrowLines = await tasksFor(c.id, tomorrow, tomorrow);
-      if (tomorrowLines.length && await enqueue(userId, mode, c, 'reminder', `j1:${c.id}:${tomorrow}`, reminderMessage(tomorrowLines, langOf(c), link))) messages++;
-      if (weekday === 0) {
-        const week = await tasksFor(c.id, tomorrow, addDays(today, 7));
-        if (await enqueue(userId, mode, c, 'week', `week:${c.id}:${tomorrow}`, weekMessage(week, langOf(c), link))) messages++;
-      }
-    }
-  }
-
-  return { userId, mode, today, properties: summary, messages };
+  return { userId, mode, testPhone: Boolean(testPhone), today, properties: summary, messages };
 }
 
 /** Scheduler entry point: every owner with a Smoobu key, unless cleaner messages are off. */

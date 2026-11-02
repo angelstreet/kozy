@@ -1,8 +1,8 @@
 /**
- * Pure planning + text for cleaning tasks and the WhatsApp messages cleaners get.
+ * Pure planning + text for cleaning tasks and the WhatsApp planning cleaners get.
  * No DB, no network: tested in plan.test.ts. Dates are 'YYYY-MM-DD', times 'HH:MM', Europe/Paris.
  */
-import { formatDate, formatTime, type Lang } from '../messaging/schedule.js';
+import type { Lang } from '../messaging/schedule.js';
 
 export interface StayForCleaning {
   ref: string; // Smoobu reservation id
@@ -80,82 +80,37 @@ export function diffTasks(existing: ExistingTask[], planned: PlannedTask[]) {
   return changes;
 }
 
-export interface ScheduleLine {
-  date: string;
-  property: string;
-  start: string;
-  nextArrival: string | null;
-  nextCheckIn: string | null;
-  nextGuests: number | null;
-}
-
-const T = {
-  fr: {
-    update: 'Kozy : votre planning de ménage a changé.',
-    new: 'Nouveau', moved: 'Déplacé', changed: 'Modifié', cancelled: 'Annulé', was: 'au lieu du',
-    upcoming: 'Vos prochains ménages :', none: 'Aucun ménage prévu.',
-    reminder: 'Rappel Kozy : ménage demain.',
-    week: 'Kozy : vos ménages de la semaine.',
-    from: 'à partir de', until: 'avant', sameDay: 'arrivée le jour même', free: 'pas d’arrivée prévue',
-    people: (n: number) => `${n} pers.`,
-    link: 'Détails :',
-  },
-  en: {
-    update: 'Kozy: your cleaning schedule changed.',
-    new: 'New', moved: 'Moved', changed: 'Changed', cancelled: 'Cancelled', was: 'instead of',
-    upcoming: 'Your next cleanings:', none: 'No cleaning planned.',
-    reminder: 'Kozy reminder: cleaning tomorrow.',
-    week: 'Kozy: your cleanings this week.',
-    from: 'from', until: 'before', sameDay: 'guests arrive the same day', free: 'no arrival planned',
-    people: (n: number) => `${n} guest${n === 1 ? '' : 's'}`,
-    link: 'Details:',
-  },
+const MONTHS: Record<Lang, string[]> = {
+  fr: ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 };
 
-/** "samedi 8 novembre"; capitalised when it starts a line. */
-function shortDate(date: string, lang: Lang, capital = false): string {
-  const d = formatDate(date, lang);
-  return capital ? d.charAt(0).toUpperCase() + d.slice(1) : d;
+export interface PlanningRow {
+  label: string; // the cleaner's name for the place: "Haut", "Bas", "Villa"
+  showGuests: boolean; // add the next guests' count: "3(8)"
+  tasks: { date: string; guests: number | null }[];
 }
 
-/** "Saturday 8 November, Gignac, from 10:00, before 16:00 (same day, 4 guests)". */
-export function scheduleLine(l: ScheduleLine, lang: Lang): string {
-  const t = T[lang];
-  let end: string;
-  const notes = (sameDay: boolean) => [sameDay ? t.sameDay : null, l.nextGuests ? t.people(l.nextGuests) : null].filter(Boolean).join(', ');
-  const paren = (s: string) => (s ? ` (${s})` : '');
-  if (!l.nextArrival) end = t.free;
-  else if (l.nextArrival === l.date) end = `${t.until} ${formatTime(l.nextCheckIn!, lang)}${paren(notes(true))}`;
-  else end = `${t.until} ${shortDate(l.nextArrival, lang)} ${formatTime(l.nextCheckIn!, lang)}${paren(notes(false))}`;
-  return `${shortDate(l.date, lang, true)}, ${l.property}, ${t.from} ${formatTime(l.start, lang)}, ${end}`;
+/** "31 oct, 3, 10, 21 nov": days grouped by month, month written after the last day of each month. */
+export function planningDates(tasks: PlanningRow['tasks'], showGuests: boolean, lang: Lang): string {
+  const sorted = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
+  return sorted.map((t, i) => {
+    const month = t.date.slice(0, 7);
+    const lastOfMonth = sorted[i + 1]?.date.slice(0, 7) !== month;
+    const day = String(Number(t.date.slice(8, 10)));
+    const mon = lastOfMonth ? ` ${MONTHS[lang][Number(t.date.slice(5, 7)) - 1]}` : '';
+    return `${day}${mon}${showGuests && t.guests ? `(${t.guests})` : ''}`;
+  }).join(', ');
 }
 
-function upcomingBlock(lines: ScheduleLine[], lang: Lang): string {
-  const t = T[lang];
-  return lines.length ? `${t.upcoming}\n${lines.map((l) => `- ${scheduleLine(l, lang)}`).join('\n')}` : t.none;
-}
-
-export function updateMessage(
-  changes: { kind: TaskChange['kind']; line: ScheduleLine; from?: string }[], upcoming: ScheduleLine[], lang: Lang, link: string,
-): string {
-  const t = T[lang];
-  const changeLines = changes.map((c) => {
-    const was = c.kind === 'moved' && c.from ? ` (${t.was} ${shortDate(c.from, lang)})` : '';
-    return `${t[c.kind]}${lang === 'fr' ? ' : ' : ': '}${scheduleLine(c.line, lang)}${was}`;
-  });
-  // When every upcoming task is a new one (first assignment), the schedule would repeat the change lines.
-  const key = (l: ScheduleLine) => `${l.date}|${l.property}`;
-  const announced = new Set(changes.filter((c) => c.kind === 'new').map((c) => key(c.line)));
-  const repeat = upcoming.length > 0 && upcoming.every((l) => announced.has(key(l)));
-  return [t.update, '', ...changeLines, '', ...(repeat ? [] : [upcomingBlock(upcoming, lang), '']), `${t.link} ${link}`].join('\n');
-}
-
-export function reminderMessage(lines: ScheduleLine[], lang: Lang, link: string): string {
-  const t = T[lang];
-  return [t.reminder, ...lines.map((l) => `- ${scheduleLine(l, lang)}`), '', `${t.link} ${link}`].join('\n');
-}
-
-export function weekMessage(lines: ScheduleLine[], lang: Lang, link: string): string {
-  const t = T[lang];
-  return [t.week, '', lines.length ? lines.map((l) => `- ${scheduleLine(l, lang)}`).join('\n') : t.none, '', `${t.link} ${link}`].join('\n');
+/**
+ * The whole message a cleaner gets, as the owner writes it by hand:
+ *   Bonjour,
+ *   Haut : 31 oct, 3, 10, 21 nov
+ *   Bas : 29 oct, 5, 10, 22, 30 nov
+ */
+export function planningMessage(rows: PlanningRow[], lang: Lang): string {
+  const sep = lang === 'fr' ? ' : ' : ': ';
+  const lines = rows.filter((r) => r.tasks.length).map((r) => `${r.label}${sep}${planningDates(r.tasks, r.showGuests, lang)}`);
+  return [lang === 'fr' ? 'Bonjour,' : 'Hello,', ...lines].join('\n');
 }

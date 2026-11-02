@@ -14,6 +14,7 @@ const STATUS: Record<string, { icon: typeof Clock; fr: string; en: string; cls: 
   no_phone: { icon: PhoneOff, fr: 'Pas de numéro', en: 'No phone', cls: 'bg-warn-tint text-warn' },
 };
 const KIND: Record<string, [string, string]> = {
+  planning: ['Planning', 'Planning'],
   update: ['Planning modifié', 'Schedule changed'],
   reminder: ['Rappel J-1', 'Day-before reminder'],
   week: ['Semaine', 'Week plan'],
@@ -24,6 +25,7 @@ export default function CleanerMessages() {
   const { lang } = useApp();
   const fr = lang === 'fr';
   const [mode, setMode] = useState<Mode | null>(null);
+  const [testPhone, setTestPhone] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [open, setOpen] = useState<number | null>(null);
   const [busy, setBusy] = useState<'mode' | 'run' | null>(null);
@@ -31,7 +33,7 @@ export default function CleanerMessages() {
 
   const load = async () => {
     const [s, m] = await Promise.all([apiFetch('/cleaning/settings'), apiFetch('/cleaning/messages')]);
-    if (s.ok) setMode((await s.json()).mode);
+    if (s.ok) { const d = await s.json(); setMode(d.mode); setTestPhone(d.testPhone); }
     if (m.ok) setRows((await m.json()).messages);
   };
   useEffect(() => { load(); }, []);
@@ -44,7 +46,7 @@ export default function CleanerMessages() {
     const res = await apiFetch('/cleaning/settings', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: next }),
     });
-    if (res.ok) setMode((await res.json()).mode);
+    if (res.ok) { const d = await res.json(); setMode(d.mode); setTestPhone(d.testPhone); }
     setBusy(null);
   };
 
@@ -79,8 +81,10 @@ export default function CleanerMessages() {
           ))}
         </div>
         <p className="text-sm text-muted">
-          {mode === 'live'
-            ? (fr ? 'Envoyés par WhatsApp : changement de planning, rappel la veille à 18h, semaine le dimanche.' : 'Sent by WhatsApp: schedule changes, reminder the day before at 18:00, week plan on Sunday.')
+          {mode === 'live' && testPhone
+            ? (fr ? `Test : tous les plannings partent sur votre numéro (${testPhone}), avec le nom de l’agent en tête.` : `Test: every planning goes to your number (${testPhone}), headed with the cleaner’s name.`)
+            : mode === 'live'
+            ? (fr ? 'Chaque agent reçoit son planning (ce mois et le suivant) par WhatsApp dès qu’il change.' : 'Each cleaner gets their planning (this month and next) by WhatsApp whenever it changes.')
             : mode === 'dry_run'
               ? (fr ? 'Rien n’est envoyé. Les messages prévus apparaissent ci-dessous.' : 'Nothing is sent. Planned messages show below.')
               : (fr ? 'Aucun message aux agents de ménage.' : 'No messages to cleaners.')}
