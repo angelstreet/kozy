@@ -162,7 +162,26 @@ export async function runCleaning(userId: string, now = new Date()) {
       if (!changesByCleaner.has(Number(cleanerId))) changesByCleaner.set(Number(cleanerId), []);
       changesByCleaner.get(Number(cleanerId))!.push({ kind: ch.kind, line, from: ch.from });
     }
-    summary.push({ property: p.id, planned: planned.length, changes: changes.length, firstRun });
+    // Tasks made before the property had a cleaner: give them to the primary cleaner, announced as new.
+    let assigned = 0;
+    if (primary) {
+      const orphans = (await db.execute({
+        sql: `SELECT id, date, start_time, next_arrival, next_checkin, next_guests FROM cleaning_task
+              WHERE property_id = ? AND booking_ref IS NOT NULL AND assigned_to IS NULL AND date >= ? AND status != 'done' ORDER BY date`,
+        args: [p.id, today],
+      })).rows as any[];
+      for (const o of orphans) {
+        await db.execute({ sql: 'UPDATE cleaning_task SET assigned_to = ? WHERE id = ?', args: [primary, o.id] });
+        assigned++;
+        if (o.date > addDays(today, UPCOMING_DAYS)) continue;
+        if (!changesByCleaner.has(Number(primary))) changesByCleaner.set(Number(primary), []);
+        changesByCleaner.get(Number(primary))!.push({ kind: 'new', line: {
+          date: o.date, property: p.name, start: o.start_time ?? p.checkout_time ?? '12:00',
+          nextArrival: o.next_arrival ?? null, nextCheckIn: o.next_checkin ?? null, nextGuests: o.next_guests ?? null,
+        } });
+      }
+    }
+    summary.push({ property: p.id, planned: planned.length, changes: changes.length, assigned, firstRun });
   }
 
   const cleaners = (await db.execute('SELECT id, phone, language FROM cleaner')).rows as any[];
@@ -172,6 +191,7 @@ export async function runCleaning(userId: string, now = new Date()) {
   for (const [cleanerId, changes] of changesByCleaner) {
     const c = byId.get(cleanerId);
     if (!c) continue;
+    changes.sort((a, b) => a.line.date.localeCompare(b.line.date));
     const body = updateMessage(changes, await tasksFor(cleanerId, today, addDays(today, UPCOMING_DAYS)), langOf(c), await cleanerLink(cleanerId));
     const key = `update:${cleanerId}:${crypto.createHash('sha1').update(JSON.stringify(changes)).digest('hex').slice(0, 12)}`;
     if (await enqueue(userId, mode, c, 'update', key, body)) messages++;
