@@ -164,13 +164,15 @@ every task of the property, so anything attached to a task would be lost.
 - [x] Tasks follow bookings (`backend/src/cleaning/`, 2026-11-01): one task per guest check-out for 60 days, window =
       check-out time → next guest check-in, primary cleaner assigned, keyed on the Smoobu id (`booking_ref`) so syncs
       no longer wipe tasks; moved / cancelled / new-next-arrival detected. Rebuilt every 10 min by openclaw.
-- [ ] Real cleaners per property (name, phone, language). Today only two seed cleaners, no assignments.
-- [x] WhatsApp messages to the cleaner (owner chose WhatsApp first), each with a no-login schedule link `/s/<token>`:
-      schedule changed (only changes within 14 days, with the next two weeks), reminder the day before at 18:00,
-      week plan on Sunday 18:00. Mode off / test / live on the Cleaners screen (default test). Outbox
-      `cleaner_message`; openclaw `scripts/openclaw/kozy-cleaning-run.py` sends through its WhatsApp channel.
-- [ ] Relink WhatsApp on openclaw (logged out since 2026-10-24): `openclaw channels login --channel whatsapp`, owner
-      scans the QR. Until then live messages stay queued.
+- [x] Cleaners (2026-11-02): Ester on the two Noisy flats, Christelle on the villa.
+- [x] WhatsApp planning per cleaner, in the owner's own format (owner: the first version was too long):
+      `Haut : 31 oct, 3, 10, 21 nov` per property, this month and next, guests for the villa `3(8)`, sent only
+      when the text changes. Labels per property (`PUT /api/cleaning/properties/:id`). No reminders or week plans.
+      Each cleaner also has a no-login schedule page `/s/<token>`. Outbox `cleaner_message`; openclaw
+      `scripts/openclaw/kozy-cleaning-run.py` sends through its WhatsApp channel (relinked 2026-11-02).
+- [x] Test number: while set, every live message goes to the owner's phone headed `[Christelle]` (on now).
+- [ ] Paid count in Ester's message ("3/6"): define what it counts, then add it.
+- [ ] Go live to the real numbers: clear the test number (Ester's number still to enter).
 - [ ] Email / SMS as a second channel if a cleaner has no WhatsApp.
 - [ ] Cleaning guide per property: rooms → steps (beds, bathroom, kitchen, bins, linen, restock, keys), reference
       photo per step ("how it should look"), editable by the owner, FR/EN.
