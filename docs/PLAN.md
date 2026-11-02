@@ -171,7 +171,9 @@ every task of the property, so anything attached to a task would be lost.
       Each cleaner also has a no-login schedule page `/s/<token>`. Outbox `cleaner_message`; openclaw
       `scripts/openclaw/kozy-cleaning-run.py` sends through its WhatsApp channel (relinked 2026-11-02).
 - [x] Test number: while set, every live message goes to the owner's phone headed `[Christelle]` (on now).
-- [ ] Paid count in Ester's message ("3/6"): define what it counts, then add it.
+- [x] Prepaid pack counter (Ester, 2026-11-02): packs of 6, last line of her planning `9/12` = used / paid,
+      +1 per cleaning, +2 on Sunday or a public holiday, moves by itself on the cleaning day.
+      "+6 payés" button on Cleaners. Christelle is paid per cleaning: no counter.
 - [ ] Go live to the real numbers: clear the test number (Ester's number still to enter).
 - [ ] Email / SMS as a second channel if a cleaner has no WhatsApp.
 - [ ] Cleaning guide per property: rooms → steps (beds, bathroom, kitchen, bins, linen, restock, keys), reference
