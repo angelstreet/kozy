@@ -30,11 +30,13 @@ export default function CleanerMessages() {
   const [open, setOpen] = useState<number | null>(null);
   const [busy, setBusy] = useState<'mode' | 'run' | null>(null);
   const [runNote, setRunNote] = useState('');
+  const [credits, setCredits] = useState<{ id: number; name: string; counter: string | null }[]>([]);
 
   const load = async () => {
-    const [s, m] = await Promise.all([apiFetch('/cleaning/settings'), apiFetch('/cleaning/messages')]);
+    const [s, m, cr] = await Promise.all([apiFetch('/cleaning/settings'), apiFetch('/cleaning/messages'), apiFetch('/cleaning/credits')]);
     if (s.ok) { const d = await s.json(); setMode(d.mode); setTestPhone(d.testPhone); }
     if (m.ok) setRows((await m.json()).messages);
+    if (cr.ok) setCredits((await cr.json()).cleaners);
   };
   useEffect(() => { load(); }, []);
 
@@ -48,6 +50,14 @@ export default function CleanerMessages() {
     });
     if (res.ok) { const d = await res.json(); setMode(d.mode); setTestPhone(d.testPhone); }
     setBusy(null);
+  };
+
+  const addPack = async (id: number, name: string) => {
+    if (!confirm(fr ? `Ajouter un forfait de 6 ménages payé à ${name} ?` : `Add a paid pack of 6 cleanings for ${name}?`)) return;
+    const res = await apiFetch(`/cleaning/credits/${id}/pack`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ units: 6 }),
+    });
+    if (res.ok) { const { counter } = await res.json(); setCredits(cs => cs.map(c => (c.id === id ? { ...c, counter } : c))); }
   };
 
   const runNow = async () => {
@@ -91,6 +101,27 @@ export default function CleanerMessages() {
         </p>
         {runNote && <p className="text-sm text-muted">{runNote}</p>}
       </div>
+
+      {credits.length > 0 && (
+        <div className="card divide-y divide-line">
+          {credits.map(c => (
+            <div key={c.id} className="px-4 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{c.name}</p>
+                <p className="text-xs text-muted">{c.counter
+                  ? (fr ? 'Forfait : ménages faits / payés (dimanche et férié comptent 2)' : 'Pack: cleanings done / paid (Sunday and holidays count 2)')
+                  : (fr ? 'Payé à chaque ménage' : 'Paid per cleaning')}</p>
+              </div>
+              {c.counter && <span className="text-sm font-semibold tabular-nums">{c.counter}</span>}
+              {c.counter && (
+                <button className="btn-secondary text-sm" onClick={() => addPack(c.id, c.name)}>
+                  {fr ? '+6 payés' : '+6 paid'}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="card divide-y divide-line">
         {rows.length === 0 && <p className="p-4 text-sm text-muted">{fr ? 'Aucun message pour l’instant.' : 'No messages yet.'}</p>}

@@ -114,3 +114,37 @@ export function planningMessage(rows: PlanningRow[], lang: Lang): string {
   const lines = rows.filter((r) => r.tasks.length).map((r) => `${r.label}${sep}${planningDates(r.tasks, r.showGuests, lang)}`);
   return [lang === 'fr' ? 'Bonjour,' : 'Hello,', ...lines].join('\n');
 }
+
+/** Easter Sunday (anonymous Gregorian algorithm), 'YYYY-MM-DD'. */
+function easter(year: number): string {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function shift(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** French public holidays (jours fériés): fixed dates + Easter Monday, Ascension, Whit Monday. */
+export function isFrenchHoliday(date: string): boolean {
+  const md = date.slice(5);
+  if (['01-01', '05-01', '05-08', '07-14', '08-15', '11-01', '11-11', '12-25'].includes(md)) return true;
+  const e = easter(Number(date.slice(0, 4)));
+  return [shift(e, 1), shift(e, 39), shift(e, 50)].includes(date);
+}
+
+/** What a cleaning uses from a prepaid pack: 2 on Sunday or a public holiday, else 1. */
+export function cleaningUnits(date: string): number {
+  return new Date(`${date}T12:00:00Z`).getUTCDay() === 0 || isFrenchHoliday(date) ? 2 : 1;
+}
+
+/** "9/12": units used / units paid. Used = the count the owner gave on `asOf` + cleanings after it, up to today. */
+export function creditLine(credit: { paid: number; used: number; asOf: string }, cleaningDates: string[], today: string): string {
+  const used = credit.used + cleaningDates.filter((d) => d > credit.asOf && d <= today).reduce((n, d) => n + cleaningUnits(d), 0);
+  return `${used}/${credit.paid}`;
+}

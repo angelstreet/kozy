@@ -7,6 +7,8 @@ import db from '../db.js';
  * - property.cleaning_label / cleaning_show_guests: how the place is named in a cleaner's planning
  *   ("Haut", "Bas", "Villa") and whether the next guests' count is shown ("3(8)").
  * - cleaner.link_token: opens the cleaner's schedule page without a login.
+ * - cleaner.credit_paid / credit_used / credit_as_of: prepaid packs ("9/12" in the planning). Used grows by 1
+ *   per cleaning after credit_as_of, 2 on Sunday or a public holiday. NULL paid = paid per cleaning, no counter.
  * - cleaner_message: outbox. openclaw pulls 'queued' rows, sends them by WhatsApp and marks them
  *   sent / failed. dry_run rows are only shown to the owner. dedupe_key stops repeats.
  */
@@ -30,6 +32,11 @@ export async function migrateCleaning() {
   if (!cleanerCols.includes('link_token')) {
     await db.execute('ALTER TABLE cleaner ADD COLUMN link_token TEXT');
     await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaner_link_token ON cleaner(link_token)');
+  }
+  if (!cleanerCols.includes('credit_paid')) {
+    await db.execute('ALTER TABLE cleaner ADD COLUMN credit_paid INTEGER');
+    await db.execute('ALTER TABLE cleaner ADD COLUMN credit_used INTEGER');
+    await db.execute('ALTER TABLE cleaner ADD COLUMN credit_as_of TEXT');
   }
 
   await db.execute(`

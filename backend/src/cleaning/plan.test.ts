@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diffTasks, planningDates, planningMessage, planTasks, type StayForCleaning } from './plan.js';
+import { cleaningUnits, creditLine, diffTasks, isFrenchHoliday, planningDates, planningMessage, planTasks, type StayForCleaning } from './plan.js';
 
 const stay = (over: Partial<StayForCleaning>): StayForCleaning => ({
   ref: '1', apartmentId: 10, arrival: '2026-11-05', departure: '2026-11-08', checkIn: null, checkOut: null,
@@ -58,4 +58,17 @@ test('planning: days grouped by month, guests only where asked', () => {
     { label: 'Bas', showGuests: false, tasks: [t('2026-10-29'), t('2026-11-05')] },
     { label: 'Villa', showGuests: true, tasks: [] },
   ], 'fr'), 'Bonjour,\nHaut : 31 oct, 3 nov\nBas : 29 oct, 5 nov');
+});
+
+test('pack counter: +1 per cleaning, +2 on Sunday and public holidays', () => {
+  assert.equal(isFrenchHoliday('2026-11-11'), true);
+  assert.equal(isFrenchHoliday('2027-03-29'), true); // Easter Monday 2027
+  assert.equal(isFrenchHoliday('2026-05-14'), true); // Ascension 2026
+  assert.equal(isFrenchHoliday('2026-11-12'), false);
+  assert.equal(cleaningUnits('2026-11-08'), 2); // Sunday
+  const credit = { paid: 12, used: 9, asOf: '2026-11-02' };
+  const dates = ['2026-11-02', '2026-11-03', '2026-11-08', '2026-11-11', '2026-11-12'];
+  assert.equal(creditLine(credit, dates, '2026-11-02'), '9/12');
+  assert.equal(creditLine(credit, dates, '2026-11-03'), '10/12');
+  assert.equal(creditLine(credit, dates, '2026-11-12'), '15/12');
 });

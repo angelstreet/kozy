@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Hono } from 'hono';
 import db from '../db.js';
 import {
-  cleanerLink, cleanerSchedule, getCleanerMode, getTestPhone, runCleaning, runCleaningForAll, setCleanerMode, setTestPhone, type CleanerMode,
+  cleanerCredit, cleanerLink, cleanerSchedule, parisClock, getCleanerMode, getTestPhone, runCleaning, runCleaningForAll, setCleanerMode, setTestPhone, type CleanerMode,
 } from '../cleaning/engine.js';
 
 type Variables = {
@@ -95,6 +95,39 @@ router.get('/api/cleaning/messages', async (c) => {
     args: [c.get('userId')],
   })).rows;
   return c.json({ messages: rows });
+});
+
+// Prepaid packs. PUT sets the count as of today ({"paid":12,"used":9}); null paid = paid per cleaning.
+// POST .../pack adds a paid pack ({"units":6}).
+router.get('/api/cleaning/credits', async (c) => {
+  const userId = c.get('userId');
+  const rows = (await db.execute({
+    sql: `SELECT DISTINCT cl.id, cl.name, cl.credit_paid FROM cleaner cl JOIN property_cleaner pc ON pc.cleaner_id = cl.id
+          JOIN property p ON p.id = pc.property_id WHERE p.user_id = ? ORDER BY cl.name`,
+    args: [userId],
+  })).rows as any[];
+  const today = parisClock(new Date()).date;
+  return c.json({ cleaners: await Promise.all(rows.map(async (r) => ({
+    id: Number(r.id), name: r.name, counter: await cleanerCredit(userId, Number(r.id), today),
+  }))) });
+});
+
+router.put('/api/cleaning/credits/:cleanerId', async (c) => {
+  const { paid, used } = await c.req.json();
+  await db.execute({
+    sql: 'UPDATE cleaner SET credit_paid = ?, credit_used = ?, credit_as_of = ? WHERE id = ?',
+    args: [paid == null ? null : Number(paid), paid == null ? null : Number(used) || 0, parisClock(new Date()).date, Number(c.req.param('cleanerId'))],
+  });
+  return c.json({ counter: await cleanerCredit(c.get('userId'), Number(c.req.param('cleanerId')), parisClock(new Date()).date) });
+});
+
+router.post('/api/cleaning/credits/:cleanerId/pack', async (c) => {
+  const { units } = await c.req.json().catch(() => ({}));
+  await db.execute({
+    sql: 'UPDATE cleaner SET credit_paid = COALESCE(credit_paid, 0) + ?, credit_used = COALESCE(credit_used, 0), credit_as_of = COALESCE(credit_as_of, ?) WHERE id = ?',
+    args: [Number(units) || 6, parisClock(new Date()).date, Number(c.req.param('cleanerId'))],
+  });
+  return c.json({ counter: await cleanerCredit(c.get('userId'), Number(c.req.param('cleanerId')), parisClock(new Date()).date) });
 });
 
 router.get('/api/cleaning/link/:cleanerId', async (c) => c.json({ url: await cleanerLink(Number(c.req.param('cleanerId'))) }));

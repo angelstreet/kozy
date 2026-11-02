@@ -4,7 +4,7 @@ import { decryptApiKey } from '../encryption.js';
 import { parseSmoobuCredentials } from '../smoobu-client.js';
 import { fetchSmoobuBookings } from '../smoobu-sync.js';
 import { addDays, type Lang } from '../messaging/schedule.js';
-import { diffTasks, planningMessage, planTasks, type ExistingTask, type PlanningRow, type StayForCleaning } from './plan.js';
+import { creditLine, diffTasks, planningMessage, planTasks, type ExistingTask, type PlanningRow, type StayForCleaning } from './plan.js';
 
 export type CleanerMode = 'off' | 'dry_run' | 'live';
 
@@ -71,6 +71,22 @@ function planningSpan(today: string): [string, string] {
   const end = new Date(Date.UTC(y, m + 1, 0)); // day 0 of the month after next = last day of next month
   return [`${today.slice(0, 7)}-01`, end.toISOString().slice(0, 10)];
 }
+
+/** The prepaid counter line ("9/12") for a cleaner paid by packs, or null. */
+export async function cleanerCredit(userId: string, cleanerId: number, today: string): Promise<string | null> {
+  const c = (await db.execute({ sql: 'SELECT credit_paid, credit_used, credit_as_of FROM cleaner WHERE id = ?', args: [cleanerId] })).rows[0] as any;
+  if (c?.credit_paid == null) return null;
+  const asOf = String(c.credit_as_of || today);
+  const dates = ((await db.execute({
+    sql: `SELECT ct.date FROM cleaning_task ct JOIN property p ON p.id = ct.property_id
+          WHERE p.user_id = ? AND ct.assigned_to = ? AND ct.date > ? AND ct.date <= ?`,
+    args: [userId, cleanerId, asOf, today],
+  })).rows as any[]).map((r) => String(r.date));
+  return creditLine({ paid: Number(c.credit_paid), used: Number(c.credit_used) || 0, asOf }, dates, today);
+}
+
+/** Counter line at the end of a planning: it moves after each cleaning, which alone is no reason to send. */
+const COUNTER = /\n\d+\/\d+$/;
 
 async function planningFor(userId: string, cleaner: Cleaner, from: string, to: string): Promise<string | null> {
   const rows = (await db.execute({
@@ -177,13 +193,15 @@ export async function runCleaning(userId: string, now = new Date()) {
   let messages = 0;
   for (const r of cleaners) {
     const c: Cleaner = { id: Number(r.id), name: String(r.name), phone: r.phone ?? null, language: r.language ?? null };
-    const body = await planningFor(userId, c, from, to);
-    if (!body) continue;
+    const planning = await planningFor(userId, c, from, to);
+    if (!planning) continue;
+    const credit = await cleanerCredit(userId, c.id, today);
+    const body = credit ? `${planning}\n${credit}` : planning;
     const last = (await db.execute({
       sql: "SELECT body FROM cleaner_message WHERE user_id = ? AND cleaner_id = ? AND kind = 'planning' AND dedupe_key LIKE ? ORDER BY id DESC LIMIT 1",
       args: [userId, c.id, `${mode}:%`],
     })).rows[0] as any;
-    if (last?.body === body || mode === 'off') continue;
+    if (String(last?.body ?? '').replace(COUNTER, '') === planning || mode === 'off') continue;
     const phone = testPhone || c.phone;
     const status = mode === 'dry_run' ? 'dry_run' : phone ? 'queued' : 'no_phone';
     // Redirected messages carry the cleaner's name so the owner knows whose planning it is; the stored body stays clean.
