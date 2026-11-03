@@ -187,7 +187,13 @@ every task of the property, so anything attached to a task would be lost.
       screen sends `/invite/<token>` by WhatsApp; she creates a Clerk account there and joins (`cleaner.clerk_user_id`).
       `GET /api/me` decides cleaner vs owner (no role picker or switch in prod). Cleaner app: Planning (her cleanings,
       window, guests, pack counter, mark done) + Courses. Old cleaner screens removed.
-- [ ] Mockup then build: cleaning checklist, photos, reports, stock (cleaner app), in light and dark.
+- [x] Mockup v1 of the cleaner app (2026-11-03, private canvas https://claude.ai/artifact/3GRFvMuzFj6C6RnPQdxsiN):
+      planning, cleaning in progress (checklist by room, progress, photo steps), photo step (reference vs taken),
+      report (missing / broken / product / guest damage + photo), finish (summary, pack counter), stock per
+      property (OK / Bas / Vide → shopping list), owner's cleaning report, dark mode. Waiting for owner feedback.
+- [ ] Build the cleaner app from the approved mockup.
+- [x] Cron health (2026-11-03): openclaw job every 10 min, Telegram alert to the owner when WhatsApp drops or a
+      run fails (max one per 6 h). Kozy dates checked against Smoobu: all November check-outs match.
 - [ ] Cleaner flow on the phone: start → tick steps → photo for required steps (camera upload, Vercel Blob) →
       done. Done is blocked until required steps and photos are in.
 - [ ] Reports from any step: missing item, broken item, product needed, damage by guest — type, note, photo.
