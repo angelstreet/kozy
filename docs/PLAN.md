@@ -181,8 +181,7 @@ every task of the property, so anything attached to a task would be lost.
       "+6 payés" button on Cleaners. Christelle is paid per cleaning: no counter.
 - [ ] Go live to the real numbers: clear the test number (both cleaners' numbers are in).
 - [ ] Email / SMS as a second channel if a cleaner has no WhatsApp.
-- [ ] Cleaning guide per property: rooms → steps (beds, bathroom, kitchen, bins, linen, restock, keys), reference
-      photo per step ("how it should look"), editable by the owner, FR/EN.
+- [ ] Guest-damage reports: flag the ones within 14 days of check-out for an Airbnb / Booking claim.
 - [x] Cleaner accounts (2026-11-02, owner chose accounts over link sign-in): "Envoyer l'invitation" on the cleaner
       screen sends `/invite/<token>` by WhatsApp; she creates a Clerk account there and joins (`cleaner.clerk_user_id`).
       `GET /api/me` decides cleaner vs owner (no role picker or switch in prod). Cleaner app: Planning (her cleanings,
@@ -191,16 +190,16 @@ every task of the property, so anything attached to a task would be lost.
       planning, cleaning in progress (checklist by room, progress, photo steps), photo step (reference vs taken),
       report (missing / broken / product / guest damage + photo), finish (summary, pack counter), stock per
       property (OK / Bas / Vide → shopping list), owner's cleaning report, dark mode. Waiting for owner feedback.
-- [ ] Build the cleaner app from the approved mockup.
+- [x] Cleaner app built (2026-11-03, `backend/src/cleaning/visit.ts`): checklist per property (default 5 rooms,
+      16 steps, 5 photo steps), cleaning screen (progress, photo steps with reference, report, finish + note),
+      report screen, stock (OK / Bas / Vide), owner's cleaning report page and "Ménages" section on Cleaners
+      (open reports, shopping list, recent cleanings). Photos: resized on the phone (1280 px JPEG), kept in the DB,
+      served only to the owner or the property's cleaner. Owner gets a WhatsApp note per report and per finished
+      cleaning (`owner_phone`).
+- [ ] Owner editor for the checklist (rooms, steps, which need a photo, reference photos) and stock items.
+- [ ] Pack counter from cleanings marked done (today: by calendar date).
 - [x] Cron health (2026-11-03): openclaw job every 10 min, Telegram alert to the owner when WhatsApp drops or a
       run fails (max one per 6 h). Kozy dates checked against Smoobu: all November check-outs match.
-- [ ] Cleaner flow on the phone: start → tick steps → photo for required steps (camera upload, Vercel Blob) →
-      done. Done is blocked until required steps and photos are in.
-- [ ] Reports from any step: missing item, broken item, product needed, damage by guest — type, note, photo.
-      Owner is notified at once; damage within 14 days of check-out is flagged for an Airbnb / Booking claim.
-- [ ] Stock per property (toilet paper, soap, coffee, cleaning products, linen sets): cleaner sets low / out,
-      replaces the free-text shopping list; owner gets one restock list.
-- [ ] Owner view: task timeline, photos, reports, approve → payment created.
 
 ## Phase 8 — assistant / automation
 
