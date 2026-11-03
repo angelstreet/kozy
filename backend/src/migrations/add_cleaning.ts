@@ -24,6 +24,9 @@ export async function migrateCleaning() {
   await add('next_arrival', 'TEXT');
   await add('next_checkin', 'TEXT');
   await add('next_guests', 'INTEGER');
+  await add('started_at', 'TEXT');
+  await add('finished_at', 'TEXT');
+  await add('finish_note', 'TEXT');
   await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaning_task_booking_ref ON cleaning_task(property_id, booking_ref)');
 
   const propCols = (await db.execute('PRAGMA table_info(property)')).rows.map((c: any) => c.name ?? c[1]);
@@ -51,6 +54,57 @@ export async function migrateCleaning() {
     await db.execute('ALTER TABLE cleaner ADD COLUMN credit_used INTEGER');
     await db.execute('ALTER TABLE cleaner ADD COLUMN credit_as_of TEXT');
   }
+
+  // The cleaning itself (cleaner app): checklist per property, ticked per task, photos, reports, stock.
+  // Photos are resized JPEGs (~100 KB) kept in the DB as base64, served only to the owner or the property's cleaner.
+  await db.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS checklist_step (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      property_id INTEGER NOT NULL,
+      room TEXT NOT NULL,
+      label TEXT NOT NULL,
+      needs_photo INTEGER NOT NULL DEFAULT 0,
+      ref_photo_id INTEGER,
+      position INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS task_step (
+      task_id INTEGER NOT NULL,
+      step_id INTEGER NOT NULL,
+      done_at TEXT,
+      photo_id INTEGER,
+      PRIMARY KEY (task_id, step_id)
+    );
+    CREATE TABLE IF NOT EXISTS cleaning_photo (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      property_id INTEGER NOT NULL,
+      task_id INTEGER,
+      mime TEXT NOT NULL,
+      data TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS cleaning_report (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      property_id INTEGER NOT NULL,
+      task_id INTEGER,
+      cleaner_id INTEGER,
+      type TEXT NOT NULL,
+      what TEXT NOT NULL,
+      note TEXT,
+      photo_id INTEGER,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at TEXT DEFAULT (datetime('now')),
+      resolved_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS stock_level (
+      property_id INTEGER NOT NULL,
+      item TEXT NOT NULL,
+      level TEXT NOT NULL DEFAULT 'ok',
+      cleaner_id INTEGER,
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (property_id, item)
+    );
+  `);
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS cleaner_message (

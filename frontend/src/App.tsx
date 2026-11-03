@@ -13,6 +13,9 @@ import AddProperty from '@/pages/owner/AddProperty';
 import EditProperty from '@/pages/owner/EditProperty';
 import Schedule from '@/pages/cleaner/Schedule';
 import Shopping from '@/pages/cleaner/Shopping';
+import Task from '@/pages/cleaner/Task';
+import CleanerReport from '@/pages/cleaner/Report';
+import CleaningReport from '@/pages/owner/CleaningReport';
 import Invite from '@/pages/Invite';
 import CleanerLink from '@/pages/CleanerLink';
 
@@ -40,6 +43,7 @@ function AppRoutes() {
           <Route path="/more" element={<More />} />
           <Route path="/cleaners" element={<Cleaners />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/cleaning/:id" element={<CleaningReport />} />
           <Route path="/add-property" element={<AddProperty />} />
           <Route path="/edit-property/:id" element={<EditProperty />} />
           <Route path="/analytics" element={null} />
@@ -48,6 +52,8 @@ function AppRoutes() {
         {role === 'cleaner' && <>
           <Route path="/c/schedule" element={<Schedule />} />
           <Route path="/c/shopping" element={<Shopping />} />
+          <Route path="/c/task/:id" element={<Task />} />
+          <Route path="/c/report" element={<CleanerReport />} />
           <Route path="*" element={<Navigate to="/c/schedule" />} />
         </>}
       </Route>

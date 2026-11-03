@@ -1,6 +1,7 @@
 import { apiFetch } from '@/api';
 import { useApp } from '@/contexts/AppContext';
-import { CheckCircle2, Circle, Clock, Loader2, MapPin, Users } from 'lucide-react';
+import { CheckCircle2, Clock, Loader2, MapPin, Play, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
 interface Task {
@@ -23,29 +24,18 @@ const fmtDate = (d: string, fr: boolean) =>
     .format(new Date(`${d}T12:00:00Z`));
 const fmtTime = (t: string, fr: boolean) => (fr ? t.replace(/^0?(\d+):(\d\d)$/, (_, h, m) => `${h}h${m === '00' ? '' : m}`) : t);
 
-/** Cleaner home: her cleanings (last week to 30 days ahead), pack counter, mark a cleaning done. */
+/** Cleaner home (mockup screen 1): her cleanings (last week to 30 days ahead), pack counter, start a cleaning. */
 export default function Schedule() {
   const { lang } = useApp();
   const fr = lang === 'fr';
   const [data, setData] = useState<Planning | null>(null);
   const [error, setError] = useState(false);
-  const [busy, setBusy] = useState<number | null>(null);
 
   const load = () => apiFetch('/cleaner/planning')
     .then(r => (r.ok ? r.json() : Promise.reject()))
     .then(setData)
     .catch(() => setError(true));
   useEffect(() => { load(); }, []);
-
-  const toggleDone = async (t: Task) => {
-    setBusy(t.id);
-    const res = await apiFetch(`/tasks/${t.id}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: t.status === 'done' ? 'pending' : 'done' }),
-    });
-    if (res.ok) await load();
-    setBusy(null);
-  };
 
   if (error) return <div className="p-4"><div className="card p-5 text-sm text-danger">{fr ? 'Impossible de charger votre planning.' : 'Could not load your planning.'}</div></div>;
   if (!data) return <div className="flex justify-center pt-16"><Loader2 className="animate-spin text-muted" size={28} aria-label="Loading" /></div>;
@@ -82,11 +72,11 @@ export default function Schedule() {
           </p>
         )}
         {t.date <= data.today && (
-          <button onClick={() => toggleDone(t)} disabled={busy === t.id} aria-pressed={done}
-            className={`mt-1 w-full min-h-[44px] rounded-xl font-semibold flex items-center justify-center gap-2 ${done ? 'btn-secondary' : 'btn-primary'}`}>
-            {busy === t.id ? <Loader2 size={18} className="animate-spin" /> : done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-            {done ? (fr ? 'Fait' : 'Done') : (fr ? 'Marquer comme fait' : 'Mark as done')}
-          </button>
+          <Link to={`/c/task/${t.id}`}
+            className={`mt-1 w-full min-h-[44px] ${done ? 'btn-secondary' : 'btn-primary'}`}>
+            {done ? <CheckCircle2 size={18} /> : <Play size={18} />}
+            {done ? (fr ? 'Fait · voir' : 'Done · view') : t.status === 'in_progress' ? (fr ? 'Continuer le ménage' : 'Continue cleaning') : (fr ? 'Commencer le ménage' : 'Start cleaning')}
+          </Link>
         )}
       </article>
     );

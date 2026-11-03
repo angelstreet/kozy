@@ -4,6 +4,7 @@ import { t } from '@/i18n';
 import { useProperties } from '@/hooks/useProperties';
 import EmptyState from '@/components/EmptyState';
 import CleanerMessages from '@/components/CleanerMessages';
+import CleaningActivity from '@/components/CleaningActivity';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ArrowLeft, ArrowRight, Check, Loader2, X, Phone, Mail, Pencil, Trash2, ChevronRight, Users, Sparkles } from 'lucide-react';
@@ -134,6 +135,8 @@ export default function Cleaners() {
           ))}
         </div>
       )}
+
+      <CleaningActivity />
 
       <CleanerMessages />
     </div>

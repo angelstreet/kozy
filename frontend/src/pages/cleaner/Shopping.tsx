@@ -1,121 +1,73 @@
 import { apiFetch } from '@/api';
 import { useApp } from '@/contexts/AppContext';
-import { t } from '@/i18n';
+import { Loader2, ShoppingCart } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { ShoppingCart, Plus, Check } from 'lucide-react';
 
-interface ShoppingRequest {
-  id: number;
-  property_id: number;
-  property_name: string;
-  items: string;
-  status: string;
-  created_at: string;
-}
+interface Item { item: string; level: 'ok' | 'low' | 'out' }
+interface Prop { id: number; label: string; items: Item[] }
 
-interface Property {
-  id: number;
-  name: string;
-}
+const LEVELS: { id: Item['level']; fr: string; en: string; on: string }[] = [
+  { id: 'ok', fr: 'OK', en: 'OK', on: 'bg-tint text-accent border-accent' },
+  { id: 'low', fr: 'Bas', en: 'Low', on: 'bg-warn-tint text-warn border-warn' },
+  { id: 'out', fr: 'Vide', en: 'Out', on: 'bg-danger-tint text-danger border-danger' },
+];
 
+/** Stock per property (mockup screen 6): each product OK / Bas / Vide; Bas and Vide make the owner's shopping list. */
 export default function Shopping() {
   const { lang } = useApp();
-  const [requests, setRequests] = useState<ShoppingRequest[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [newPropertyId, setNewPropertyId] = useState('');
-  const [newItems, setNewItems] = useState('');
+  const fr = lang === 'fr';
+  const [props, setProps] = useState<Prop[] | null>(null);
+  const [current, setCurrent] = useState<number | null>(null);
 
   useEffect(() => {
-    apiFetch('/shopping').then(r => r.json()).then(d => setRequests(Array.isArray(d) ? d : [])).catch(() => {});
-    apiFetch('/properties').then(r => r.json()).then(d => setProperties(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch('/visit/stock').then(r => r.json()).then(d => {
+      setProps(d.properties || []);
+      setCurrent(d.properties?.[0]?.id ?? null);
+    }).catch(() => setProps([]));
   }, []);
 
-  const submit = async () => {
-    if (!newPropertyId || !newItems.trim()) return;
-    const res = await apiFetch('/shopping', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ property_id: Number(newPropertyId), items: newItems.trim() }),
-    });
-    if (res.ok) {
-      const sr = await res.json();
-      const prop = properties.find(p => p.id === Number(newPropertyId));
-      setRequests(prev => [...prev, { ...sr, property_name: prop?.name || '' }]);
-      setNewItems('');
-      setNewPropertyId('');
-      setShowForm(false);
-    }
+  const set = async (propertyId: number, item: string, level: Item['level']) => {
+    setProps(ps => ps!.map(p => (p.id !== propertyId ? p : { ...p, items: p.items.map(i => (i.item === item ? { ...i, level } : i)) })));
+    await apiFetch(`/visit/stock/${propertyId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item, level }) });
   };
 
-  const pending = requests.filter(r => r.status === 'pending');
-  const resolved = requests.filter(r => r.status === 'resolved');
+  if (!props) return <div className="flex justify-center pt-16"><Loader2 className="animate-spin text-muted" size={28} aria-label="Loading" /></div>;
+  const p = props.find(x => x.id === current);
+  const toBuy = p ? p.items.filter(i => i.level !== 'ok').length : 0;
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="page-title">{t('shopping', lang)}</h1>
-        <button onClick={() => setShowForm(!showForm)} className="w-10 h-10 bg-accent text-accent-ink rounded-full flex items-center justify-center">
-          <Plus size={20} />
-        </button>
+    <div className="p-4 space-y-4 max-w-[640px] mx-auto">
+      <h1 className="page-title">Stock</h1>
+      {props.length > 1 && (
+        <div className="grid gap-1 p-1 rounded-xl bg-surface border border-line" style={{ gridTemplateColumns: `repeat(${props.length}, minmax(0, 1fr))` }} role="group" aria-label={fr ? 'Logement' : 'Property'}>
+          {props.map(x => (
+            <button key={x.id} aria-pressed={current === x.id} onClick={() => setCurrent(x.id)}
+              className={`min-h-[40px] rounded-[9px] text-sm font-semibold ${current === x.id ? 'bg-tint text-accent' : 'text-muted'}`}>{x.label}</button>
+          ))}
+        </div>
+      )}
+      <p className="text-sm text-muted">{fr ? 'Touchez le niveau. « Bas » ou « Vide » ajoute le produit à la liste de courses.' : 'Tap the level. “Low” or “Out” puts the product on the shopping list.'}</p>
+      {p && (
+        <section className="card overflow-hidden">
+          {p.items.map(i => (
+            <div key={i.item} className="min-h-[56px] pl-4 pr-3 py-1.5 flex items-center gap-2.5 border-b border-line last:border-0">
+              <span className="flex-1 text-sm">{i.item}</span>
+              <div className="flex gap-1" role="group" aria-label={`${fr ? 'Niveau' : 'Level'} ${i.item}`}>
+                {LEVELS.map(l => (
+                  <button key={l.id} aria-pressed={i.level === l.id} onClick={() => set(p.id, i.item, l.id)}
+                    className={`min-w-[52px] min-h-[36px] rounded-lg border text-xs font-semibold ${i.level === l.id ? l.on : 'bg-surface text-muted border-line'}`}>
+                    {fr ? l.fr : l.en}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+      <div className="rounded-xl bg-warn-tint text-warn px-4 py-3 flex items-center gap-2.5 text-sm font-semibold">
+        <ShoppingCart size={18} aria-hidden />
+        {toBuy ? (fr ? `${toBuy} produit${toBuy > 1 ? 's' : ''} sur la liste de courses` : `${toBuy} product${toBuy > 1 ? 's' : ''} on the shopping list`) : (fr ? 'Rien à racheter' : 'Nothing to buy')}
       </div>
-
-      {showForm && (
-        <div className="bg-surface rounded-xl p-4 mb-4 space-y-3 border border-line">
-          <select value={newPropertyId} onChange={e => setNewPropertyId(e.target.value)}
-            className="w-full p-2.5 rounded-lg border border-line bg-transparent">
-            <option value="">{lang === 'fr' ? 'Sélectionner un logement' : 'Select property'}</option>
-            {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          <textarea value={newItems} onChange={e => setNewItems(e.target.value)}
-            placeholder={lang === 'fr' ? 'Articles nécessaires...' : 'Items needed...'}
-            className="w-full p-2.5 rounded-lg border border-line bg-transparent resize-none" rows={3} />
-          <button onClick={submit} className="w-full py-2.5 bg-accent text-accent-ink rounded-lg font-medium">
-            {lang === 'fr' ? 'Envoyer' : 'Submit'}
-          </button>
-        </div>
-      )}
-
-      {pending.length === 0 && resolved.length === 0 && !showForm ? (
-        <div className="text-center py-12 text-muted">
-          <ShoppingCart size={48} className="mx-auto mb-3 opacity-50" />
-          <p>{lang === 'fr' ? 'Aucune demande' : 'No requests yet'}</p>
-          <p className="text-sm mt-1">{lang === 'fr' ? 'Signalez ce qui manque dans un logement' : 'Flag what\'s needed at a property'}</p>
-        </div>
-      ) : (
-        <>
-          {pending.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-sm font-semibold text-muted uppercase mb-2">{lang === 'fr' ? 'En attente' : 'Pending'}</h2>
-              <div className="space-y-2">
-                {pending.map(r => (
-                  <div key={r.id} className="bg-surface rounded-xl p-4">
-                    <p className="font-medium">{r.property_name}</p>
-                    <p className="text-sm text-muted mt-1">{r.items}</p>
-                    <p className="text-xs text-muted mt-2">{new Date(r.created_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {resolved.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-muted uppercase mb-2">{lang === 'fr' ? 'Résolus' : 'Resolved'}</h2>
-              <div className="space-y-2">
-                {resolved.map(r => (
-                  <div key={r.id} className="bg-page rounded-xl p-4 opacity-60">
-                    <div className="flex items-center gap-1">
-                      <Check size={14} className="text-accent" />
-                      <p className="font-medium text-sm">{r.property_name}</p>
-                    </div>
-                    <p className="text-sm text-muted mt-1">{r.items}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
     </div>
   );
 }

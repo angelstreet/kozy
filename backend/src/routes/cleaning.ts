@@ -4,6 +4,10 @@ import db from '../db.js';
 import {
   cleanerCredit, cleanerLink, cleanerSchedule, ownsCleaner, parisClock, getCleanerMode, getTestPhone, runCleaning, runCleaningForAll, setCleanerMode, setTestPhone, type CleanerMode,
 } from '../cleaning/engine.js';
+import {
+  REPORT_TYPES, STOCK_LEVELS, createReport, finishTask, loadPhoto, propertyAccess, savePhoto, setStep, setStock, stockFor,
+  taskAccess, taskDetail,
+} from '../cleaning/visit.js';
 
 type Variables = {
   userId: string;
@@ -34,7 +38,7 @@ router.get('/api/cleaning/cron/outbox', async (c) => {
   const rows = (await db.execute(`SELECT m.id, m.phone, m.body, cl.name, cl.phone AS cleaner_phone FROM cleaner_message m
     LEFT JOIN cleaner cl ON cl.id = m.cleaner_id WHERE m.status = 'queued' ORDER BY m.id LIMIT 20`)).rows as any[];
   return c.json({ messages: rows.map((r) => ({
-    id: r.id, phone: r.phone, body: r.phone !== r.cleaner_phone ? `[${r.name}]\n${r.body}` : r.body,
+    id: r.id, phone: r.phone, body: r.name && r.phone !== r.cleaner_phone ? `[${r.name}]\n${r.body}` : r.body,
   })) });
 });
 
@@ -56,23 +60,153 @@ router.get('/api/s/:token', async (c) => {
   return schedule ? c.json(schedule) : c.json({ error: 'Unknown link' }, 404);
 });
 
+// --- The cleaning itself (Clerk; owner of the property or its cleaner) ---
+
+const deny = (c: any) => c.json({ error: 'Not found' }, 404);
+
+router.get('/api/visit/tasks/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!(await taskAccess(c.get('userId'), id))) return deny(c);
+  return c.json(await taskDetail(id));
+});
+
+router.put('/api/visit/tasks/:id/steps/:stepId', async (c) => {
+  const id = Number(c.req.param('id'));
+  const acc = await taskAccess(c.get('userId'), id);
+  if (!acc) return deny(c);
+  const step = (await db.execute({ sql: 'SELECT property_id FROM checklist_step WHERE id = ?', args: [Number(c.req.param('stepId'))] })).rows[0] as any;
+  if (!step || Number(step.property_id) !== acc.propertyId) return deny(c);
+  const { done, photoId } = await c.req.json();
+  await setStep(id, Number(c.req.param('stepId')), Boolean(done), photoId == null ? null : Number(photoId));
+  return c.json(await taskDetail(id));
+});
+
+router.post('/api/visit/tasks/:id/finish', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!(await taskAccess(c.get('userId'), id))) return deny(c);
+  const { note } = await c.req.json().catch(() => ({}));
+  await finishTask(id, note ? String(note).slice(0, 1000) : null);
+  return c.json(await taskDetail(id));
+});
+
+router.post('/api/visit/photos', async (c) => {
+  const { propertyId, taskId, data } = await c.req.json();
+  if (!(await propertyAccess(c.get('userId'), Number(propertyId)))) return deny(c);
+  try {
+    return c.json({ id: await savePhoto(Number(propertyId), taskId ? Number(taskId) : null, String(data)) }, 201);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+router.get('/api/visit/photos/:id', async (c) => {
+  const photo = await loadPhoto(Number(c.req.param('id')));
+  if (!photo || !(await propertyAccess(c.get('userId'), Number(photo.propertyId)))) return deny(c);
+  return new Response(Buffer.from(String(photo.data), 'base64'), {
+    headers: { 'Content-Type': String(photo.mime), 'Cache-Control': 'private, max-age=86400' },
+  });
+});
+
+router.post('/api/visit/reports', async (c) => {
+  const { propertyId, taskId, type, what, note, photoId } = await c.req.json();
+  const acc = await propertyAccess(c.get('userId'), Number(propertyId));
+  if (!acc) return deny(c);
+  if (!(REPORT_TYPES as readonly string[]).includes(type) || !what) return c.json({ error: 'type and what required' }, 400);
+  if (taskId && !(await taskAccess(c.get('userId'), Number(taskId)))) return deny(c);
+  const id = await createReport({ propertyId: Number(propertyId), taskId: taskId ? Number(taskId) : null, cleanerId: acc.cleanerId,
+    type, what: String(what).slice(0, 200), note: note ? String(note).slice(0, 1000) : null, photoId: photoId ? Number(photoId) : null });
+  return c.json({ id }, 201);
+});
+
+// Stock: the properties the user cleans (cleaner) or owns (owner), with each product's level.
+router.get('/api/visit/stock', async (c) => {
+  const userId = c.get('userId');
+  const props = (await db.execute({
+    sql: `SELECT DISTINCT p.id, COALESCE(p.cleaning_label, p.name) AS label FROM property p
+          LEFT JOIN property_cleaner pc ON pc.property_id = p.id LEFT JOIN cleaner cl ON cl.id = pc.cleaner_id
+          WHERE ? OR p.user_id = ? OR cl.clerk_user_id = ? ORDER BY p.id`,
+    args: [userId === 'dev-user' ? 1 : 0, userId, userId],
+  })).rows as any[];
+  return c.json({ properties: await Promise.all(props.map(async (p) => ({ id: Number(p.id), label: p.label, items: await stockFor(Number(p.id)) }))) });
+});
+
+router.put('/api/visit/stock/:propertyId', async (c) => {
+  const acc = await propertyAccess(c.get('userId'), Number(c.req.param('propertyId')));
+  if (!acc) return deny(c);
+  const { item, level } = await c.req.json();
+  if (!item || !(STOCK_LEVELS as readonly string[]).includes(level)) return c.json({ error: 'item and level (ok|low|out) required' }, 400);
+  await setStock(Number(c.req.param('propertyId')), String(item).slice(0, 80), level, acc.cleanerId);
+  return c.json({ ok: true });
+});
+
 // --- Owner endpoints (Clerk) ---
+
+// Recent cleanings, open reports and the shopping list (stock low or out) across the owner's properties.
+router.get('/api/cleaning/activity', async (c) => {
+  const userId = c.get('userId');
+  const today = parisClock(new Date()).date;
+  const recent = (await db.execute({
+    sql: `SELECT ct.id, ct.date, ct.status, ct.started_at AS startedAt, ct.finished_at AS finishedAt, COALESCE(p.cleaning_label, p.name) AS label,
+            p.name AS property, cl.name AS cleaner,
+            (SELECT COUNT(*) FROM cleaning_report r WHERE r.task_id = ct.id) AS reports
+          FROM cleaning_task ct JOIN property p ON p.id = ct.property_id LEFT JOIN cleaner cl ON cl.id = ct.assigned_to
+          WHERE p.user_id = ? AND ct.date <= ? AND (ct.started_at IS NOT NULL OR ct.date >= date(?, '-14 day'))
+          ORDER BY ct.date DESC LIMIT 12`,
+    args: [userId, today, today],
+  })).rows;
+  const reports = (await db.execute({
+    sql: `SELECT r.id, r.type, r.what, r.note, r.photo_id AS photoId, r.task_id AS taskId, r.created_at AS createdAt, p.name AS property, cl.name AS cleaner
+          FROM cleaning_report r JOIN property p ON p.id = r.property_id LEFT JOIN cleaner cl ON cl.id = r.cleaner_id
+          WHERE p.user_id = ? AND r.status = 'open' ORDER BY r.id DESC`,
+    args: [userId],
+  })).rows;
+  const shopping = (await db.execute({
+    sql: `SELECT p.name AS property, s.item, s.level FROM stock_level s JOIN property p ON p.id = s.property_id
+          WHERE p.user_id = ? AND s.level != 'ok' ORDER BY p.id, s.item`,
+    args: [userId],
+  })).rows;
+  return c.json({ today, recent, reports, shopping });
+});
+
+router.patch('/api/cleaning/reports/:id', async (c) => {
+  const r = (await db.execute({ sql: 'SELECT property_id FROM cleaning_report WHERE id = ?', args: [Number(c.req.param('id'))] })).rows[0] as any;
+  const acc = r ? await propertyAccess(c.get('userId'), Number(r.property_id)) : null;
+  if (!acc?.owner) return deny(c);
+  const { status } = await c.req.json();
+  if (!['open', 'resolved'].includes(status)) return c.json({ error: 'status must be open or resolved' }, 400);
+  await db.execute({ sql: "UPDATE cleaning_report SET status = ?, resolved_at = CASE WHEN ? = 'resolved' THEN datetime('now') END WHERE id = ?",
+    args: [status, status, Number(c.req.param('id'))] });
+  return c.json({ ok: true });
+});
+
+
+async function ownerPhone(userId: string): Promise<string | null> {
+  const row = (await db.execute({ sql: "SELECT value FROM user_settings WHERE user_id = ? AND key = 'owner_phone'", args: [userId] })).rows[0] as any;
+  return row?.value || null;
+}
 
 router.get('/api/cleaning/settings', async (c) => {
   const userId = c.get('userId');
-  return c.json({ mode: await getCleanerMode(userId), testPhone: await getTestPhone(userId) });
+  return c.json({ mode: await getCleanerMode(userId), testPhone: await getTestPhone(userId), ownerPhone: await ownerPhone(userId) });
 });
 
 // mode: off | dry_run | live. testPhone: while set, live messages go to this number instead of the cleaners'.
 router.put('/api/cleaning/settings', async (c) => {
   const userId = c.get('userId');
-  const { mode, testPhone } = await c.req.json();
+  const { mode, testPhone, ownerPhone: own } = await c.req.json();
   if (mode !== undefined) {
     if (!['off', 'dry_run', 'live'].includes(mode)) return c.json({ error: 'mode must be off, dry_run or live' }, 400);
     await setCleanerMode(userId, mode as CleanerMode);
   }
   if (testPhone !== undefined) await setTestPhone(userId, testPhone ? String(testPhone).trim() : null);
-  return c.json({ mode: await getCleanerMode(userId), testPhone: await getTestPhone(userId) });
+  if (own !== undefined) {
+    await db.execute({
+      sql: `INSERT INTO user_settings (user_id, key, value, updated_at) VALUES (?, 'owner_phone', ?, datetime('now'))
+            ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      args: [userId, own ? String(own).trim() : null],
+    });
+  }
+  return c.json({ mode: await getCleanerMode(userId), testPhone: await getTestPhone(userId), ownerPhone: await ownerPhone(userId) });
 });
 
 // How a property appears in cleaners' plannings: label ("Haut") and whether guests are counted ("3(8)").
