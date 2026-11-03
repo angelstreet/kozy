@@ -196,7 +196,9 @@ every task of the property, so anything attached to a task would be lost.
       (open reports, shopping list, recent cleanings). Photos: resized on the phone (1280 px JPEG), kept in the DB,
       served only to the owner or the property's cleaner. Owner gets a WhatsApp note per report and per finished
       cleaning (`owner_phone`).
-- [ ] Owner editor for the checklist (rooms, steps, which need a photo, reference photos) and stock items.
+- [x] Checklist editor (2026-11-03, Cleaners › "Liste de ménage", `/checklist`): per property, rename / add / delete /
+      reorder rooms and steps, photo on or off per step, reference photo per photo step, stock product list.
+      Deleted steps stay inactive so past cleanings keep their history.
 - [ ] Pack counter from cleanings marked done (today: by calendar date).
 - [x] Cron health (2026-11-03): openclaw job every 10 min, Telegram alert to the owner when WhatsApp drops or a
       run fails (max one per 6 h). Kozy dates checked against Smoobu: all November check-outs match.

@@ -5,7 +5,8 @@ import {
   cleanerCredit, cleanerLink, cleanerSchedule, ownsCleaner, parisClock, getCleanerMode, getTestPhone, runCleaning, runCleaningForAll, setCleanerMode, setTestPhone, type CleanerMode,
 } from '../cleaning/engine.js';
 import {
-  REPORT_TYPES, STOCK_LEVELS, createReport, finishTask, loadPhoto, propertyAccess, savePhoto, setStep, setStock, stockFor,
+  REPORT_TYPES, STOCK_LEVELS, createReport, ensureChecklist, finishTask, loadPhoto, propertyAccess, savePhoto, setStep, setStock, stockFor,
+  stockItems,
   taskAccess, taskDetail,
 } from '../cleaning/visit.js';
 
@@ -136,6 +137,109 @@ router.put('/api/visit/stock/:propertyId', async (c) => {
   const { item, level } = await c.req.json();
   if (!item || !(STOCK_LEVELS as readonly string[]).includes(level)) return c.json({ error: 'item and level (ok|low|out) required' }, 400);
   await setStock(Number(c.req.param('propertyId')), String(item).slice(0, 80), level, acc.cleanerId);
+  return c.json({ ok: true });
+});
+
+// --- Checklist editor (owner of the property) ---
+
+async function ownerOf(c: any, propertyId: number) {
+  return (await propertyAccess(c.get('userId'), propertyId))?.owner === true;
+}
+async function stepProperty(stepId: number): Promise<number | null> {
+  const r = (await db.execute({ sql: 'SELECT property_id FROM checklist_step WHERE id = ? AND active = 1', args: [stepId] })).rows[0] as any;
+  return r ? Number(r.property_id) : null;
+}
+
+router.get('/api/checklist/:propertyId', async (c) => {
+  const pid = Number(c.req.param('propertyId'));
+  if (!(await ownerOf(c, pid))) return deny(c);
+  await ensureChecklist(pid);
+  const steps = (await db.execute({
+    sql: `SELECT id, room, label, needs_photo AS needsPhoto, ref_photo_id AS refPhotoId, position FROM checklist_step
+          WHERE property_id = ? AND active = 1 ORDER BY position, id`,
+    args: [pid],
+  })).rows.map((s: any) => ({ ...s, needsPhoto: Boolean(s.needsPhoto) }));
+  return c.json({ steps, stock: await stockItems(pid) });
+});
+
+router.post('/api/checklist/:propertyId/steps', async (c) => {
+  const pid = Number(c.req.param('propertyId'));
+  if (!(await ownerOf(c, pid))) return deny(c);
+  const { room, label, needsPhoto } = await c.req.json();
+  if (!room || !label) return c.json({ error: 'room and label required' }, 400);
+  const max = Number(((await db.execute({ sql: 'SELECT COALESCE(MAX(position), 0) AS m FROM checklist_step WHERE property_id = ?', args: [pid] })).rows[0] as any).m);
+  const res = await db.execute({
+    sql: 'INSERT INTO checklist_step (property_id, room, label, needs_photo, position) VALUES (?, ?, ?, ?, ?)',
+    args: [pid, String(room).trim().slice(0, 60), String(label).trim().slice(0, 160), needsPhoto ? 1 : 0, max + 1],
+  });
+  return c.json({ id: Number(res.lastInsertRowid) }, 201);
+});
+
+// Edit one step: label, room, photo needed, reference photo (null removes it).
+router.patch('/api/checklist/steps/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  const pid = await stepProperty(id);
+  if (!pid || !(await ownerOf(c, pid))) return deny(c);
+  const b = await c.req.json();
+  const sets: string[] = [], args: any[] = [];
+  if (b.label !== undefined) { sets.push('label = ?'); args.push(String(b.label).trim().slice(0, 160)); }
+  if (b.room !== undefined) { sets.push('room = ?'); args.push(String(b.room).trim().slice(0, 60)); }
+  if (b.needsPhoto !== undefined) { sets.push('needs_photo = ?'); args.push(b.needsPhoto ? 1 : 0); }
+  if (b.refPhotoId !== undefined) { sets.push('ref_photo_id = ?'); args.push(b.refPhotoId == null ? null : Number(b.refPhotoId)); }
+  if (!sets.length) return c.json({ error: 'nothing to change' }, 400);
+  await db.execute({ sql: `UPDATE checklist_step SET ${sets.join(', ')} WHERE id = ?`, args: [...args, id] });
+  return c.json({ ok: true });
+});
+
+// Removed steps stay in the DB (inactive) so past cleanings keep their history.
+router.delete('/api/checklist/steps/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  const pid = await stepProperty(id);
+  if (!pid || !(await ownerOf(c, pid))) return deny(c);
+  await db.execute({ sql: 'UPDATE checklist_step SET active = 0 WHERE id = ?', args: [id] });
+  return c.json({ ok: true });
+});
+
+// Rename a room: every active step in it.
+router.put('/api/checklist/:propertyId/rooms', async (c) => {
+  const pid = Number(c.req.param('propertyId'));
+  if (!(await ownerOf(c, pid))) return deny(c);
+  const { from, to } = await c.req.json();
+  if (!from || !to) return c.json({ error: 'from and to required' }, 400);
+  await db.execute({ sql: 'UPDATE checklist_step SET room = ? WHERE property_id = ? AND room = ? AND active = 1', args: [String(to).trim().slice(0, 60), pid, from] });
+  return c.json({ ok: true });
+});
+
+// New order of the property's steps (rooms follow their first step): {ids: [...]}.
+router.put('/api/checklist/:propertyId/order', async (c) => {
+  const pid = Number(c.req.param('propertyId'));
+  if (!(await ownerOf(c, pid))) return deny(c);
+  const { ids } = await c.req.json();
+  if (!Array.isArray(ids)) return c.json({ error: 'ids required' }, 400);
+  for (const [i, id] of ids.entries()) {
+    await db.execute({ sql: 'UPDATE checklist_step SET position = ? WHERE id = ? AND property_id = ?', args: [i, Number(id), pid] });
+  }
+  return c.json({ ok: true });
+});
+
+router.post('/api/checklist/:propertyId/stock', async (c) => {
+  const pid = Number(c.req.param('propertyId'));
+  if (!(await ownerOf(c, pid))) return deny(c);
+  const { item } = await c.req.json();
+  if (!item || !String(item).trim()) return c.json({ error: 'item required' }, 400);
+  const items = await stockItems(pid);
+  await db.execute({ sql: 'INSERT OR IGNORE INTO stock_item (property_id, item, position) VALUES (?, ?, ?)', args: [pid, String(item).trim().slice(0, 80), items.length] });
+  return c.json({ ok: true }, 201);
+});
+
+router.delete('/api/checklist/:propertyId/stock', async (c) => {
+  const pid = Number(c.req.param('propertyId'));
+  if (!(await ownerOf(c, pid))) return deny(c);
+  const item = c.req.query('item');
+  if (!item) return c.json({ error: 'item required' }, 400);
+  await stockItems(pid); // seed first, so removing a default is remembered
+  await db.execute({ sql: 'DELETE FROM stock_item WHERE property_id = ? AND item = ?', args: [pid, item] });
+  await db.execute({ sql: 'DELETE FROM stock_level WHERE property_id = ? AND item = ?', args: [pid, item] });
   return c.json({ ok: true });
 });
 

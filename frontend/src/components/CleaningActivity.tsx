@@ -1,7 +1,7 @@
 import { apiFetch } from '@/api';
 import { AuthImage, fmtDate, reportLabel } from '@/components/visit';
 import { useApp } from '@/contexts/AppContext';
-import { AlertTriangle, CheckCircle2, ChevronRight, Clock, ShoppingCart } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardList, Clock, ShoppingCart } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -30,7 +30,10 @@ export default function CleaningActivity() {
 
   return (
     <section className="space-y-3 mt-8">
-      <h2 className="section-title">{fr ? 'Ménages' : 'Cleanings'}</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="section-title">{fr ? 'Ménages' : 'Cleanings'}</h2>
+        <Link to="/checklist" className="btn-secondary text-sm min-h-[40px]"><ClipboardList size={16} aria-hidden />{fr ? 'Liste de ménage' : 'Checklist'}</Link>
+      </div>
 
       {a.reports.length > 0 && (
         <div className="card divide-y divide-line">

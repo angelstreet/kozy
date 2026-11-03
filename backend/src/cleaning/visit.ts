@@ -57,7 +57,7 @@ export async function taskAccess(userId: string, taskId: number) {
   return { ...acc, propertyId: Number(t.property_id) };
 }
 
-async function ensureChecklist(propertyId: number) {
+export async function ensureChecklist(propertyId: number) {
   const n = Number(((await db.execute({ sql: 'SELECT COUNT(*) AS n FROM checklist_step WHERE property_id = ?', args: [propertyId] })).rows[0] as any).n);
   if (n) return;
   for (const [i, [room, label, photo]] of DEFAULT_CHECKLIST.entries()) {
@@ -161,11 +161,26 @@ export async function finishTask(taskId: number, note: string | null) {
     + (open ? `, ${open} signalement${open > 1 ? 's' : ''}` : '') + (note ? `\n« ${note} »` : ''));
 }
 
+/** The property's product list (owner-editable), seeded from DEFAULT_STOCK the first time. */
+export async function stockItems(propertyId: number): Promise<string[]> {
+  let rows = (await db.execute({ sql: 'SELECT item FROM stock_item WHERE property_id = ? ORDER BY position, item', args: [propertyId] })).rows as any[];
+  if (!rows.length) {
+    const seeded = (await db.execute({ sql: "SELECT value FROM user_settings WHERE user_id = ? AND key = 'stock_seeded'", args: [`property:${propertyId}`] })).rows.length;
+    if (!seeded) {
+      for (const [i, item] of DEFAULT_STOCK.entries()) {
+        await db.execute({ sql: 'INSERT OR IGNORE INTO stock_item (property_id, item, position) VALUES (?, ?, ?)', args: [propertyId, item, i] });
+      }
+      await db.execute({ sql: "INSERT OR IGNORE INTO user_settings (user_id, key, value) VALUES (?, 'stock_seeded', '1')", args: [`property:${propertyId}`] });
+      rows = DEFAULT_STOCK.map((item) => ({ item }));
+    }
+  }
+  return rows.map((r) => String(r.item));
+}
+
 export async function stockFor(propertyId: number) {
-  const rows = (await db.execute({ sql: 'SELECT item, level, updated_at AS updatedAt FROM stock_level WHERE property_id = ?', args: [propertyId] })).rows as any[];
-  const known = new Map(rows.map((r) => [String(r.item), r]));
-  const items = [...DEFAULT_STOCK, ...rows.map((r) => String(r.item)).filter((i) => !DEFAULT_STOCK.includes(i))];
-  return items.map((item) => ({ item, level: known.get(item)?.level ?? 'ok', updatedAt: known.get(item)?.updatedAt ?? null }));
+  const levels = new Map(((await db.execute({ sql: 'SELECT item, level, updated_at AS updatedAt FROM stock_level WHERE property_id = ?', args: [propertyId] })).rows as any[])
+    .map((r) => [String(r.item), r]));
+  return (await stockItems(propertyId)).map((item) => ({ item, level: levels.get(item)?.level ?? 'ok', updatedAt: levels.get(item)?.updatedAt ?? null }));
 }
 
 export async function setStock(propertyId: number, item: string, level: string, cleanerId: number | null) {

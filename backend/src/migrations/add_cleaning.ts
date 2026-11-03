@@ -96,6 +96,12 @@ export async function migrateCleaning() {
       created_at TEXT DEFAULT (datetime('now')),
       resolved_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS stock_item (
+      property_id INTEGER NOT NULL,
+      item TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (property_id, item)
+    );
     CREATE TABLE IF NOT EXISTS stock_level (
       property_id INTEGER NOT NULL,
       item TEXT NOT NULL,

@@ -16,6 +16,7 @@ import Shopping from '@/pages/cleaner/Shopping';
 import Task from '@/pages/cleaner/Task';
 import CleanerReport from '@/pages/cleaner/Report';
 import CleaningReport from '@/pages/owner/CleaningReport';
+import ChecklistEditor from '@/pages/owner/ChecklistEditor';
 import Invite from '@/pages/Invite';
 import CleanerLink from '@/pages/CleanerLink';
 
@@ -44,6 +45,7 @@ function AppRoutes() {
           <Route path="/cleaners" element={<Cleaners />} />
           <Route path="/payments" element={<Payments />} />
           <Route path="/cleaning/:id" element={<CleaningReport />} />
+          <Route path="/checklist" element={<ChecklistEditor />} />
           <Route path="/add-property" element={<AddProperty />} />
           <Route path="/edit-property/:id" element={<EditProperty />} />
           <Route path="/analytics" element={null} />
