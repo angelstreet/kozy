@@ -313,12 +313,16 @@ router.put('/api/cleaning/settings', async (c) => {
   return c.json({ mode: await getCleanerMode(userId), testPhone: await getTestPhone(userId), ownerPhone: await ownerPhone(userId) });
 });
 
-// How a property appears in cleaners' plannings: label ("Haut") and whether guests are counted ("3(8)").
+// How a property appears to cleaners: planning label ("Haut"), guest counts ("3(8)"), reminder place ("à la villa").
 router.put('/api/cleaning/properties/:id', async (c) => {
-  const { label, showGuests } = await c.req.json();
+  const { label, showGuests, place } = await c.req.json();
+  const sets: string[] = [], args: any[] = [];
+  if (label !== undefined) { sets.push('cleaning_label = ?'); args.push(label ? String(label).trim() : null); }
+  if (showGuests !== undefined) { sets.push('cleaning_show_guests = ?'); args.push(showGuests ? 1 : 0); }
+  if (place !== undefined) { sets.push('cleaning_place = ?'); args.push(place ? String(place).trim() : null); }
+  if (!sets.length) return c.json({ error: 'nothing to change' }, 400);
   const res = await db.execute({
-    sql: 'UPDATE property SET cleaning_label = ?, cleaning_show_guests = ? WHERE id = ? AND user_id = ?',
-    args: [label ? String(label).trim() : null, showGuests ? 1 : 0, Number(c.req.param('id')), c.get('userId')],
+    sql: `UPDATE property SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`, args: [...args, Number(c.req.param('id')), c.get('userId')],
   });
   return Number(res.rowsAffected) ? c.json({ ok: true }) : c.json({ error: 'Property not found' }, 404);
 });

@@ -148,3 +148,9 @@ export function creditLine(credit: { paid: number; used: number; asOf: string },
   const used = credit.used + cleaningDates.filter((d) => d > credit.asOf && d <= today).reduce((n, d) => n + cleaningUnits(d), 0);
   return `${used}/${credit.paid}`;
 }
+
+/** "Bonjour Ester,\nPetit rappel demain intervention en haut et en bas" (the owner's own wording). */
+export function reminderMessage(name: string, places: string[]): string {
+  const list = places.length > 1 ? `${places.slice(0, -1).join(', ')} et ${places[places.length - 1]}` : places[0];
+  return `Bonjour ${name},\nPetit rappel demain intervention ${list}`;
+}

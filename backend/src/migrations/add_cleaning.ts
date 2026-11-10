@@ -31,6 +31,8 @@ export async function migrateCleaning() {
 
   const propCols = (await db.execute('PRAGMA table_info(property)')).rows.map((c: any) => c.name ?? c[1]);
   if (!propCols.includes('cleaning_label')) await db.execute('ALTER TABLE property ADD COLUMN cleaning_label TEXT');
+  // How the evening reminder names the place: "en haut", "à la villa" (default: 'en ' + lowercased label).
+  if (!propCols.includes('cleaning_place')) await db.execute('ALTER TABLE property ADD COLUMN cleaning_place TEXT');
   if (!propCols.includes('cleaning_show_guests')) await db.execute('ALTER TABLE property ADD COLUMN cleaning_show_guests INTEGER DEFAULT 0');
 
   const cleanerCols = (await db.execute('PRAGMA table_info(cleaner)')).rows.map((c: any) => c.name ?? c[1]);

@@ -175,6 +175,9 @@ every task of the property, so anything attached to a task would be lost.
       tomorrow at once, beyond 3 weeks waits for Sunday (`cleaner.planning_due`). "Send now" on Cleaners. Labels per property (`PUT /api/cleaning/properties/:id`). No reminders or week plans.
       Each cleaner also has a no-login schedule page `/s/<token>`. Outbox `cleaner_message`; openclaw
       `scripts/openclaw/kozy-cleaning-run.py` sends through its WhatsApp channel (relinked 2026-11-02).
+- [x] Evening reminder (2026-11-10, owner's wording): 20:00 the day before each cleaning, "Bonjour Ester,\nPetit
+      rappel demain intervention en haut et en bas" (`property.cleaning_place`, default 'en ' + label; villa "à la
+      villa"). The pack counter is no longer in the planning message (owner adds it by hand; still in the app).
 - [x] Test number: while set, every live message goes to the owner's phone headed `[Christelle]` (on now).
 - [x] Prepaid pack counter (Ester, 2026-11-02): packs of 6, last line of her planning `9/12` = used / paid,
       +1 per cleaning, +2 on Sunday or a public holiday, moves by itself on the cleaning day.

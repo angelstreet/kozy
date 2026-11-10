@@ -4,7 +4,7 @@ import { decryptApiKey } from '../encryption.js';
 import { parseSmoobuCredentials } from '../smoobu-client.js';
 import { fetchSmoobuBookings } from '../smoobu-sync.js';
 import { addDays, type Lang } from '../messaging/schedule.js';
-import { creditLine, diffTasks, planningMessage, planTasks, type ExistingTask, type PlanningRow, type StayForCleaning } from './plan.js';
+import { creditLine, diffTasks, planningMessage, planTasks, reminderMessage, type ExistingTask, type PlanningRow, type StayForCleaning } from './plan.js';
 
 export type CleanerMode = 'off' | 'dry_run' | 'live';
 
@@ -14,6 +14,7 @@ const WEEK_SENT_KEY = 'cleaner_planning_week_sent';
 const HORIZON_DAYS = 60; // tasks are kept this far ahead
 const WINDOW_DAYS = 21; // a planning shows today + the next 3 weeks
 const SEND_HOUR = 19; // Paris: Sunday planning, and the day's changes in one message
+const REMINDER_HOUR = 20; // Paris: "Petit rappel demain intervention en haut" the evening before
 const APP_URL = process.env.KOZY_APP_URL || 'https://kozy-steel.vercel.app';
 
 export async function getCleanerMode(userId: string): Promise<CleanerMode> {
@@ -235,8 +236,8 @@ export async function runCleaning(userId: string, now = new Date()) {
     const c: Cleaner = { id: Number(r.id), name: String(r.name), phone: r.phone ?? null, language: r.language ?? null };
     const planning = await planningFor(userId, c, from, to);
     if (!planning) continue;
-    const credit = await cleanerCredit(userId, c.id, today);
-    const body = credit ? `${planning}\n${credit}` : planning;
+    // The pack counter ("9/12") stays in the app; the owner writes it in the message himself (2026-11-10).
+    const body = planning;
     const last = (await db.execute({
       sql: "SELECT body FROM cleaner_message WHERE user_id = ? AND cleaner_id = ? AND kind = 'planning' AND dedupe_key LIKE ? ORDER BY id DESC LIMIT 1",
       args: [userId, c.id, `${mode}:%`],
@@ -252,6 +253,32 @@ export async function runCleaning(userId: string, now = new Date()) {
     });
     messages++;
   }
+  // Evening before each cleaning: one reminder per cleaner listing tomorrow's places, once.
+  if (hour >= REMINDER_HOUR && mode !== 'off') {
+    const tomorrow = addDays(today, 1);
+    const rows = (await db.execute({
+      sql: `SELECT c.id, c.name, c.phone, COALESCE(p.cleaning_place, 'en ' || lower(COALESCE(p.cleaning_label, p.name))) AS place
+            FROM cleaning_task ct JOIN property p ON p.id = ct.property_id JOIN cleaner c ON c.id = ct.assigned_to
+            WHERE p.user_id = ? AND ct.date = ? AND ct.status != 'done' ORDER BY c.id, p.id`,
+      args: [userId, tomorrow],
+    })).rows as any[];
+    const byCleaner = new Map<number, { name: string; phone: string | null; places: string[] }>();
+    for (const r of rows) {
+      const e = byCleaner.get(Number(r.id)) ?? { name: String(r.name), phone: r.phone ?? null, places: [] as string[] };
+      if (!e.places.includes(String(r.place))) e.places.push(String(r.place));
+      byCleaner.set(Number(r.id), e);
+    }
+    for (const [id, e] of byCleaner) {
+      const phone = testPhone || e.phone;
+      const status = mode === 'dry_run' ? 'dry_run' : phone ? 'queued' : 'no_phone';
+      const res = await db.execute({
+        sql: `INSERT OR IGNORE INTO cleaner_message (user_id, cleaner_id, kind, dedupe_key, phone, body, status) VALUES (?, ?, 'reminder', ?, ?, ?, ?)`,
+        args: [userId, id, `${mode}:j1:${id}:${tomorrow}`, phone, reminderMessage(e.name, e.places), status],
+      });
+      if (Number(res.rowsAffected) > 0) messages++;
+    }
+  }
+
   if (weekly) {
     await db.execute({
       sql: `INSERT INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, datetime('now'))

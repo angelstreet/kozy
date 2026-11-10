@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleaningUnits, creditLine, diffTasks, isFrenchHoliday, planningDates, planningMessage, planTasks, type StayForCleaning } from './plan.js';
+import { reminderMessage, cleaningUnits, creditLine, diffTasks, isFrenchHoliday, planningDates, planningMessage, planTasks, type StayForCleaning } from './plan.js';
 
 const stay = (over: Partial<StayForCleaning>): StayForCleaning => ({
   ref: '1', apartmentId: 10, arrival: '2026-11-05', departure: '2026-11-08', checkIn: null, checkOut: null,
@@ -71,4 +71,9 @@ test('pack counter: +1 per cleaning, +2 on Sunday and public holidays', () => {
   assert.equal(creditLine(credit, dates, '2026-11-02'), '9/12');
   assert.equal(creditLine(credit, dates, '2026-11-03'), '10/12');
   assert.equal(creditLine(credit, dates, '2026-11-12'), '15/12');
+});
+
+test('evening reminder in the owner\'s words', () => {
+  assert.equal(reminderMessage('Ester', ['en haut']), 'Bonjour Ester,\nPetit rappel demain intervention en haut');
+  assert.equal(reminderMessage('Ester', ['en haut', 'en bas']), 'Bonjour Ester,\nPetit rappel demain intervention en haut et en bas');
 });
