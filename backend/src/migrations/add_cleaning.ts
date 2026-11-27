@@ -54,6 +54,19 @@ export async function migrateCleaning() {
   // planning_week_sent: the Sunday this cleaner last got the weekly planning (replaces the per-owner
   // user_settings key 'cleaner_planning_week_sent', which one cleaner's send used up for all).
   if (!cleanerCols.includes('planning_week_sent')) await db.execute('ALTER TABLE cleaner ADD COLUMN planning_week_sent TEXT');
+  // planning_daily_checked: the day the 08:00 daily planning pass last looked at this cleaner (sent or not).
+  if (!cleanerCols.includes('planning_daily_checked')) await db.execute('ALTER TABLE cleaner ADD COLUMN planning_daily_checked TEXT');
+  // The dates a cleaner was last told, per flat (PlanSnapshot JSON), written with every planning queued.
+  // The daily pass compares the current plan with it and sends only what changed. mode: the cleaner_messages_mode
+  // it was written under (a dry_run planning told her nothing).
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS cleaner_plan_sent (
+      cleaner_id INTEGER PRIMARY KEY,
+      sent_at TEXT NOT NULL,
+      plan_json TEXT NOT NULL,
+      mode TEXT
+    )
+  `);
   if (!cleanerCols.includes('credit_paid')) {
     await db.execute('ALTER TABLE cleaner ADD COLUMN credit_paid INTEGER');
     await db.execute('ALTER TABLE cleaner ADD COLUMN credit_used INTEGER');

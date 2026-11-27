@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reminderMessage, cleaningUnits, creditLine, diffTasks, isFrenchHoliday, MIN_DATES_PER_FLAT, planningDates, planningMessage, planTasks, topUpDates, type StayForCleaning } from './plan.js';
+import {
+  reminderMessage, cleaningUnits, creditLine, deltaMessage, diffTasks, isFrenchHoliday, mergeSnapshot, MIN_DATES_PER_FLAT, planDelta,
+  planningDates, planningMessage, planTasks, topUpDates, type StayForCleaning,
+} from './plan.js';
 
 const stay = (over: Partial<StayForCleaning>): StayForCleaning => ({
   ref: '1', apartmentId: 10, arrival: '2026-11-05', departure: '2026-11-08', checkIn: null, checkOut: null,
@@ -96,4 +99,38 @@ test('top-up: a flat with fewer than 3 dates in the 3 weeks gets its next ones, 
     { label: 'Haut', showGuests: false, tasks: haut },
     { label: 'Bas', showGuests: false, tasks: bas },
   ], 'fr'), 'Bonjour,\nHaut : 2, 14, 20 déc\nBas : 27, 30 nov, 4, 8, 14 déc');
+});
+
+test('daily delta: only changed dates, passed dates are no change, top-up dates beyond the window are not cancelled', () => {
+  const today = '2026-12-01', windowEnd = '2026-12-30';
+  const known = [
+    { label: 'Haut', dates: ['2026-11-30', '2026-12-02', '2026-12-14', '2026-12-20'] }, // 30 nov has passed
+    { label: 'Bas', dates: ['2026-12-04', '2026-12-08', '2026-12-10'] },
+    { label: 'Villa', dates: ['2026-12-12', '2027-01-15', '2027-02-02'] }, // topped up beyond the window
+  ];
+  const current = [
+    { label: 'Haut', dates: ['2026-12-02', '2026-12-14', '2026-12-20', '2026-12-22'] },
+    { label: 'Bas', dates: ['2026-12-04', '2026-12-10'] },
+    { label: 'Villa', dates: ['2026-12-12', '2026-12-18', '2026-12-26'] }, // now 3 inside: no top-up needed
+  ];
+  const delta = planDelta(known, current, windowEnd, today);
+  assert.deepEqual(delta, [
+    { label: 'Haut', added: ['2026-12-22'], cancelled: [] },
+    { label: 'Bas', added: [], cancelled: ['2026-12-08'] },
+    { label: 'Villa', added: ['2026-12-18', '2026-12-26'], cancelled: [] },
+  ]);
+  assert.equal(deltaMessage(delta, 'fr'), 'Bonjour,\nHaut : 22 déc ajouté\nBas : 8 déc annulé\nVilla : 18, 26 déc ajoutés');
+  assert.equal(deltaMessage(delta.slice(0, 2), 'en'), 'Hello,\nHaut: 22 Dec added\nBas: 8 Dec cancelled');
+  // Same plan (a date passing is not a change): nothing.
+  assert.deepEqual(planDelta(known, [current[0], known[1], known[2]].map((f, i) => i === 0 ? { ...f, dates: known[0].dates.slice(1) } : f), windowEnd, today), []);
+});
+
+test('snapshot merge: a 3-week planning keeps the later dates an earlier daily planning told', () => {
+  const prev = [{ label: 'Haut', dates: ['2026-11-28', '2026-12-02', '2026-12-24', '2026-12-28'] }];
+  // A 3-week planning on 1 dec (window to 21 dec) shows 2, 14 déc + its top-up 24 déc.
+  const shown = [{ label: 'Haut', dates: ['2026-12-02', '2026-12-14', '2026-12-24'] }, { label: 'Bas', dates: ['2026-12-04'] }];
+  assert.deepEqual(mergeSnapshot(prev, shown, '2026-12-21', '2026-12-01'), [
+    { label: 'Haut', dates: ['2026-12-02', '2026-12-14', '2026-12-24', '2026-12-28'] },
+    { label: 'Bas', dates: ['2026-12-04'] },
+  ]);
 });
