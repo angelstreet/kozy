@@ -91,6 +91,20 @@ export interface PlanningRow {
   tasks: { date: string; guests: number | null }[];
 }
 
+/** A planning lists at least this many dates per flat (Jo, 2026-11-27). */
+export const MIN_DATES_PER_FLAT = 3;
+
+/**
+ * One flat's dates for a planning: every date up to `windowEnd` (the 3 weeks); a flat with fewer than `min`
+ * gets its next dates beyond the window until it has `min`. A flat with no further dates keeps what it has.
+ * `tasks` are the flat's tasks from the window start on.
+ */
+export function topUpDates<T extends { date: string }>(tasks: T[], windowEnd: string, min = MIN_DATES_PER_FLAT): T[] {
+  const sorted = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
+  const inside = sorted.filter((t) => t.date <= windowEnd);
+  return inside.length >= min ? inside : sorted.slice(0, min);
+}
+
 /** "31 oct, 3, 10, 21 nov": days grouped by month, month written after the last day of each month. */
 export function planningDates(tasks: PlanningRow['tasks'], showGuests: boolean, lang: Lang): string {
   const sorted = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
@@ -112,6 +126,75 @@ export function planningDates(tasks: PlanningRow['tasks'], showGuests: boolean, 
 export function planningMessage(rows: PlanningRow[], lang: Lang): string {
   const sep = lang === 'fr' ? ' : ' : ': ';
   const lines = rows.filter((r) => r.tasks.length).map((r) => `${r.label}${sep}${planningDates(r.tasks, r.showGuests, lang)}`);
+  return [lang === 'fr' ? 'Bonjour,' : 'Hello,', ...lines].join('\n');
+}
+
+/**
+ * What a cleaner was last told, per flat: the dates she knows (kept in cleaner_plan_sent.plan_json).
+ * Dates only: a guest-count change alone is no reason for the daily planning.
+ */
+export type PlanSnapshot = { label: string; dates: string[] }[];
+
+export function snapshotOf(rows: PlanningRow[]): PlanSnapshot {
+  return rows.filter((r) => r.tasks.length).map((r) => ({ label: r.label, dates: r.tasks.map((t) => t.date).sort() }));
+}
+
+/** How far a planning spoke for one flat: its window, or further when topped up (topUpDates). */
+const coverEnd = (dates: string[], windowEnd: string) => dates.reduce((m, d) => (d > m ? d : m), windowEnd);
+
+/**
+ * The dates a cleaner knows after a planning: what it showed, plus earlier-told dates beyond what it covered
+ * (a 3-week planning says nothing about the 4th week a daily planning already gave). Past dates are dropped.
+ */
+export function mergeSnapshot(prev: PlanSnapshot | null, shown: PlanSnapshot, windowEnd: string, today: string): PlanSnapshot {
+  const out = new Map(shown.map((f) => [f.label, [...f.dates]]));
+  for (const f of prev ?? []) {
+    const end = coverEnd(out.get(f.label) ?? [], windowEnd);
+    const keep = f.dates.filter((d) => d >= today && d > end);
+    if (keep.length) out.set(f.label, [...new Set([...(out.get(f.label) ?? []), ...keep])].sort());
+  }
+  return [...out].map(([label, dates]) => ({ label, dates }));
+}
+
+export interface FlatDelta { label: string; added: string[]; cancelled: string[] }
+
+/**
+ * Daily planning: what changed per flat between what she knows and the current plan (both topped up).
+ * A date that passed is no change; a known date beyond what the current plan covers is not "annulé".
+ * Empty = nothing to send.
+ */
+export function planDelta(known: PlanSnapshot, current: PlanSnapshot, windowEnd: string, today: string): FlatDelta[] {
+  const labels = [...new Set([...current.map((f) => f.label), ...known.map((f) => f.label)])];
+  const out: FlatDelta[] = [];
+  for (const label of labels) {
+    const now = current.find((f) => f.label === label)?.dates ?? [];
+    const before = (known.find((f) => f.label === label)?.dates ?? []).filter((d) => d >= today);
+    const end = coverEnd(now, windowEnd);
+    const added = now.filter((d) => !before.includes(d));
+    const cancelled = before.filter((d) => d <= end && !now.includes(d));
+    if (added.length || cancelled.length) out.push({ label, added, cancelled });
+  }
+  return out;
+}
+
+/**
+ * The daily planning as a delta, one line per flat and kind:
+ *   Bonjour,
+ *   Haut : 20 déc ajouté
+ *   Bas : 8 déc annulé
+ */
+export function deltaMessage(delta: FlatDelta[], lang: Lang): string {
+  const sep = lang === 'fr' ? ' : ' : ': ';
+  const word = (kind: 'added' | 'cancelled', n: number) => lang === 'fr'
+    ? (kind === 'added' ? 'ajouté' : 'annulé') + (n > 1 ? 's' : '')
+    : (kind === 'added' ? 'added' : 'cancelled');
+  const lines: string[] = [];
+  for (const f of delta) {
+    for (const kind of ['added', 'cancelled'] as const) {
+      const dates = f[kind];
+      if (dates.length) lines.push(`${f.label}${sep}${planningDates(dates.map((date) => ({ date, guests: null })), false, lang)} ${word(kind, dates.length)}`);
+    }
+  }
   return [lang === 'fr' ? 'Bonjour,' : 'Hello,', ...lines].join('\n');
 }
 

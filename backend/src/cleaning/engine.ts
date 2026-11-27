@@ -4,17 +4,26 @@ import { decryptApiKey } from '../encryption.js';
 import { parseSmoobuCredentials } from '../smoobu-client.js';
 import { fetchSmoobuBookings } from '../smoobu-sync.js';
 import { addDays, type Lang } from '../messaging/schedule.js';
-import { creditLine, diffTasks, planningMessage, planTasks, reminderMessage, type ExistingTask, type PlanningRow, type StayForCleaning } from './plan.js';
+import {
+  creditLine, deltaMessage, diffTasks, mergeSnapshot, planDelta, planningMessage, planTasks, reminderMessage, snapshotOf, topUpDates,
+  type ExistingTask, type PlanningRow, type PlanSnapshot, type StayForCleaning,
+} from './plan.js';
 
 export type CleanerMode = 'off' | 'dry_run' | 'live';
 
 const MODE_KEY = 'cleaner_messages_mode';
 const TEST_PHONE_KEY = 'cleaner_messages_test_phone';
-const WEEK_SENT_KEY = 'cleaner_planning_week_sent';
 const HORIZON_DAYS = 60; // tasks are kept this far ahead
 const WINDOW_DAYS = 21; // a planning shows today + the next 3 weeks
 const SEND_HOUR = 19; // Paris: Sunday planning, and the day's changes in one message
 const REMINDER_HOUR = 20; // Paris: "Petit rappel demain intervention en haut" the evening before
+/** Paris: once a day from this hour, each cleaner gets what changed in her plan since she was last told (if anything). */
+export const DAILY_HOUR = 8;
+/** The daily pass looks this far ahead: longer than the 3-week planning, so no date falls between the two. */
+export const DAILY_HORIZON_DAYS = 30;
+export type DailyPlanMode = 'delta' | 'full';
+/** 'delta': only the dates added / cancelled; 'full': the whole list over DAILY_HORIZON_DAYS, like planningMessage. */
+export const DAILY_PLAN_MODE: DailyPlanMode = 'delta';
 const APP_URL = process.env.KOZY_APP_URL || 'https://kozy-steel.vercel.app';
 
 export async function getCleanerMode(userId: string): Promise<CleanerMode> {
@@ -91,11 +100,6 @@ export async function cleanerCredit(userId: string, cleanerId: number, today: st
 /** Counter line at the end of a planning: it moves after each cleaning, which alone is no reason to send. */
 const COUNTER = /\n\d+\/\d+$/;
 
-async function getSetting(userId: string, key: string): Promise<string | null> {
-  const row = (await db.execute({ sql: 'SELECT value FROM user_settings WHERE user_id = ? AND key = ?', args: [userId, key] })).rows[0] as any;
-  return row?.value ?? null;
-}
-
 /** Ask for a planning to be sent: 'force' (owner's send now) > 'now' (change for today or tomorrow) > 'evening'. */
 async function markDue(cleanerId: number | null, dates: (string | null | undefined)[], today: string) {
   if (!cleanerId) return;
@@ -109,20 +113,38 @@ async function markDue(cleanerId: number | null, dates: (string | null | undefin
   });
 }
 
-async function planningFor(userId: string, cleaner: Cleaner, from: string, to: string): Promise<string | null> {
+/** Dates in [from, to] per flat; a flat with fewer than 3 there gets its next dates after `to` (topUpDates). */
+async function planFlats(userId: string, cleaner: Cleaner, from: string, to: string): Promise<PlanningRow[]> {
   const rows = (await db.execute({
     sql: `SELECT p.id, COALESCE(p.cleaning_label, p.name) AS label, p.cleaning_show_guests AS showGuests, ct.date, ct.next_guests AS guests
           FROM cleaning_task ct JOIN property p ON p.id = ct.property_id
-          WHERE p.user_id = ? AND ct.assigned_to = ? AND ct.date BETWEEN ? AND ? ORDER BY p.id, ct.date`,
-    args: [userId, cleaner.id, from, to],
+          WHERE p.user_id = ? AND ct.assigned_to = ? AND ct.date >= ? ORDER BY p.id, ct.date`,
+    args: [userId, cleaner.id, from],
   })).rows as any[];
-  if (!rows.length) return null;
   const byProperty = new Map<number, PlanningRow>();
   for (const r of rows) {
     if (!byProperty.has(Number(r.id))) byProperty.set(Number(r.id), { label: String(r.label), showGuests: Boolean(r.showGuests), tasks: [] });
     byProperty.get(Number(r.id))!.tasks.push({ date: String(r.date), guests: r.guests == null ? null : Number(r.guests) });
   }
-  return planningMessage([...byProperty.values()], langOf(cleaner));
+  return [...byProperty.values()].map((f) => ({ ...f, tasks: topUpDates(f.tasks, to) })).filter((f) => f.tasks.length);
+}
+
+/** What the cleaner was last told (null: nothing yet under this mode). */
+async function lastSnapshot(cleanerId: number, mode: CleanerMode): Promise<{ sentAt: string; plan: PlanSnapshot } | null> {
+  const row = (await db.execute({ sql: 'SELECT sent_at, plan_json, mode FROM cleaner_plan_sent WHERE cleaner_id = ?', args: [cleanerId] })).rows[0] as any;
+  if (!row || row.mode !== mode) return null;
+  return { sentAt: String(row.sent_at), plan: JSON.parse(String(row.plan_json)) };
+}
+
+/** With every planning queued: the dates it showed (+ earlier-told dates beyond its window) become what she knows. */
+async function saveSnapshot(cleanerId: number, mode: CleanerMode, flats: PlanningRow[], windowEnd: string, today: string, now: Date) {
+  const prev = await lastSnapshot(cleanerId, mode);
+  const plan = mergeSnapshot(prev?.plan ?? null, snapshotOf(flats), windowEnd, today);
+  await db.execute({
+    sql: `INSERT INTO cleaner_plan_sent (cleaner_id, sent_at, plan_json, mode) VALUES (?, ?, ?, ?)
+          ON CONFLICT(cleaner_id) DO UPDATE SET sent_at = excluded.sent_at, plan_json = excluded.plan_json, mode = excluded.mode`,
+    args: [cleanerId, now.toISOString(), JSON.stringify(plan), mode],
+  });
 }
 
 /**
@@ -130,7 +152,8 @@ async function planningFor(userId: string, cleaner: Cleaner, from: string, to: s
  * deadline, open tasks follow the property's primary cleaner), then send plannings (today + 3 weeks):
  * - Sunday 19:00: every cleaner;
  * - a change inside the 3 weeks: one planning at 19:00 that day, however many bookings changed;
- * - a change for today or tomorrow: at once.
+ * - a change for today or tomorrow: at once;
+ * - every day from 08:00 (not Sunday): what changed over the next 30 days since she was last told, if anything.
  */
 export async function runCleaning(userId: string, now = new Date()) {
   const mode = await getCleanerMode(userId);
@@ -218,24 +241,38 @@ export async function runCleaning(userId: string, now = new Date()) {
     summary.push({ property: p.id, planned: planned.length, changes: changes.length, reassigned });
   }
 
-  // Sunday 19:00: everyone gets the next 3 weeks, once.
-  const weekly = weekday === 0 && hour >= SEND_HOUR && (await getSetting(userId, WEEK_SENT_KEY)) !== today;
+  const messages = await sendPlannings(userId, now, mode, testPhone);
+  return { userId, mode, testPhone: Boolean(testPhone), today, weekly: weekday === 0 && hour >= SEND_HOUR, properties: summary, messages };
+}
+
+/**
+ * Plannings and evening reminders for one owner's cleaners; returns how many messages were written.
+ * Sunday 19:00: every cleaner gets the next 3 weeks, once: the week stamp is per cleaner (cleaner.planning_week_sent).
+ */
+export async function sendPlannings(userId: string, now: Date, mode: CleanerMode, testPhone: string | null): Promise<number> {
+  const { date: today, hour, weekday } = parisClock(now);
+  const sunday = weekday === 0 && hour >= SEND_HOUR;
   const from = today, to = addDays(today, WINDOW_DAYS - 1);
   const cleaners = (await db.execute({
-    sql: `SELECT DISTINCT c.id, c.name, c.phone, c.language, c.planning_due FROM cleaner c
+    sql: `SELECT DISTINCT c.id, c.name, c.phone, c.language, c.planning_due, c.planning_week_sent FROM cleaner c
           WHERE c.id IN (SELECT ct.assigned_to FROM cleaning_task ct JOIN property p ON p.id = ct.property_id WHERE p.user_id = ?)`,
     args: [userId],
   })).rows as any[];
   let messages = 0;
   for (const r of cleaners) {
     const due = r.planning_due as string | null;
+    const weekly = sunday && r.planning_week_sent !== today; // this cleaner's Sunday planning, not sent yet
     const force = weekly || due === 'force'; // Sunday, or the owner's "send now"
     if (!force && !(due === 'now' || (due === 'evening' && hour >= SEND_HOUR))) continue;
-    await db.execute({ sql: 'UPDATE cleaner SET planning_due = NULL WHERE id = ?', args: [r.id] });
+    await db.execute({
+      sql: `UPDATE cleaner SET planning_due = NULL${weekly ? ', planning_week_sent = ?' : ''} WHERE id = ?`,
+      args: weekly ? [today, r.id] : [r.id],
+    });
     if (mode === 'off') continue;
     const c: Cleaner = { id: Number(r.id), name: String(r.name), phone: r.phone ?? null, language: r.language ?? null };
-    const planning = await planningFor(userId, c, from, to);
-    if (!planning) continue;
+    const flats = await planFlats(userId, c, from, to);
+    if (!flats.length) continue;
+    const planning = planningMessage(flats, langOf(c));
     // The pack counter ("9/12") stays in the app; the owner writes it in the message himself (2026-11-10).
     const body = planning;
     const last = (await db.execute({
@@ -251,8 +288,10 @@ export async function runCleaning(userId: string, now = new Date()) {
       sql: `INSERT INTO cleaner_message (user_id, cleaner_id, kind, dedupe_key, phone, body, status) VALUES (?, ?, 'planning', ?, ?, ?, ?)`,
       args: [userId, c.id, `${mode}:planning:${c.id}:${now.getTime()}`, phone, body, status],
     });
+    await saveSnapshot(c.id, mode, flats, to, today, now);
     messages++;
   }
+  messages += await dailyPlannings(userId, now, mode, testPhone);
   // Evening before each cleaning: one reminder per cleaner listing tomorrow's places, once.
   if (hour >= REMINDER_HOUR && mode !== 'off') {
     const tomorrow = addDays(today, 1);
@@ -278,16 +317,54 @@ export async function runCleaning(userId: string, now = new Date()) {
       if (Number(res.rowsAffected) > 0) messages++;
     }
   }
+  return messages;
+}
 
-  if (weekly) {
-    await db.execute({
-      sql: `INSERT INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, datetime('now'))
-            ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-      args: [userId, WEEK_SENT_KEY, today],
+/**
+ * Daily planning (from DAILY_HOUR, once a day per cleaner): her plan over today + DAILY_HORIZON_DAYS against what she
+ * was last told (cleaner_plan_sent). Same: nothing. Changed: the delta (or the full list, planMode 'full').
+ * Skipped for a cleaner who already had a planning queued today, and on Sunday (the weekly comes at 19:00).
+ * Never told anything yet (under this mode): the full list.
+ */
+export async function dailyPlannings(
+  userId: string, now: Date, mode: CleanerMode, testPhone: string | null, planMode: DailyPlanMode = DAILY_PLAN_MODE,
+): Promise<number> {
+  const { date: today, hour, weekday } = parisClock(now);
+  if (mode === 'off' || hour < DAILY_HOUR || weekday === 0) return 0;
+  const to = addDays(today, DAILY_HORIZON_DAYS - 1);
+  const cleaners = (await db.execute({
+    sql: `SELECT c.id, c.name, c.phone, c.language FROM cleaner c
+          WHERE (c.planning_daily_checked IS NULL OR c.planning_daily_checked != ?)
+          AND c.id IN (SELECT ct.assigned_to FROM cleaning_task ct JOIN property p ON p.id = ct.property_id WHERE p.user_id = ?)`,
+    args: [today, userId],
+  })).rows as any[];
+  let messages = 0;
+  for (const r of cleaners) {
+    await db.execute({ sql: 'UPDATE cleaner SET planning_daily_checked = ? WHERE id = ?', args: [today, r.id] });
+    const c: Cleaner = { id: Number(r.id), name: String(r.name), phone: r.phone ?? null, language: r.language ?? null };
+    const last = await lastSnapshot(c.id, mode);
+    if (last && parisClock(new Date(last.sentAt)).date === today) continue; // already had a planning today
+    const flats = await planFlats(userId, c, today, to);
+    let body: string;
+    if (!last) {
+      if (!flats.length) continue;
+      body = planningMessage(flats, langOf(c));
+    } else {
+      const delta = planDelta(last.plan, snapshotOf(flats), to, today);
+      if (!delta.length) continue;
+      body = planMode === 'full' && flats.length ? planningMessage(flats, langOf(c)) : deltaMessage(delta, langOf(c));
+    }
+    const phone = testPhone || c.phone;
+    const status = mode === 'dry_run' ? 'dry_run' : phone ? 'queued' : 'no_phone';
+    const res = await db.execute({
+      sql: `INSERT OR IGNORE INTO cleaner_message (user_id, cleaner_id, kind, dedupe_key, phone, body, status) VALUES (?, ?, 'planning', ?, ?, ?, ?)`,
+      args: [userId, c.id, `${mode}:daily:${c.id}:${today}`, phone, body, status],
     });
+    if (Number(res.rowsAffected) === 0) continue;
+    await saveSnapshot(c.id, mode, flats, to, today, now);
+    messages++;
   }
-
-  return { userId, mode, testPhone: Boolean(testPhone), today, weekly, properties: summary, messages };
+  return messages;
 }
 
 /** Scheduler entry point: every owner with a Smoobu key, unless cleaner messages are off. */
