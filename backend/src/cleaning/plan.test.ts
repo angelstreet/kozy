@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reminderMessage, cleaningUnits, creditLine, diffTasks, isFrenchHoliday, planningDates, planningMessage, planTasks, type StayForCleaning } from './plan.js';
+import { reminderMessage, cleaningUnits, creditLine, diffTasks, isFrenchHoliday, MIN_DATES_PER_FLAT, planningDates, planningMessage, planTasks, topUpDates, type StayForCleaning } from './plan.js';
 
 const stay = (over: Partial<StayForCleaning>): StayForCleaning => ({
   ref: '1', apartmentId: 10, arrival: '2026-11-05', departure: '2026-11-08', checkIn: null, checkOut: null,
@@ -76,4 +76,24 @@ test('pack counter: +1 per cleaning, +2 on Sunday and public holidays', () => {
 test('evening reminder in the owner\'s words', () => {
   assert.equal(reminderMessage('Ester', ['en haut']), 'Bonjour Ester,\nPetit rappel demain intervention en haut');
   assert.equal(reminderMessage('Ester', ['en haut', 'en bas']), 'Bonjour Ester,\nPetit rappel demain intervention en haut et en bas');
+});
+
+test('top-up: a flat with fewer than 3 dates in the 3 weeks gets its next ones, others untouched', () => {
+  assert.equal(MIN_DATES_PER_FLAT, 3);
+  const t = (date: string) => ({ date, guests: null });
+  const windowEnd = '2026-12-17'; // 27 nov + 21 days
+  // Haut: 2 inside the window, then 20 déc and 28 déc beyond it: only the first one is added.
+  const haut = topUpDates([t('2026-12-28'), t('2026-12-02'), t('2026-12-20'), t('2026-12-14')], windowEnd);
+  assert.deepEqual(haut.map((x) => x.date), ['2026-12-02', '2026-12-14', '2026-12-20']);
+  // Bas: 5 inside the window, nothing added (the one after the window stays out).
+  const bas = topUpDates([t('2026-11-27'), t('2026-11-30'), t('2026-12-04'), t('2026-12-08'), t('2026-12-14'), t('2026-12-22')], windowEnd);
+  assert.deepEqual(bas.map((x) => x.date), ['2026-11-27', '2026-11-30', '2026-12-04', '2026-12-08', '2026-12-14']);
+  // Villa: 2 inside, no further dates: stays at 2, nothing invented.
+  const villa = topUpDates([t('2026-11-29'), t('2026-12-12')], windowEnd);
+  assert.deepEqual(villa.map((x) => x.date), ['2026-11-29', '2026-12-12']);
+  // Same grouping as before: the month after the last day of each month.
+  assert.equal(planningMessage([
+    { label: 'Haut', showGuests: false, tasks: haut },
+    { label: 'Bas', showGuests: false, tasks: bas },
+  ], 'fr'), 'Bonjour,\nHaut : 2, 14, 20 déc\nBas : 27, 30 nov, 4, 8, 14 déc');
 });

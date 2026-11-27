@@ -4,13 +4,12 @@ import { decryptApiKey } from '../encryption.js';
 import { parseSmoobuCredentials } from '../smoobu-client.js';
 import { fetchSmoobuBookings } from '../smoobu-sync.js';
 import { addDays, type Lang } from '../messaging/schedule.js';
-import { creditLine, diffTasks, planningMessage, planTasks, reminderMessage, type ExistingTask, type PlanningRow, type StayForCleaning } from './plan.js';
+import { creditLine, diffTasks, planningMessage, planTasks, reminderMessage, topUpDates, type ExistingTask, type PlanningRow, type StayForCleaning } from './plan.js';
 
 export type CleanerMode = 'off' | 'dry_run' | 'live';
 
 const MODE_KEY = 'cleaner_messages_mode';
 const TEST_PHONE_KEY = 'cleaner_messages_test_phone';
-const WEEK_SENT_KEY = 'cleaner_planning_week_sent';
 const HORIZON_DAYS = 60; // tasks are kept this far ahead
 const WINDOW_DAYS = 21; // a planning shows today + the next 3 weeks
 const SEND_HOUR = 19; // Paris: Sunday planning, and the day's changes in one message
@@ -91,11 +90,6 @@ export async function cleanerCredit(userId: string, cleanerId: number, today: st
 /** Counter line at the end of a planning: it moves after each cleaning, which alone is no reason to send. */
 const COUNTER = /\n\d+\/\d+$/;
 
-async function getSetting(userId: string, key: string): Promise<string | null> {
-  const row = (await db.execute({ sql: 'SELECT value FROM user_settings WHERE user_id = ? AND key = ?', args: [userId, key] })).rows[0] as any;
-  return row?.value ?? null;
-}
-
 /** Ask for a planning to be sent: 'force' (owner's send now) > 'now' (change for today or tomorrow) > 'evening'. */
 async function markDue(cleanerId: number | null, dates: (string | null | undefined)[], today: string) {
   if (!cleanerId) return;
@@ -109,20 +103,22 @@ async function markDue(cleanerId: number | null, dates: (string | null | undefin
   });
 }
 
+/** Dates in [from, to] per flat; a flat with fewer than 3 there gets its next dates after `to` (topUpDates). */
 async function planningFor(userId: string, cleaner: Cleaner, from: string, to: string): Promise<string | null> {
   const rows = (await db.execute({
     sql: `SELECT p.id, COALESCE(p.cleaning_label, p.name) AS label, p.cleaning_show_guests AS showGuests, ct.date, ct.next_guests AS guests
           FROM cleaning_task ct JOIN property p ON p.id = ct.property_id
-          WHERE p.user_id = ? AND ct.assigned_to = ? AND ct.date BETWEEN ? AND ? ORDER BY p.id, ct.date`,
-    args: [userId, cleaner.id, from, to],
+          WHERE p.user_id = ? AND ct.assigned_to = ? AND ct.date >= ? ORDER BY p.id, ct.date`,
+    args: [userId, cleaner.id, from],
   })).rows as any[];
-  if (!rows.length) return null;
   const byProperty = new Map<number, PlanningRow>();
   for (const r of rows) {
     if (!byProperty.has(Number(r.id))) byProperty.set(Number(r.id), { label: String(r.label), showGuests: Boolean(r.showGuests), tasks: [] });
     byProperty.get(Number(r.id))!.tasks.push({ date: String(r.date), guests: r.guests == null ? null : Number(r.guests) });
   }
-  return planningMessage([...byProperty.values()], langOf(cleaner));
+  const flats = [...byProperty.values()].map((f) => ({ ...f, tasks: topUpDates(f.tasks, to) }));
+  if (!flats.some((f) => f.tasks.length)) return null;
+  return planningMessage(flats, langOf(cleaner));
 }
 
 /**
@@ -218,20 +214,33 @@ export async function runCleaning(userId: string, now = new Date()) {
     summary.push({ property: p.id, planned: planned.length, changes: changes.length, reassigned });
   }
 
-  // Sunday 19:00: everyone gets the next 3 weeks, once.
-  const weekly = weekday === 0 && hour >= SEND_HOUR && (await getSetting(userId, WEEK_SENT_KEY)) !== today;
+  const messages = await sendPlannings(userId, now, mode, testPhone);
+  return { userId, mode, testPhone: Boolean(testPhone), today, weekly: weekday === 0 && hour >= SEND_HOUR, properties: summary, messages };
+}
+
+/**
+ * Plannings and evening reminders for one owner's cleaners; returns how many messages were written.
+ * Sunday 19:00: every cleaner gets the next 3 weeks, once: the week stamp is per cleaner (cleaner.planning_week_sent).
+ */
+export async function sendPlannings(userId: string, now: Date, mode: CleanerMode, testPhone: string | null): Promise<number> {
+  const { date: today, hour, weekday } = parisClock(now);
+  const sunday = weekday === 0 && hour >= SEND_HOUR;
   const from = today, to = addDays(today, WINDOW_DAYS - 1);
   const cleaners = (await db.execute({
-    sql: `SELECT DISTINCT c.id, c.name, c.phone, c.language, c.planning_due FROM cleaner c
+    sql: `SELECT DISTINCT c.id, c.name, c.phone, c.language, c.planning_due, c.planning_week_sent FROM cleaner c
           WHERE c.id IN (SELECT ct.assigned_to FROM cleaning_task ct JOIN property p ON p.id = ct.property_id WHERE p.user_id = ?)`,
     args: [userId],
   })).rows as any[];
   let messages = 0;
   for (const r of cleaners) {
     const due = r.planning_due as string | null;
+    const weekly = sunday && r.planning_week_sent !== today; // this cleaner's Sunday planning, not sent yet
     const force = weekly || due === 'force'; // Sunday, or the owner's "send now"
     if (!force && !(due === 'now' || (due === 'evening' && hour >= SEND_HOUR))) continue;
-    await db.execute({ sql: 'UPDATE cleaner SET planning_due = NULL WHERE id = ?', args: [r.id] });
+    await db.execute({
+      sql: `UPDATE cleaner SET planning_due = NULL${weekly ? ', planning_week_sent = ?' : ''} WHERE id = ?`,
+      args: weekly ? [today, r.id] : [r.id],
+    });
     if (mode === 'off') continue;
     const c: Cleaner = { id: Number(r.id), name: String(r.name), phone: r.phone ?? null, language: r.language ?? null };
     const planning = await planningFor(userId, c, from, to);
@@ -278,16 +287,7 @@ export async function runCleaning(userId: string, now = new Date()) {
       if (Number(res.rowsAffected) > 0) messages++;
     }
   }
-
-  if (weekly) {
-    await db.execute({
-      sql: `INSERT INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, datetime('now'))
-            ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-      args: [userId, WEEK_SENT_KEY, today],
-    });
-  }
-
-  return { userId, mode, testPhone: Boolean(testPhone), today, weekly, properties: summary, messages };
+  return messages;
 }
 
 /** Scheduler entry point: every owner with a Smoobu key, unless cleaner messages are off. */

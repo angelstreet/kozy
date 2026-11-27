@@ -51,6 +51,9 @@ export async function migrateCleaning() {
   }
   // planning_due: 'evening' (send at 19:00), 'now' (change for today or tomorrow), 'force' (owner: send now).
   if (!cleanerCols.includes('planning_due')) await db.execute('ALTER TABLE cleaner ADD COLUMN planning_due TEXT');
+  // planning_week_sent: the Sunday this cleaner last got the weekly planning (replaces the per-owner
+  // user_settings key 'cleaner_planning_week_sent', which one cleaner's send used up for all).
+  if (!cleanerCols.includes('planning_week_sent')) await db.execute('ALTER TABLE cleaner ADD COLUMN planning_week_sent TEXT');
   if (!cleanerCols.includes('credit_paid')) {
     await db.execute('ALTER TABLE cleaner ADD COLUMN credit_paid INTEGER');
     await db.execute('ALTER TABLE cleaner ADD COLUMN credit_used INTEGER');

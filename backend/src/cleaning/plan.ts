@@ -91,6 +91,20 @@ export interface PlanningRow {
   tasks: { date: string; guests: number | null }[];
 }
 
+/** A planning lists at least this many dates per flat (Jo, 2026-11-27). */
+export const MIN_DATES_PER_FLAT = 3;
+
+/**
+ * One flat's dates for a planning: every date up to `windowEnd` (the 3 weeks); a flat with fewer than `min`
+ * gets its next dates beyond the window until it has `min`. A flat with no further dates keeps what it has.
+ * `tasks` are the flat's tasks from the window start on.
+ */
+export function topUpDates<T extends { date: string }>(tasks: T[], windowEnd: string, min = MIN_DATES_PER_FLAT): T[] {
+  const sorted = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
+  const inside = sorted.filter((t) => t.date <= windowEnd);
+  return inside.length >= min ? inside : sorted.slice(0, min);
+}
+
 /** "31 oct, 3, 10, 21 nov": days grouped by month, month written after the last day of each month. */
 export function planningDates(tasks: PlanningRow['tasks'], showGuests: boolean, lang: Lang): string {
   const sorted = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
